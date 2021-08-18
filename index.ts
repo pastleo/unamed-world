@@ -1,27 +1,30 @@
-import * as THREE from 'three';
-import asdf from './lib/test';
+import { THREE } from './deps.ts';
+import asdf from './lib/test.ts';
 
 const a = 'helloooo';
 
 console.log(asdf(a), a.length);
 console.log(THREE);
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+// can not work... existing declaration not supported:
+// https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/three/src
 
-const geometry = new THREE.BoxGeometry();
-const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-const cube = new THREE.Mesh( geometry, material );
-scene.add( cube );
+//const scene = new THREE.Scene();
+//const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
-camera.position.z = 5;
+//const geometry = new THREE.BoxGeometry();
+//const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+//const cube = new THREE.Mesh( geometry, material );
+//scene.add( cube );
 
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize( window.innerWidth, window.innerHeight );
-document.body.appendChild( renderer.domElement );
+//camera.position.z = 5;
 
-function animate() {
-  requestAnimationFrame( animate );
-  renderer.render( scene, camera );
-}
-animate();
+//const renderer = new THREE.WebGLRenderer();
+//renderer.setSize( window.innerWidth, window.innerHeight );
+//document.body.appendChild( renderer.domElement );
+
+//function animate() {
+  //requestAnimationFrame( animate );
+  //renderer.render( scene, camera );
+//}
+//animate();
