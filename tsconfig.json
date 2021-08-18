@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "module": "es6",
+    "target": "es6",
+    "lib": ["DOM", "es2019"],
+    "allowJs": true,
+    "moduleResolution": "node",
+    "outDir": "./dist/",
+    "baseUrl": "src"
+  }
+}

@@ -1,4 +1,4 @@
-function asdf(a: number) {
+function asdf(a: string) {
   return `${a}: asdf`;
 }
 

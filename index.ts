@@ -3,6 +3,18 @@ import asdf from './lib/test';
 
 const a = 'helloooo';
 
+const enum Asdf {
+  A, B,
+}
+const enum Qwer {
+  A = 'A', B = 'B',
+}
+
+
+const aasdf: Asdf = Asdf.A;
+const qwer: Qwer = Qwer.B;
+console.log(aasdf, qwer);
+
 console.log(asdf(a), a.length);
 console.log(THREE);
 
@@ -22,6 +34,8 @@ document.body.appendChild( renderer.domElement );
 
 function animate() {
   requestAnimationFrame( animate );
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
   renderer.render( scene, camera );
 }
 animate();

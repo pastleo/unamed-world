@@ -1,0 +1,21 @@
+{
+  "name": "unnamed-world",
+  "version": "0.0.1",
+  "description": "exploration of imagination",
+  "main": "index.js",
+  "scripts": {
+    "bundle": "esbuild index.ts --bundle --minify --sourcemap --outfile=www/dist/browser.js",
+    "dev": "esbuild index.ts --bundle --sourcemap --outfile=www/dist/browser.js --servedir=www",
+    "tc": "tsc -w -noEmit"
+  },
+  "author": "PastLeo",
+  "license": "ISC",
+  "dependencies": {
+    "@types/three": "^0.131.0",
+    "three": "^0.131.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.12.20",
+    "typescript": "^4.3.5"
+  }
+}
