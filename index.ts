@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import asdf from './lib/test';
+import { Agent, BrowserConnManager } from 'unnamed-network';
+
+const connManager = new BrowserConnManager();
+const agent = new Agent(connManager);
+console.log(agent);
 
 const a = 'helloooo';
 
@@ -9,7 +14,6 @@ const enum Asdf {
 const enum Qwer {
   A = 'A', B = 'B',
 }
-
 
 const aasdf: Asdf = Asdf.A;
 const qwer: Qwer = Qwer.B;
