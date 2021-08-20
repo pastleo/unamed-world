@@ -4,10 +4,9 @@
   "description": "exploration of imagination",
   "main": "index.js",
   "scripts": {
-    "dev": "esbuild index.ts --bundle --sourcemap --outfile=www/dist/browser.js --servedir=www",
-    "dev-node": "esbuild index.ts --bundle --sourcemap --outfile=www/dist/browser.js --servedir=www",
+    "dev-web": "esbuild src/web.ts --bundle --sourcemap --outfile=www/web.js --servedir=www",
     "tc": "tsc -w -noEmit",
-    "bundle": "esbuild index.ts --bundle --minify --sourcemap --outfile=www/dist/browser.js"
+    "bundle-web": "esbuild src/web.ts --bundle --minify --sourcemap --outfile=www/web.js"
   },
   "author": "PastLeo",
   "license": "ISC",
