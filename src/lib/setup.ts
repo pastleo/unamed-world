@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Agent, BrowserConnManager } from 'unnamed-network';
-import Game from './game';
+import Game, { Player } from './game';
 
 export default function setup(): Game {
   const renderer = new THREE.WebGLRenderer();
@@ -10,22 +10,23 @@ export default function setup(): Game {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
+  const loader = new THREE.TextureLoader();
 
   const controls = new OrbitControls(camera, renderer.domElement);
 
-  camera.position.set(0, -1.5, 5);
-  controls.update();
+  camera.position.set(0, -3.5, 5);
 
   const light = new THREE.DirectionalLight(0xFFFFFF, 1);
   light.position.set(-1, 2, 4);
   scene.add(light);
 
-  const playerMaterial = new THREE.SpriteMaterial({ color: 0x44aa88 });
-  const player = new THREE.Sprite(playerMaterial);
-  player.position.z = 0.5;
-  scene.add(player);
+  const player = createPlayer(loader);
+  scene.add(player.sprite);
 
-  const terrain = createTerrain();
+  controls.target = player.sprite.position;
+  controls.update();
+
+  const terrain = createTerrain(loader);
   scene.add(terrain);
 
   const connManager = new BrowserConnManager();
@@ -40,12 +41,12 @@ export default function setup(): Game {
     },
     controls,
     networkAgent,
+    keyPressed: new Set(),
     time: 0,
   }
 }
 
-function createTerrain(): THREE.Mesh {
-  const loader = new THREE.TextureLoader();
+function createTerrain(loader: THREE.TextureLoader): THREE.Mesh {
 
   const planeSize = 512;
   const geometry = new THREE.PlaneGeometry(planeSize, planeSize, planeSize, planeSize);
@@ -54,7 +55,6 @@ function createTerrain(): THREE.Mesh {
     map: loader.load('assets/small-rocks.png', texture => {
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.RepeatWrapping;
-      console.log(texture);
     }),
   });
 
@@ -82,4 +82,22 @@ function createTerrain(): THREE.Mesh {
   const terrain = new THREE.Mesh(geometry, material);
 
   return terrain;
+}
+
+function createPlayer(loader: THREE.TextureLoader): Player {
+  const playerMaterial = new THREE.SpriteMaterial({
+    map: loader.load('assets/hero.png', texture => {
+      texture.repeat.set(1/6, 1/5);
+      texture.offset.set(0, 1/5 * 4);
+      texture.magFilter = THREE.NearestFilter;
+    })
+    //color: 0x44aa88
+  });
+  const sprite = new THREE.Sprite(playerMaterial);
+  sprite.position.z = 0.5;
+
+  return {
+    sprite,
+    state: 0,
+  }
 }
