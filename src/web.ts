@@ -8,7 +8,9 @@ function startLoop(game: Game, now: number = 0) {
 
   update(game, tDiff);
 
-  requestAnimationFrame(nextNow => startLoop(game, nextNow));
+  //if (now < 10000) {
+    requestAnimationFrame(nextNow => startLoop(game, nextNow));
+  //}
   game.renderer.render(game.scene, game.camera);
 }
 
