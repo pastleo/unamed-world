@@ -11,7 +11,7 @@ function startLoop(game: Game, now: number = 0) {
   //if (now < 10000) {
     requestAnimationFrame(nextNow => startLoop(game, nextNow));
   //}
-  game.renderer.render(game.scene, game.camera);
+  game.renderer.render(game.scene, game.camera.camera);
 }
 
 const game = setup();

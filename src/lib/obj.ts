@@ -36,7 +36,6 @@ export interface SubObj {
   rotation: vec3;
 }
 const CELL_OFFSET = (CHUNK_SIZE / 2) % 1;
-console.log({ CELL_OFFSET });
 
 export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chunks: Map2D<Chunk>, loader: THREE.TextureLoader): void {
   const attributeArrays = chunkAttributeArrays(chunkI, chunkJ, chunks);

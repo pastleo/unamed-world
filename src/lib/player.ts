@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import Game from './game';
 import Map2D from './utils/map2d';
-import { Obj, SubObj, calcObjSprite, addSubObj, locateChunkCell, moveSubObj } from './obj';
+import { moveCameraPosition } from './camera';
+import { Vec2 } from './utils/utils';
+import { Obj, SubObj, calcObjSprite, addSubObj, moveSubObj } from './obj';
 
 export interface Player {
   obj: Obj;
@@ -24,26 +26,14 @@ export function addToRealm(player: Player, loader: THREE.TextureLoader, game: Ga
   player.mounting = addSubObj(player.obj, game.realm.obj, 0, 0);
 }
 
+export function update(_player: Player, _tDiff: number, _game: Game) {
+}
+
 const MOVE_SPEED = 0.001;
-export function update(player: Player, tDiff: number, game: Game) {
-  const moved = [0, 0];
-  if (game.input.keyPressed.has('a')) {
-    moved[0] -= MOVE_SPEED * tDiff;
-  } else if (game.input.keyPressed.has('d')) {
-    moved[0] += MOVE_SPEED * tDiff;
-  }
-
-  if (game.input.keyPressed.has('w')) {
-    moved[1] += MOVE_SPEED * tDiff;
-  } else if (game.input.keyPressed.has('s')) {
-    moved[1] -= MOVE_SPEED * tDiff;
-  }
-
-  if (moved[0] !== 0 || moved[1] !== 0) {
-    moveSubObj(
-      player.mounting, moved[0], moved[1], game.realm.obj.chunks,
-    );
-    game.cameraBase.position.x += moved[0];
-    game.cameraBase.position.y += moved[1];
-  }
+export function movePlayer(player: Player, dvec: Vec2, game: Game) {
+  const movedVec = [dvec[0] * MOVE_SPEED, dvec[1] * MOVE_SPEED] as Vec2;
+  moveSubObj(
+    player.mounting, movedVec[0], movedVec[1], game.realm.obj.chunks,
+  );
+  moveCameraPosition(movedVec, game.camera)
 }

@@ -3,12 +3,12 @@ import { Agent } from 'unnamed-network';
 import { Player } from './player';
 import { Input } from './input';
 import { Realm } from './realm';
+import { Camera } from './camera';
 
 interface Game {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  cameraBase: THREE.Object3D;
+  camera: Camera;
   realm: Realm;
   player: Player;
   networkAgent: Agent;
