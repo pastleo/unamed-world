@@ -57,3 +57,12 @@ export function adjCameraDistance(distanceDelta: number, camera: Camera): void {
     camera.camera.position.z = MAX_CAMERA_DISTANCE;
   }
 }
+
+export function vecAfterCameraRotation(vec: Vec2, camera: Camera): Vec2 {
+  const cos = Math.cos(camera.cameraBase.rotation.z);
+  const sin = Math.sin(camera.cameraBase.rotation.z);
+  return [
+    vec[0] * cos - vec[1] * sin,
+    vec[0] * sin + vec[1] * cos,
+  ];
+}

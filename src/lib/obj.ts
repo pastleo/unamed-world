@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import Map2D from './utils/map2d';
-import { mod } from './utils/utils';
+import { Vec2, add, mod } from './utils/utils';
 import { CHUNK_SIZE, CELL_STEPS } from './consts';
 
 export interface Obj {
@@ -108,10 +108,11 @@ export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number): SubObj
 }
 
 export function moveSubObj(
-  subObj: SubObj, dx: number, dy: number, chunks: Map2D<Chunk>
+  subObj: SubObj, vec: Vec2, chunks: Map2D<Chunk>
 ) {
-  subObj.position[0] += dx;
-  subObj.position[1] += dy;
+  add(subObj.position, [...vec, 0], subObj.position);
+  //subObj.position[0] += dx;
+  //subObj.position[1] += dy;
 
   const located = locateChunkCell(subObj.position[0], subObj.position[1], chunks);
   calcSubObjLocalPos(subObj, located, chunks);

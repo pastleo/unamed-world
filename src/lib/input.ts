@@ -1,7 +1,7 @@
 import Game from './game';
 import { movePlayer } from './player';
-import { moveCameraAngle, adjCameraDistance } from './camera';
-import { Vec2 } from './utils/utils';
+import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
+import { Vec2, multiply } from './utils/utils';
 
 export interface Input {
   keyPressed: Set<string>;
@@ -144,7 +144,14 @@ export function startListeners(input: Input, game: Game) {
     ) {
       input.touchmove = true;
 
-      //moveViewing(game, [(preOffsetX - offsetX) / 100, (preOffsetY - offsetY) / 100]);
+      movePlayer(
+        game.player,
+        vecAfterCameraRotation(
+          [(preOffsetX - offsetX) / 100, (offsetY - preOffsetY) / 100],
+          game.camera
+        ),
+        game,
+      );
     }
   });
 
@@ -226,7 +233,7 @@ export function update(input: Input, tDiff: number, game: Game) {
   }
 
   if (inputVec[0] !== 0 || inputVec[1] !== 0) {
-    movePlayer(game.player, inputVec, game);
+    movePlayer(game.player, multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01), game);
   }
 }
 
