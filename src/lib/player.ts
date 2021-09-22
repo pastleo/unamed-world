@@ -3,7 +3,7 @@ import Game from './game';
 import Map2D from './utils/map2d';
 import { moveCameraPosition } from './camera';
 import { Vec2, add, sub, multiply, lengthSq } from './utils/utils';
-import { Obj, SubObj, calcObjSprite, addSubObj, moveSubObj } from './obj';
+import { Obj, SubObj, addSubObj, moveSubObj } from './obj';
 
 export interface Player {
   obj: Obj;
@@ -23,14 +23,22 @@ export function create(): Player {
   return {
     obj: {
       chunks: new Map2D(),
-      textureUrl: 'assets/hero.png',
+      spriteSheetMaterial: {
+        url: 'assets/hero.png',
+        colRow: [6, 5],
+        nearestFilter: true,
+        normal: {
+          animations: [[0, 2]],
+          speed: 0,
+        },
+      },
     }
   }
 }
 
 export function addToRealm(player: Player, loader: THREE.TextureLoader, game: Game) {
-  calcObjSprite(player.obj, loader);
-  player.mounting = addSubObj(player.obj, game.realm.obj, 0, 0);
+  player.mounting = addSubObj(player.obj, game.realm.obj, 0, 0, loader);
+  game.scene.add(player.mounting.sprite);
 }
 
 export function update(player: Player, _tDiff: number, game: Game) {

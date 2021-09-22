@@ -1,14 +1,12 @@
 import * as THREE from 'three';
+import { SpriteSheetMaterial, createSprite } from './sprite';
 import Map2D from './utils/map2d';
-import { Vec2, add, mod } from './utils/utils';
+import { Vec2, Vec3, add, mod } from './utils/utils';
 import { CHUNK_SIZE, CELL_STEPS } from './consts';
 
 export interface Obj {
   chunks: Map2D<Chunk>;
-  textureUrl: string; // outside look / thumbnail
-  // will have a layout of spritesheet storing each side/state
-
-  sprite?: THREE.Sprite;
+  spriteSheetMaterial: SpriteSheetMaterial;
 }
 
 export interface Chunk {
@@ -27,13 +25,18 @@ export interface Cell {
   //uv: [number, number];
 }
 
-type vec3 = [number, number, number];
 export interface SubObj {
   obj: Obj;
   chunkI: number;
   chunkJ: number;
-  position: vec3; // global position
-  rotation: vec3;
+  position: Vec3;
+  rotation: Vec3;
+
+  sprite?: THREE.Sprite;
+}
+export enum SubObjState {
+  normal = 'normal',
+  moving = 'moving',
 }
 const CELL_OFFSET = (CHUNK_SIZE / 2) % 1;
 
@@ -55,9 +58,9 @@ export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chun
       3,
     ));
 
-    const wireframe = new THREE.WireframeGeometry( geometry );
+    const wireframe = new THREE.WireframeGeometry(geometry);
 
-    chunk.line = new THREE.LineSegments( wireframe );
+    chunk.line = new THREE.LineSegments(wireframe);
   }
 
   geometry.setAttribute('position', new THREE.BufferAttribute(
@@ -74,33 +77,28 @@ export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chun
   chunk.mesh.position.y = chunkJ * CHUNK_SIZE;
 }
 
-export function calcObjSprite(obj: Obj, loader: THREE.TextureLoader): void {
-  const material = new THREE.SpriteMaterial({
-    map: loader.load(obj.textureUrl, texture => {
-      // TODO: use a layout of spritesheet
-      texture.repeat.set(1/6, 1/5);
-      texture.offset.set(0, 1/5 * 4);
-      texture.magFilter = THREE.NearestFilter;
-    })
+export function calcChunkSubObjs(chunk: Chunk, chunks: Map2D<Chunk>, loader: THREE.TextureLoader): void {
+  chunk.subObjs.forEach(subObj => {
+    subObj.sprite = createSprite(subObj.obj, loader);
+    const located = locateChunkCell(subObj.position[0], subObj.position[1], chunks);
+    calcSubObjLocalPos(subObj, located, chunks);
   });
-  const sprite = new THREE.Sprite(material);
-  sprite.position.z = 0.5;
-
-  obj.sprite = sprite;
 }
 
-export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number): SubObj {
+export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number, loader: THREE.TextureLoader): SubObj {
   const located = locateChunkCell(x, y, realmObj.chunks);
   const [_cell, _cellI, _cellJ, chunk, chunkI, chunkJ] = located;
+
+  const sprite = createSprite(obj, loader);
 
   const subObj: SubObj = {
     obj,
     chunkI, chunkJ,
-    position: [x, y, 0] as vec3,
-    rotation: [0, 0, 0] as vec3,
+    position: [x, y, 0] as Vec3,
+    rotation: [0, 0, 0] as Vec3,
+    sprite,
   };
 
-  chunk.mesh.add(obj.sprite);
   calcSubObjLocalPos(subObj, located, realmObj.chunks);
   chunk.subObjs.push(subObj);
 
@@ -111,18 +109,26 @@ export function moveSubObj(
   subObj: SubObj, vec: Vec2, chunks: Map2D<Chunk>
 ) {
   add(subObj.position, [...vec, 0], subObj.position);
-  //subObj.position[0] += dx;
-  //subObj.position[1] += dy;
 
   const located = locateChunkCell(subObj.position[0], subObj.position[1], chunks);
   calcSubObjLocalPos(subObj, located, chunks);
+
+  const [_cell, _cellI, _cellJ, chunk, chunkI, chunkJ] = located;
+  if (chunkI !== subObj.chunkI || chunkJ !== subObj.chunkJ) {
+    const oriChunk = chunks.get(subObj.chunkI, subObj.chunkJ);
+    const index = oriChunk.subObjs.indexOf(subObj);
+    oriChunk.subObjs.splice(index, 1);
+    chunk.subObjs.push(subObj);
+    subObj.chunkI = chunkI;
+    subObj.chunkJ = chunkJ;
+  }
 }
 
-function calcSubObjLocalPos(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {
-  subObj.obj.sprite.position.x = subObj.position[0] - subObj.chunkI * CHUNK_SIZE;
-  subObj.obj.sprite.position.y = subObj.position[1] - subObj.chunkJ * CHUNK_SIZE;
+export function calcSubObjLocalPos(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {
+  subObj.sprite.position.x = subObj.position[0];
+  subObj.sprite.position.y = subObj.position[1];
   const z = calcZAt(subObj.position[0], subObj.position[1], localed, chunks) + 0.5;
-  subObj.obj.sprite.position.z = z;
+  subObj.sprite.position.z = z;
 }
 
 export function calcZAt(x: number, y: number, localed: Located, chunks: Map2D<Chunk>): number {

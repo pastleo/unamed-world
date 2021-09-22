@@ -4,7 +4,7 @@
   "description": "exploration of imagination",
   "main": "index.js",
   "scripts": {
-    "dev-web": "esbuild src/web.ts --bundle --sourcemap --outfile=www/web.js --servedir=www",
+    "dev": "esbuild src/web.ts --bundle --sourcemap --outfile=www/web.js --servedir=www",
     "tc": "tsc -w -noEmit",
     "bundle-web": "esbuild src/web.ts --bundle --minify --sourcemap --outfile=www/web.js"
   },
