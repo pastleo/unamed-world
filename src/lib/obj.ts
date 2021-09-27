@@ -25,19 +25,22 @@ export interface Cell {
   //uv: [number, number];
 }
 
+export type SubObjState = 'normal' | 'moving';
+export const subObjState: Record<SubObjState, SubObjState> = {
+  normal: 'normal',
+  moving: 'moving',
+}
 export interface SubObj {
   obj: Obj;
   chunkI: number;
   chunkJ: number;
   position: Vec3;
   rotation: Vec3;
+  state: SubObjState;
 
   sprite?: THREE.Sprite;
 }
-export enum SubObjState {
-  normal = 'normal',
-  moving = 'moving',
-}
+
 const CELL_OFFSET = (CHUNK_SIZE / 2) % 1;
 
 export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chunks: Map2D<Chunk>, loader: THREE.TextureLoader): void {
@@ -97,6 +100,7 @@ export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number, loader:
     position: [x, y, 0] as Vec3,
     rotation: [0, 0, 0] as Vec3,
     sprite,
+    state: subObjState.normal,
   };
 
   calcSubObjLocalPos(subObj, located, realmObj.chunks);

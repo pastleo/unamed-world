@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import Game from './game';
-import { Obj, Cell, Chunk, calcChunkMesh, calcChunkSubObjs } from './obj';
+import { Obj, Cell, Chunk, subObjState, calcChunkMesh, calcChunkSubObjs } from './obj';
 import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
 import { Vec3 } from './utils/utils';
@@ -85,8 +85,8 @@ function createDevChunk2(chunkI: number, chunkJ: number, _z: number): Chunk {
           colRow: [6, 5],
           nearestFilter: true,
           normal: {
-            animations: [[3, 3]],
-            speed: 0,
+            animations: [[6, 11]],
+            speed: 200,
           },
         },
       },
@@ -94,6 +94,7 @@ function createDevChunk2(chunkI: number, chunkJ: number, _z: number): Chunk {
       chunkJ,
       position: [chunkI * CHUNK_SIZE, chunkJ * CHUNK_SIZE, 0] as Vec3,
       rotation: [0, 0, 0] as Vec3,
+      state: subObjState.normal,
     }],
   }
 }

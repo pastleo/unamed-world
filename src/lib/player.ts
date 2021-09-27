@@ -29,7 +29,7 @@ export function create(): Player {
         nearestFilter: true,
         normal: {
           animations: [[0, 2]],
-          speed: 0,
+          speed: 500,
         },
       },
     }
