@@ -2,7 +2,7 @@ import Game from './game';
 import { update as updatePlayer } from './player';
 import { update as updateInput } from './input';
 import { resize as resizeCamera } from './camera';
-import { Chunk, SubObj, subObjState } from './obj';
+import { Chunk, SubObj } from './obj';
 import { setSpriteTexture } from './sprite';
 import { Vec2 } from './utils/utils';
 
@@ -34,21 +34,21 @@ function updateSubObjs(centerChunkIJ: Vec2, game: Game) {
   )).filter(
     ([_chunkI, _chunkJ, chunk]) => chunk
   ).forEach(([chunkI, chunkJ, chunk]) => {
-    updateChunk(chunkI, chunkJ, chunk, game.time);
+    updateChunk(chunkI, chunkJ, chunk, game);
   })
 }
 
-function updateChunk(_chunkI: number, _chunkJ: number, chunk: Chunk, time: number) {
+function updateChunk(_chunkI: number, _chunkJ: number, chunk: Chunk, game: Game) {
   chunk.subObjs.forEach(subObj => {
-    updateSubObj(subObj, time);
+    updateSubObj(subObj, game);
   })
 }
 
-function updateSubObj(subObj: SubObj, time: number) {
+function updateSubObj(subObj: SubObj, game: Game) {
   setSpriteTexture(
     subObj.obj.spriteSheetMaterial, 
     subObj.sprite.material.map,
-    subObjState.normal,
-    time
+    subObj,
+    game,
   );
 }

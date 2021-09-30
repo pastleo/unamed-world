@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import Game from './game';
-import Map2D from './utils/map2d';
 import { moveCameraPosition } from './camera';
 import { Vec2, add, sub, multiply, lengthSq } from './utils/utils';
-import { Obj, SubObj, addSubObj, moveSubObj } from './obj';
+import { Obj, SubObj, addSubObj, moveSubObj, subObjState } from './obj';
+
+import { heroObj } from './dev-data';
 
 export interface Player {
   obj: Obj;
@@ -21,18 +22,7 @@ const STOP_TARGET_DISTANCE_SQ = STOP_TARGET_DISTANCE * STOP_TARGET_DISTANCE;
 
 export function create(): Player {
   return {
-    obj: {
-      chunks: new Map2D(),
-      spriteSheetMaterial: {
-        url: 'assets/hero.png',
-        colRow: [6, 5],
-        nearestFilter: true,
-        normal: {
-          animations: [[0, 2]],
-          speed: 500,
-        },
-      },
-    }
+    obj: heroObj,
   }
 }
 
@@ -55,7 +45,11 @@ export function update(player: Player, _tDiff: number, game: Game) {
     sub(player.moveTarget, movingVec, player.moveTarget);
 
     if (lengthSq(player.moveTarget) < STOP_TARGET_DISTANCE_SQ) {
+      player.mounting.state = subObjState.normal;
       delete player.moveTarget;
+    } else {
+      player.mounting.state = subObjState.moving;
+      player.mounting.rotation[2] = Math.atan2(movingVec[1], movingVec[0]);
     }
   }
 }

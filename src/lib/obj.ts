@@ -82,7 +82,7 @@ export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chun
 
 export function calcChunkSubObjs(chunk: Chunk, chunks: Map2D<Chunk>, loader: THREE.TextureLoader): void {
   chunk.subObjs.forEach(subObj => {
-    subObj.sprite = createSprite(subObj.obj, loader);
+    subObj.sprite = createSprite(subObj.obj, loader, subObj);
     const located = locateChunkCell(subObj.position[0], subObj.position[1], chunks);
     calcSubObjLocalPos(subObj, located, chunks);
   });
@@ -92,16 +92,14 @@ export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number, loader:
   const located = locateChunkCell(x, y, realmObj.chunks);
   const [_cell, _cellI, _cellJ, chunk, chunkI, chunkJ] = located;
 
-  const sprite = createSprite(obj, loader);
-
   const subObj: SubObj = {
     obj,
     chunkI, chunkJ,
     position: [x, y, 0] as Vec3,
     rotation: [0, 0, 0] as Vec3,
-    sprite,
     state: subObjState.normal,
   };
+  subObj.sprite = createSprite(subObj.obj, loader, subObj);
 
   calcSubObjLocalPos(subObj, located, realmObj.chunks);
   chunk.subObjs.push(subObj);
