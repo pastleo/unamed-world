@@ -41,3 +41,7 @@ export function length<T extends Vec2 | Vec3>(v: T): number {
 export function mod(v: number, d: number): number {
   return v - Math.floor(v / d) * d;
 }
+
+export function clamp(v: number, edge0: number, edge1: number): number {
+  return (v < edge0 ? edge0 : (v > edge1 ? edge1 : v))
+}

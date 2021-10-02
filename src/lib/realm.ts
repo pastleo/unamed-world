@@ -36,8 +36,9 @@ export function create(): Realm {
         },
       },
       speed: 0,
-      climb: 0.9,
+      maxClimbRad: 0,
       radius: 1,
+      tall: 0,
     }
   }
 }
@@ -45,7 +46,7 @@ export function create(): Realm {
 export function addToScene(realm: Realm, loader: THREE.TextureLoader, game: Game) {
   realm.obj.chunks.entries().forEach(([[i, j], chunk]) => {
     calcChunkMesh(chunk, i, j, realm.obj.chunks, loader);
-    calcChunkSubObjs(chunk, realm.obj.chunks, loader);
+    calcChunkSubObjs(chunk, realm.obj, loader);
     //game.scene.add(chunk.line);
     game.scene.add(chunk.mesh);
     chunk.subObjs.forEach(subObj => {

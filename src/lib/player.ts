@@ -15,7 +15,6 @@ export interface Player {
   moveTargetDistance?: number;
   afterMovingTimeout?: ReturnType<typeof setTimeout>;
 }
-const MOVE_SPEED = 2.5;
 const MAX_TARGET_DISTANCE = 2;
 const STOP_TARGET_DISTANCE = 0.1;
 
@@ -35,7 +34,7 @@ export function update(player: Player, tDiff: number, game: Game) {
     const movingLength = moveLength(player.mounting, player.moveTarget, game.realm.obj.chunks, tDiff);
 
     if (movingLength > 0) {
-      const movingVec = multiply(player.moveTarget, movingLength);
+      const movingVec = multiply(player.moveTarget, movingLength / player.moveTargetDistance);
       moveSubObj(
         player.mounting, movingVec, game.realm.obj.chunks,
       );

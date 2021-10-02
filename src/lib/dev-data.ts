@@ -26,14 +26,15 @@ export function createDevChunk1(_chunkI: number, _chunkJ: number, _z: number, su
   }
 }
 
+const hight = 1.5;
 const DEV_CHUNK_DATA_2 = [
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 1, 1, 1, 1, 0, 0,
-  0, 0, 1, 1, 1, 1, 0, 0,
-  0, 0, 1, 1, 1, 1, 0, 0,
-  0, 0, 1, 0, 0, 1, 0, 0,
-  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, hight, hight, hight, hight, 0, 0,
+  0, 0, hight, hight, hight, hight, 0, 0,
+  0, 0, hight, hight, hight, hight, 0, 0,
+  0, 0, hight, hight, hight, hight, 0, 0,
+  0, 0, hight, hight, hight, hight, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
 ]
 export function createDevChunk2(_chunkI: number, _chunkJ: number, _z: number, subObjs: SubObj[] = []): Chunk {
@@ -63,8 +64,6 @@ export function createRndChunk(_chunkI: number, _chunkJ: number, _z: number, sub
 export function createDevSubObj(obj: Obj, chunkI: number, chunkJ: number): SubObj {
   return {
     obj,
-    chunkI,
-    chunkJ,
     position: [chunkI * CHUNK_SIZE, chunkJ * CHUNK_SIZE, 0] as Vec3,
     rotation: [0, 0, 0] as Vec3,
     state: subObjState.normal,
@@ -86,7 +85,8 @@ export const heroObj: Obj = {
       speed: 200,
     },
   },
-  speed: 2.5,
-  climb: 0.9,
+  tall: 0.5,
+  speed: 4,
+  maxClimbRad: Math.PI * 0.3,
   radius: 0.5,
 };
