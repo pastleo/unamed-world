@@ -39,6 +39,8 @@ export default function setup(): Game {
   addPlayerToRealm(player, loader, game);
   startListeners(game.input, game);
 
+  camera.cameraBase.position.z = player.mounting.sprite.position.z;
+
   // ===============
 
   return game;

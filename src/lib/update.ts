@@ -7,10 +7,10 @@ import { setSpriteTexture } from './sprite';
 import { Vec2 } from './utils/utils';
 
 export default function update(game: Game, tDiff: number) {
-  updatePlayer(game.player, tDiff, game);
   updateInput(game.input, tDiff, game);
 
   updateSubObjs([game.player.mounting.chunkI, game.player.mounting.chunkJ], game);
+  updatePlayer(game.player, tDiff, game);
 }
 
 export function resize(game: Game, width: number, height: number) {

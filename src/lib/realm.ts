@@ -3,7 +3,7 @@ import Game from './game';
 import { Obj, Chunk, calcChunkMesh, calcChunkSubObjs } from './obj';
 import Map2D from './utils/map2d';
 
-import { createRndChunk, createDevChunk1, createDevSubObj, heroObj } from './dev-data';
+import { createRndChunk, createDevChunk1, createDevChunk2, createDevSubObj, heroObj } from './dev-data';
 
 export interface Realm {
   obj: Obj;
@@ -20,6 +20,9 @@ export function create(): Realm {
   chunks.put(-1, 1,  createDevChunk1(-1, 1, 0))
   chunks.put(0, 1,   createDevChunk1(0, 1,  0))
   chunks.put(1, 1,   createDevChunk1(1, 1,  0))
+  chunks.put(-1, 2,  createDevChunk2(-1, 2, 0))
+  chunks.put(0, 2,   createDevChunk2(0, 2,  0))
+  chunks.put(1, 2,   createDevChunk2(1, 2,  0))
 
   return {
     obj: {
@@ -32,6 +35,9 @@ export function create(): Realm {
           speed: 0,
         },
       },
+      speed: 0,
+      climb: 0.9,
+      radius: 1,
     }
   }
 }

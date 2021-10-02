@@ -4,7 +4,7 @@ import { CHUNK_SIZE } from './consts';
 import { Vec3 } from './utils/utils';
 
 const TEXTURE_URL_1 = 'assets/small-rocks.png';
-const DEV_CHUNK_DATA = [
+const DEV_CHUNK_DATA_1 = [
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
@@ -16,7 +16,29 @@ const DEV_CHUNK_DATA = [
 ]
 export function createDevChunk1(_chunkI: number, _chunkJ: number, _z: number, subObjs: SubObj[] = []): Chunk {
   const cells = new Map2D<Cell>((i, j) => (
-    { z: DEV_CHUNK_DATA[j * CHUNK_SIZE + i] || 0, flatness: 0.5 }
+    { z: DEV_CHUNK_DATA_1[j * CHUNK_SIZE + i] || 0, flatness: 0.5 }
+  ), 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
+
+  return {
+    cells,
+    textureUrl: TEXTURE_URL_1,
+    subObjs,
+  }
+}
+
+const DEV_CHUNK_DATA_2 = [
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 0, 0, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+]
+export function createDevChunk2(_chunkI: number, _chunkJ: number, _z: number, subObjs: SubObj[] = []): Chunk {
+  const cells = new Map2D<Cell>((i, j) => (
+    { z: DEV_CHUNK_DATA_2[j * CHUNK_SIZE + i] || 0, flatness: 0.5 }
   ), 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
   return {
@@ -64,4 +86,7 @@ export const heroObj: Obj = {
       speed: 200,
     },
   },
+  speed: 2.5,
+  climb: 0.9,
+  radius: 0.5,
 };

@@ -34,6 +34,9 @@ export function multiply<T extends Vec2 | Vec3>(v: T, scalar: number, dstVArg?: 
 export function lengthSq<T extends Vec2 | Vec3>(v: T): number {
   return v.reduce((p, v) => p + v * v, 0);
 }
+export function length<T extends Vec2 | Vec3>(v: T): number {
+  return Math.sqrt(lengthSq<T>(v));
+}
 
 export function mod(v: number, d: number): number {
   return v - Math.floor(v / d) * d;

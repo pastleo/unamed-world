@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { SpriteSheetMaterial, createSprite } from './sprite';
 import Map2D from './utils/map2d';
-import { Vec2, Vec3, add, mod } from './utils/utils';
+import { Vec2, Vec3, add, mod, sub, length } from './utils/utils';
 import { CHUNK_SIZE, CELL_STEPS } from './consts';
 
 export interface Obj {
   chunks: Map2D<Chunk>;
   spriteSheetMaterial: SpriteSheetMaterial;
+  speed: number;
+  climb: number;
+  radius: number;
 }
 
 export interface Chunk {
@@ -109,13 +112,14 @@ export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number, loader:
 
 export function moveSubObj(
   subObj: SubObj, vec: Vec2, chunks: Map2D<Chunk>
-) {
-  add(subObj.position, [...vec, 0], subObj.position);
-
-  const located = locateChunkCell(subObj.position[0], subObj.position[1], chunks);
-  calcSubObjLocalPos(subObj, located, chunks);
+): boolean {
+  const newPosition = add(subObj.position, [...vec, 0]);
+  const located = locateChunkCell(newPosition[0], newPosition[1], chunks);
 
   const [_cell, _cellI, _cellJ, chunk, chunkI, chunkJ] = located;
+
+  subObj.position = newPosition;
+  calcSubObjLocalPos(subObj, located, chunks);
   if (chunkI !== subObj.chunkI || chunkJ !== subObj.chunkJ) {
     const oriChunk = chunks.get(subObj.chunkI, subObj.chunkJ);
     const index = oriChunk.subObjs.indexOf(subObj);
@@ -124,6 +128,8 @@ export function moveSubObj(
     subObj.chunkI = chunkI;
     subObj.chunkJ = chunkJ;
   }
+
+  return true;
 }
 
 export function calcSubObjLocalPos(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {
