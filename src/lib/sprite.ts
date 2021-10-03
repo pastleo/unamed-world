@@ -10,7 +10,7 @@ export interface SpriteStateAnimation {
 }
 export interface SpriteSheetMaterial {
   url: string;
-  nearestFilter?: boolean;
+  eightBitStyle?: boolean;
   colRow: Vec2;
   normal: SpriteStateAnimation;
   moving?: SpriteStateAnimation;
@@ -26,8 +26,10 @@ export function createSprite(obj: Obj, loader: THREE.TextureLoader, subObj: SubO
 }
 
 function initSpriteTexture(spriteSheetMaterial: SpriteSheetMaterial, texture: THREE.Texture, subObj: SubObj) {
-  if (spriteSheetMaterial.nearestFilter) {
+  if (spriteSheetMaterial.eightBitStyle) {
     texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
   }
   texture.repeat.set(
     1/spriteSheetMaterial.colRow[0],

@@ -76,7 +76,7 @@ export const heroObj: Obj = {
   spriteSheetMaterial: {
     url: 'assets/hero.png',
     colRow: [6, 5],
-    nearestFilter: true,
+    eightBitStyle: true,
     normal: {
       animations: [[0, 1]],
       speed: 500,
