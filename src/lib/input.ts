@@ -54,34 +54,39 @@ export function startListeners(input: Input, game: Game) {
 
     input.mousedown = MOUSE_BUTTONS[event.button];
     input.mouseCoord = [event.offsetX, event.offsetY];
+
+    if (input.mousedown === 'right') {
+      game.renderer.domElement.requestPointerLock();
+    }
   });
   game.renderer.domElement.addEventListener('mouseup', () => {
     if (input.mousedown && !input.mousemove) {
       if (input.mousedown === 'left') {
-        //chooseObjectId(
-          //game, renderAndGetPointingObjectId(game, input.mouseCoord),
-        //);
+        // use tool
       } else return;
     }
 
     input.mousedown = null;
     input.mousemove = false;
+    document.exitPointerLock();
   });
   game.renderer.domElement.addEventListener('mousemove', event => {
     if (input.mousedown) {
       const { offsetX, offsetY } = event;
       const [preOffsetX, preOffsetY] = input.mouseCoord;
+      const movementX = -event.movementX || offsetX - preOffsetX;
+      const movementY = -event.movementY || offsetY - preOffsetY;
 
       if (
         input.mousemove ||
-        ((offsetX - preOffsetX) * (offsetX - preOffsetX) + (offsetY - preOffsetY) * (offsetY - preOffsetY)) > 48
+        (movementX * movementX + movementY * movementY) > 48
       ) {
         input.mousemove = true;
         if (input.mousedown === 'left') {
-          // use skill or interact with other objects
+          // tool aiming
         } else if (input.mousedown === 'right') {
           moveCameraAngle(
-            [(preOffsetX - offsetX) / 100, (preOffsetY - offsetY) / 100],
+            [movementX / 100, movementY / 100],
             game.camera,
           );
         }
@@ -89,11 +94,21 @@ export function startListeners(input: Input, game: Game) {
         input.mouseCoord = [offsetX, offsetY];
       }
     } else {
-      //pointingObjectId(
-        //game, renderAndGetPointingObjectId(game, [event.offsetX, event.offsetY]),
-      //);
+      // hover
     }
   });
+
+  const exitPointerLock = () => {
+    if (
+      input.mousedown === 'right' &&
+      document.pointerLockElement !== game.renderer.domElement
+    ) {
+      input.mousedown = null;
+      input.mousemove = false;
+    }
+  }
+  document.addEventListener('pointerlockchange', exitPointerLock, false);
+  document.addEventListener('pointerlockerror', exitPointerLock, false);
 
   game.renderer.domElement.addEventListener('touchstart', event => {
     input.touched = true;
@@ -102,9 +117,7 @@ export function startListeners(input: Input, game: Game) {
   game.renderer.domElement.addEventListener('touchend', _event => {
 
     if (input.touched && !input.touchmove) {
-      //chooseObjectId(
-        //game, renderAndGetPointingObjectId(game, input.touchCoord),
-      //);
+      // use tool
     }
     input.touched = false;
     input.touchmove = false;
