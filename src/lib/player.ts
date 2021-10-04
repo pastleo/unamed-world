@@ -4,6 +4,7 @@ import { moveCameraPosition } from './camera';
 import { Vec2, add, sub, multiply, length } from './utils/utils';
 import { Obj, SubObj, addSubObj, moveSubObj, subObjState } from './obj';
 import { moveLength } from './movable';
+import { triggerRealmGeneration } from './realm';
 
 import { heroObj } from './dev-data';
 
@@ -35,13 +36,17 @@ export function update(player: Player, tDiff: number, game: Game) {
 
     if (movingLength > 0) {
       const movingVec = multiply(player.moveTarget, movingLength / player.moveTargetDistance);
-      moveSubObj(
+      const chunkChanged = moveSubObj(
         player.mounting, movingVec, game.realm.obj.chunks,
       );
 
       game.camera.cameraBase.position.z = player.mounting.sprite.position.z;
       sub(player.moveTarget, movingVec, player.moveTarget);
       player.moveTargetDistance = length(player.moveTarget);
+
+      if (chunkChanged) {
+        triggerRealmGeneration(game.realm, [player.mounting.chunkI, player.mounting.chunkJ], game);
+      }
     }
 
     if (movingLength <= 0 || player.moveTargetDistance < STOP_TARGET_DISTANCE) {

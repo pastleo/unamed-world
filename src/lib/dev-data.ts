@@ -1,7 +1,50 @@
 import { Cell, Chunk, SubObj, Obj, subObjState } from './obj';
+import { Realm } from './realm';
 import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
 import { Vec3 } from './utils/utils';
+
+export function createDevRealm(): Realm {
+  const chunks = new Map2D<Chunk>();
+  chunks.put(-1, -1, createRndChunk(-1, -1, 0))
+  chunks.put(0, -1,  createRndChunk(0, -1,  0))
+  chunks.put(1, -1,  createRndChunk(1, -1,  0))
+  chunks.put(-1, 0,  createDevChunk1(-1, 0, 0))
+  chunks.put(0, 0,   createDevChunk1(0, 0,  0))
+  chunks.put(1, 0,   createDevChunk1(1, 0,  0, [createDevSubObj(heroObj, 1, 0)]))
+  chunks.put(-1, 1,  createDevChunk1(-1, 1, 0))
+  chunks.put(0, 1,   createDevChunk1(0, 1,  0))
+  chunks.put(1, 1,   createDevChunk1(1, 1,  0))
+  chunks.put(-1, 2,  createDevChunk2(-1, 2, 0))
+  chunks.put(0, 2,   createDevChunk2(0, 2,  0))
+  chunks.put(1, 2,   createDevChunk2(1, 2,  0))
+
+  return {
+    obj: {
+      chunks,
+      spriteSheetMaterial: {
+        url: '',
+        colRow: [1, 1],
+        normal: {
+          animations: [[0, 0]],
+          speed: 0,
+        },
+      },
+      speed: 0,
+      maxClimbRad: 0,
+      radius: 1,
+      tall: 0,
+    },
+    backgrounds: [
+      'assets/skybox/pos-x.png',
+      'assets/skybox/neg-x.png',
+      'assets/skybox/pos-y.png',
+      'assets/skybox/neg-y.png',
+      'assets/skybox/pos-z.png',
+      'assets/skybox/neg-z.png',
+    ]
+  }
+}
 
 const TEXTURE_URL_1 = 'assets/small-rocks.png';
 const DEV_CHUNK_DATA_1 = [

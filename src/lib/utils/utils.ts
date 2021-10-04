@@ -45,3 +45,19 @@ export function mod(v: number, d: number): number {
 export function clamp(v: number, edge0: number, edge1: number): number {
   return (v < edge0 ? edge0 : (v > edge1 ? edge1 : v))
 }
+
+export function rangeVec2s(centerVec: Vec2, range: number): Vec2[] {
+  return [
+    [0, 0],
+    ...Array(range).fill(null).map((_, i) => i + 1).flatMap(d =>
+      Array(d).fill(null).flatMap(
+        (_, j) => ([j, -1 - j])
+      ).flatMap(x => ([
+        [x, d], [-x, -d],
+        [d, -x], [-d, x],
+      ])),
+    ),
+  ].map(([dI, dJ]) => (
+    [centerVec[0] + dI, centerVec[1] + dJ]
+  ));
+}

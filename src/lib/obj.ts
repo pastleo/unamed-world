@@ -69,6 +69,9 @@ export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chun
 
     const wireframe = new THREE.WireframeGeometry(geometry);
 
+    if (chunk.line) {
+      chunk.line.removeFromParent();
+    }
     chunk.line = new THREE.LineSegments(wireframe);
   }
 
@@ -81,6 +84,9 @@ export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chun
     2,
   ));
 
+  if (chunk.mesh) {
+    chunk.mesh.removeFromParent();
+  }
   chunk.mesh = new THREE.Mesh(geometry, material);
   chunk.mesh.position.x = chunkI * CHUNK_SIZE;
   chunk.mesh.position.y = chunkJ * CHUNK_SIZE;
@@ -134,7 +140,10 @@ export function moveSubObj(
     chunk.subObjs.push(subObj);
     subObj.chunkI = chunkI;
     subObj.chunkJ = chunkJ;
+
+    return true;
   }
+  return false;
 }
 
 export function calcSubObjLocalPos(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {

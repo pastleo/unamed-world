@@ -1,6 +1,7 @@
 class RowCol<T> {
   readonly array: T[] = [];
   startI: number = 0;
+  operations: string[] = [];
 
   constructor(fillData?: (i: number) => T, left: number = 0, right: number = 0) {
     if (typeof fillData === 'function') {
@@ -10,18 +11,23 @@ class RowCol<T> {
   }
 
   put(i: number, data: T) {
+    this.operations.push(`put ${i}`);
     if (i < this.startI) {
       this.array.splice(0, 0, data, ...Array(this.startI - i - 1).fill(null));
       this.startI = i;
     } else if (i > this.startI + this.array.length - 1) {
       this.array.push(...Array(i - this.startI - this.array.length).fill(null), data);
     } else {
-      this.array[i] = data;
+      this.array[this.arrayIndex(i)] = data;
     }
   }
 
   get(i: number): T {
-    return this.array[i - this.startI];
+    return this.array[this.arrayIndex(i)];
+  }
+
+  private arrayIndex(i: number) {
+    return i - this.startI;
   }
 }
 
