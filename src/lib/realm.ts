@@ -40,8 +40,8 @@ function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2): GeneratedChunk[]
     const rightChunk = realm.obj.chunks.get(chunkI + 1, chunkJ)
 
     const cells = new Map2D<Cell>((i, j) => {
-      const upEdgeCell = upChunk?.cells.get(i, CHUNK_SIZE - 1);
-      const bottomEdgeCell = bottomChunk?.cells.get(i, 0);
+      const upEdgeCell = upChunk?.cells.get(i, 0);
+      const bottomEdgeCell = bottomChunk?.cells.get(i, CHUNK_SIZE - 1);
       const leftEdgeCell = leftChunk?.cells.get(CHUNK_SIZE - 1, j);
       const rightEdgeCell = rightChunk?.cells.get(0, j);
 

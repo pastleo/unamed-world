@@ -4,20 +4,57 @@ import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
 import { Vec3 } from './utils/utils';
 
+const TEXTURE_URL_1 = 'assets/small-rocks.png';
+const DEV_CHUNK_DATA_1 = [
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, .5, .5, 0, .2, 0, 0,
+  0, 0, .5, .5, 0, .2, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+const Z_HIGH = 1.5;
+const DEV_CHUNK_DATA_2 = [
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, Z_HIGH, Z_HIGH, Z_HIGH, Z_HIGH, 0, 0,
+  0, 0, Z_HIGH, Z_HIGH, Z_HIGH, Z_HIGH, 0, 0,
+  0, 0, Z_HIGH, Z_HIGH, Z_HIGH, Z_HIGH, 0, 0,
+  0, 0, Z_HIGH, Z_HIGH, Z_HIGH, Z_HIGH, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+];
 export function createDevRealm(): Realm {
   const chunks = new Map2D<Chunk>();
-  chunks.put(-1, -1, createRndChunk(-1, -1, 0))
-  chunks.put(0, -1,  createRndChunk(0, -1,  0))
-  chunks.put(1, -1,  createRndChunk(1, -1,  0))
-  chunks.put(-1, 0,  createDevChunk1(-1, 0, 0))
-  chunks.put(0, 0,   createDevChunk1(0, 0,  0))
-  chunks.put(1, 0,   createDevChunk1(1, 0,  0, [createDevSubObj(heroObj, 1, 0)]))
-  chunks.put(-1, 1,  createDevChunk1(-1, 1, 0))
-  chunks.put(0, 1,   createDevChunk1(0, 1,  0))
-  chunks.put(1, 1,   createDevChunk1(1, 1,  0))
-  chunks.put(-1, 2,  createDevChunk2(-1, 2, 0))
-  chunks.put(0, 2,   createDevChunk2(0, 2,  0))
-  chunks.put(1, 2,   createDevChunk2(1, 2,  0))
+
+  chunks.put(-2, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, true, false], Z_HIGH));
+  chunks.put(-1, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, false], Z_HIGH));
+  chunks.put( 0, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, false], Z_HIGH));
+  chunks.put( 1, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, false], Z_HIGH));
+  chunks.put( 2, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, true], Z_HIGH));
+
+  chunks.put(-2, -2, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, false, true, false], Z_HIGH));
+  chunks.put(-1, -2, createRndChunk(TEXTURE_URL_1));
+  chunks.put( 0, -2, createRndChunk(TEXTURE_URL_1));
+  chunks.put( 1, -2, createRndChunk(TEXTURE_URL_1));
+  chunks.put( 2, -2, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, false, false, true], Z_HIGH));
+
+  chunks.put(-2, -1, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, true, false], Z_HIGH));
+  chunks.put(-1, -1, createDevChunk(DEV_CHUNK_DATA_2, TEXTURE_URL_1));
+  chunks.put( 0, -1, createDevChunk(DEV_CHUNK_DATA_2, TEXTURE_URL_1));
+  chunks.put( 1, -1, createDevChunk(DEV_CHUNK_DATA_2, TEXTURE_URL_1));
+  chunks.put( 2, -1, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, false, true], Z_HIGH));
+
+  chunks.put(-1, 0,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, false, true, false], Z_HIGH));
+  chunks.put( 0, 0,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1));
+  chunks.put( 1, 0,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [createDevSubObj(heroObj, 1, 0)], [false, false, false, true], Z_HIGH));
+
+  chunks.put(-1, 1,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, true, false], Z_HIGH));
+  chunks.put( 0, 1,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, false, false], Z_HIGH));
+  chunks.put( 1, 1,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [createDevSubObj(heroObj, 1, 0)], [true, false, false, true], Z_HIGH));
 
   return {
     obj: {
@@ -46,60 +83,41 @@ export function createDevRealm(): Realm {
   }
 }
 
-const TEXTURE_URL_1 = 'assets/small-rocks.png';
-const DEV_CHUNK_DATA_1 = [
-  0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, .5, .5, 0, .2, .2,
-  0, 0, 0, .5, .5, 0, .2, .2,
-  0, 0, 0, .5, .5, 0, .2, .2,
-  0, 0, 0, .5, .5, 0, .2, .2,
-]
-export function createDevChunk1(_chunkI: number, _chunkJ: number, _z: number, subObjs: SubObj[] = []): Chunk {
-  const cells = new Map2D<Cell>((i, j) => (
-    { z: DEV_CHUNK_DATA_1[j * CHUNK_SIZE + i] || 0, flatness: 0.5 }
-  ), 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
+type BorderOption = [up: boolean, down: boolean, left: boolean, right: boolean];
+export function createDevChunk(cellData: number[], textureUrl: string, subObjs: SubObj[] = [], borderOption?: BorderOption, borderZ?: number): Chunk {
+  const [up, down, left, right] = borderOption || [false, false, false, false];
+
+  const cells = new Map2D<Cell>((i, j) => {
+    let z = cellData[j * CHUNK_SIZE + i] || 0;
+    if (
+      (j === (CHUNK_SIZE - 1) && up) ||
+      (j === 0 && down) ||
+      (i === 0 && left) ||
+      (i === (CHUNK_SIZE - 1) && right)
+    ) {
+      z = borderZ;
+    }
+
+    return (
+      { z, flatness: 0.5 }
+    )
+  }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
   return {
     cells,
-    textureUrl: TEXTURE_URL_1,
+    textureUrl,
     subObjs,
   }
 }
 
-const hight = 1.5;
-const DEV_CHUNK_DATA_2 = [
-  0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, hight, hight, hight, hight, 0, 0,
-  0, 0, hight, hight, hight, hight, 0, 0,
-  0, 0, hight, hight, hight, hight, 0, 0,
-  0, 0, hight, hight, hight, hight, 0, 0,
-  0, 0, hight, hight, hight, hight, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0,
-]
-export function createDevChunk2(_chunkI: number, _chunkJ: number, _z: number, subObjs: SubObj[] = []): Chunk {
-  const cells = new Map2D<Cell>((i, j) => (
-    { z: DEV_CHUNK_DATA_2[j * CHUNK_SIZE + i] || 0, flatness: 0.5 }
-  ), 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
-
-  return {
-    cells,
-    textureUrl: TEXTURE_URL_1,
-    subObjs,
-  }
-}
-
-export function createRndChunk(_chunkI: number, _chunkJ: number, _z: number, subObjs: SubObj[] = []): Chunk {
-  const cells = new Map2D<Cell>((i, j) => (
+export function createRndChunk(textureUrl: string, subObjs: SubObj[] = []): Chunk {
+  const cells = new Map2D<Cell>((_i, _j) => (
     { z: Math.random(), flatness: 0.5 }
   ), 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
   return {
     cells,
-    textureUrl: TEXTURE_URL_1,
+    textureUrl,
     subObjs,
   }
 }
