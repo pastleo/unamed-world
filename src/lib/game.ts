@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { Agent } from 'unnamed-network';
-import { Player } from './player';
-import { Input } from './input';
-import { Realm } from './realm';
-import { Camera } from './camera';
+import { Agent, BrowserConnManager } from 'unnamed-network';
+import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
+import { Input, create as createInput, startListeners } from './input';
+import { Realm, create as createRealm, addToScene as addRealmToScene } from './realm';
+import { Camera, create as createCamera } from './camera';
 
-interface Game {
+export interface Game {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: Camera;
@@ -16,4 +16,42 @@ interface Game {
   time: number;
 }
 
-export default Game;
+export function setup(): Game {
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  const loader = new THREE.TextureLoader();
+
+  const scene = new THREE.Scene();
+  const camera = createCamera();
+  scene.add(camera.cameraBase);
+
+  const player = createPlayer();
+
+  const connManager = new BrowserConnManager();
+  const networkAgent = new Agent(connManager);
+
+  const realm = createRealm();
+
+  const game: Game = {
+    renderer,
+    scene,
+    camera,
+    realm,
+    player,
+    networkAgent,
+    input: createInput(),
+    time: 0,
+  }
+
+  // ===============
+
+  addRealmToScene(realm, loader, game);
+  addPlayerToRealm(player, loader, game);
+  startListeners(game.input, game);
+
+  camera.cameraBase.position.z = player.mounting.sprite.position.z;
+
+  // ===============
+
+  return game;
+}

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
-import Game from './game';
-import { Chunk, Cell, Obj, calcChunkMesh, calcChunkSubObjs } from './obj';
+import { Game } from './game';
+import Obj from './obj/obj';
+import { Chunk, Cell } from './obj/chunk';
+import { initSprite } from './sprite';
+import { calcChunkMesh, reCalcChunkSubObjs } from './obj/chunk';
 import Map2D from './utils/map2d';
 import { Vec2, rangeVec2s } from './utils/utils';
 import SetVec2 from './utils/setVec2';
@@ -87,10 +90,9 @@ export function addToScene(realm: Realm, loader: THREE.TextureLoader, game: Game
 
 function addChunkToScene(chunkI: number, chunkJ: number, chunk: Chunk, realm: Realm, loader: THREE.TextureLoader, game: Game) {
   calcChunkMesh(chunk, chunkI, chunkJ, realm.obj.chunks, loader);
-  calcChunkSubObjs(chunk, realm.obj, loader);
-  //game.scene.add(chunk.line);
   game.scene.add(chunk.mesh);
-  chunk.subObjs.forEach(subObj => {
+  reCalcChunkSubObjs(chunk, realm.obj, (subObj, located) => {
+    initSprite(subObj, realm.obj, loader, located);
     game.scene.add(subObj.sprite);
   });
 }

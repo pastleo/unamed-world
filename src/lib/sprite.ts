@@ -1,7 +1,10 @@
 import * as THREE from 'three';
-import Game from './game';
-import { Obj, SubObj } from './obj';
+import { Game } from './game';
+import Obj from './obj/obj';
+import { SubObj, addSubObj } from './obj/subObj';
+import { calcZAt, Chunk, Located, locateChunkCell } from './obj/chunk';
 import { Vec2 } from './utils/utils';
+import Map2D from './utils/map2d';
 
 type SpriteAnimation = [start: number, end: number];
 export interface SpriteStateAnimation {
@@ -13,16 +16,32 @@ export interface SpriteSheetMaterial {
   eightBitStyle?: boolean;
   colRow: Vec2;
   normal: SpriteStateAnimation;
-  moving?: SpriteStateAnimation;
+  walking?: SpriteStateAnimation;
 }
 
-export function createSprite(obj: Obj, loader: THREE.TextureLoader, subObj: SubObj): THREE.Sprite {
+export function createSubObjSprite(obj: Obj, realmObj: Obj, x: number, y: number, loader: THREE.TextureLoader): SubObj {
+  const located = locateChunkCell(x, y, realmObj.chunks);
+  const subObj = addSubObj(obj, realmObj, x, y, located);
+  initSprite(subObj, realmObj, loader, located);
+
+  return subObj;
+}
+
+export function initSprite(subObj: SubObj, realmObj: Obj, loader: THREE.TextureLoader, located: Located) {
   const material = new THREE.SpriteMaterial({
-    map: loader.load(obj.spriteSheetMaterial.url, texture => {
-      initSpriteTexture(obj.spriteSheetMaterial, texture, subObj);
+    map: loader.load(subObj.obj.spriteSheetMaterial.url, texture => {
+      initSpriteTexture(subObj.obj.spriteSheetMaterial, texture, subObj);
     })
   });
-  return new THREE.Sprite(material);
+  subObj.sprite = new THREE.Sprite(material);
+  updateSpritePosition(subObj, located, realmObj.chunks);
+}
+
+function updateSpritePosition(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {
+  subObj.sprite.position.x = subObj.position[0];
+  subObj.sprite.position.y = subObj.position[1];
+  const z = calcZAt(subObj.position[0], subObj.position[1], localed, chunks) + subObj.obj.tall;
+  subObj.sprite.position.z = z;
 }
 
 function initSpriteTexture(spriteSheetMaterial: SpriteSheetMaterial, texture: THREE.Texture, subObj: SubObj) {

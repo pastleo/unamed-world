@@ -1,17 +1,11 @@
 import * as THREE from 'three';
-import { SpriteSheetMaterial, createSprite } from './sprite';
-import Map2D from './utils/map2d';
-import { Vec2, Vec3, add, mod, sub, length } from './utils/utils';
-import { CHUNK_SIZE, CELL_STEPS } from './consts';
-
-export interface Obj {
-  chunks: Map2D<Chunk>;
-  spriteSheetMaterial: SpriteSheetMaterial;
-  tall: number;
-  speed: number;
-  maxClimbRad: number;
-  radius: number;
-}
+import Obj from './obj';
+import { SubObj, addSubObj } from './subObj';
+import Map2D from '../utils/map2d';
+import {
+  averagePresentNumbers, step, mod,
+} from '../utils/utils';
+import { CHUNK_SIZE, CELL_STEPS } from '../consts';
 
 export interface Chunk {
   cells: Map2D<Cell>;
@@ -27,24 +21,6 @@ export interface Cell {
   flatness: number;
   //sharpness: number;
   //uv: [number, number];
-}
-
-export type SubObjState = 'normal' | 'moving';
-export const subObjState: Record<SubObjState, SubObjState> = {
-  normal: 'normal',
-  moving: 'moving',
-}
-export interface SubObj {
-  obj: Obj;
-  position: Vec3;
-  rotation: Vec3;
-  state: SubObjState;
-
-  cellI?: number;
-  cellJ?: number;
-  chunkI?: number;
-  chunkJ?: number;
-  sprite?: THREE.Sprite;
 }
 
 const CELL_OFFSET = (CHUNK_SIZE / 2) % 1;
@@ -92,65 +68,14 @@ export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chun
   chunk.mesh.position.y = chunkJ * CHUNK_SIZE;
 }
 
-export function calcChunkSubObjs(chunk: Chunk, realmObj: Obj, loader: THREE.TextureLoader): void {
+export function reCalcChunkSubObjs(chunk: Chunk, realmObj: Obj, func: (subObj: SubObj, located: Located) => void): void {
   const subObjs = chunk.subObjs;
   chunk.subObjs = [];
-  subObjs.forEach(subObj => {
-    addSubObj(subObj.obj, realmObj, subObj.position[0], subObj.position[1], loader);
+  subObjs.forEach(({ obj, position }) => {
+    const located = locateChunkCell(position[0], position[1], realmObj.chunks);
+    const subObj = addSubObj(obj, realmObj, position[0], position[1], located);
+    func(subObj, located);
   });
-}
-
-export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number, loader: THREE.TextureLoader): SubObj {
-  const located = locateChunkCell(x, y, realmObj.chunks);
-  const [_cell, cellI, cellJ, chunk, chunkI, chunkJ] = located;
-
-  const subObj: SubObj = {
-    obj,
-    cellI, cellJ,
-    chunkI, chunkJ,
-    position: [x, y, 0] as Vec3,
-    rotation: [0, 0, 0] as Vec3,
-    state: subObjState.normal,
-  };
-  subObj.sprite = createSprite(subObj.obj, loader, subObj);
-
-  calcSubObjLocalPos(subObj, located, realmObj.chunks);
-  chunk.subObjs.push(subObj);
-
-  return subObj;
-}
-
-export function moveSubObj(
-  subObj: SubObj, vec: Vec2, chunks: Map2D<Chunk>
-) {
-  const newPosition = add(subObj.position, [...vec, 0]);
-  const located = locateChunkCell(newPosition[0], newPosition[1], chunks);
-
-  const [_cell, cellI, cellJ, chunk, chunkI, chunkJ] = located;
-
-  subObj.position = newPosition;
-  calcSubObjLocalPos(subObj, located, chunks);
-  subObj.cellI = cellI;
-  subObj.cellJ = cellJ;
-
-  if (chunkI !== subObj.chunkI || chunkJ !== subObj.chunkJ) {
-    const oriChunk = chunks.get(subObj.chunkI, subObj.chunkJ);
-    const index = oriChunk.subObjs.indexOf(subObj);
-    oriChunk.subObjs.splice(index, 1);
-    chunk.subObjs.push(subObj);
-    subObj.chunkI = chunkI;
-    subObj.chunkJ = chunkJ;
-
-    return true;
-  }
-  return false;
-}
-
-export function calcSubObjLocalPos(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {
-  subObj.sprite.position.x = subObj.position[0];
-  subObj.sprite.position.y = subObj.position[1];
-  const z = calcZAt(subObj.position[0], subObj.position[1], localed, chunks) + subObj.obj.tall;
-  subObj.sprite.position.z = z;
 }
 
 export function calcZAt(x: number, y: number, localed: Located, chunks: Map2D<Chunk>): number {
@@ -170,6 +95,35 @@ export function calcZAt(x: number, y: number, localed: Located, chunks: Map2D<Ch
   return (
     (cellZs[0] * (1 - progress[0]) + cellZs[1] * progress[0]) * progress[1] +
     (cellZs[2] * (1 - progress[0]) + cellZs[3] * progress[0]) * (1 - progress[1])
+  );
+}
+
+export type Located = [cell: Cell, cellI: number, cellJ: number, chunk: Chunk, chunkI: number, chunkJ: number];
+export function locateChunkCell(x: number, y: number, chunks: Map2D<Chunk>): Located {
+  const chunkI = Math.floor((x + CHUNK_SIZE / 2) / CHUNK_SIZE);
+  const chunkJ = Math.floor((y + CHUNK_SIZE / 2) / CHUNK_SIZE);
+  const chunk = chunks.get(chunkI, chunkJ);
+  if (!chunk) return null;
+
+  const cellI = Math.floor(x + CHUNK_SIZE / 2 - chunkI * CHUNK_SIZE);
+  const cellJ = Math.floor(y + CHUNK_SIZE / 2 - chunkJ * CHUNK_SIZE);
+
+  return [
+    chunk.cells.get(cellI, cellJ),
+    cellI, cellJ,
+    chunk,
+    chunkI, chunkJ,
+  ];
+}
+
+export function getChunkCell(chunkI: number, chunkJ: number, cellI: number, cellJ: number, chunks: Map2D<Chunk>): Cell {
+  const chunkOffsetI = Math.floor(cellI / CHUNK_SIZE);
+  const chunkOffsetJ = Math.floor(cellJ / CHUNK_SIZE);
+  const chunk = chunks.get(chunkI + chunkOffsetI, chunkJ + chunkOffsetJ);
+  if (!chunk) return null;
+  return chunk.cells.get(
+    cellI - chunkOffsetI * CHUNK_SIZE,
+    cellJ - chunkOffsetJ * CHUNK_SIZE,
   );
 }
 
@@ -297,47 +251,4 @@ function cellAttributeArrays(cell: Cell, chunkI: number, chunkJ: number, i: numb
   ])).flat();
 
   return { positions, uvs };
-}
-
-type Located = [cell: Cell, cellI: number, cellJ: number, chunk: Chunk, chunkI: number, chunkJ: number];
-export function locateChunkCell(x: number, y: number, chunks: Map2D<Chunk>): Located {
-  const chunkI = Math.floor((x + CHUNK_SIZE / 2) / CHUNK_SIZE);
-  const chunkJ = Math.floor((y + CHUNK_SIZE / 2) / CHUNK_SIZE);
-  const chunk = chunks.get(chunkI, chunkJ);
-  if (!chunk) return null;
-
-  const cellI = Math.floor(x + CHUNK_SIZE / 2 - chunkI * CHUNK_SIZE);
-  const cellJ = Math.floor(y + CHUNK_SIZE / 2 - chunkJ * CHUNK_SIZE);
-
-  return [
-    chunk.cells.get(cellI, cellJ),
-    cellI, cellJ,
-    chunk,
-    chunkI, chunkJ,
-  ];
-}
-
-export function getChunkCell(chunkI: number, chunkJ: number, cellI: number, cellJ: number, chunks: Map2D<Chunk>): Cell {
-  const chunkOffsetI = Math.floor(cellI / CHUNK_SIZE);
-  const chunkOffsetJ = Math.floor(cellJ / CHUNK_SIZE);
-  const chunk = chunks.get(chunkI + chunkOffsetI, chunkJ + chunkOffsetJ);
-  if (!chunk) return null;
-  return chunk.cells.get(
-    cellI - chunkOffsetI * CHUNK_SIZE,
-    cellJ - chunkOffsetJ * CHUNK_SIZE,
-  )
-}
-
-function averagePresentNumbers(...ns: number[]): number {
-  const presentNumbers = ns.filter(n => n !== undefined && n !== null);
-  return presentNumbers.reduce((p, c) => p + c, 0) / presentNumbers.length;
-}
-function averageVecs(dimensions: number, ...vs: number[][]): number[] {
-  return Array(dimensions).fill(null).map((_, i) => (
-    vs.reduce((p, v) => p + v[i], 0) / dimensions
-  ));
-}
-
-function step(vecA: number[], vecB: number[], progress: number) {
-  return vecA.map((va, i) => va * (1 - progress) + vecB[i] * progress);
 }

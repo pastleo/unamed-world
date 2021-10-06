@@ -61,3 +61,12 @@ export function rangeVec2s(centerVec: Vec2, range: number): Vec2[] {
     [centerVec[0] + dI, centerVec[1] + dJ]
   ));
 }
+
+export function averagePresentNumbers(...ns: number[]): number {
+  const presentNumbers = ns.filter(n => n !== undefined && n !== null);
+  return presentNumbers.reduce((p, c) => p + c, 0) / presentNumbers.length;
+}
+
+export function step(vecA: number[], vecB: number[], progress: number) {
+  return vecA.map((va, i) => va * (1 - progress) + vecB[i] * progress);
+}

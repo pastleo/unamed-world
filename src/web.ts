@@ -1,6 +1,5 @@
-import setup from './lib/setup';
 import update, { resize } from './lib/update';
-import Game from './lib/game';
+import { Game, setup } from './lib/game';
 
 function startLoop(game: Game, now: number = 0) {
   const tDiff = now - game.time;
