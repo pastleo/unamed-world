@@ -7,6 +7,7 @@ import { calcChunkMesh, reCalcChunkSubObjs } from './obj/chunk';
 import Map2D from './utils/map2d';
 import { Vec2, rangeVec2s } from './utils/utils';
 import SetVec2 from './utils/setVec2';
+import { service as realmService, listenToNextGeneratedChunk } from './services/realm';
 
 import { CHUNK_SIZE } from './consts';
 
@@ -26,6 +27,23 @@ const AUTO_GENERATION_RANGE = 4;
 export function create(): Realm {
   const realm = createDevRealm();
   generateRealmChunk(realm, [0, 0]);
+
+  (async () => {
+    console.log(realmService);
+    console.log('[main] start');
+    await realmService.create();
+    console.log('[main] triggerRealmGeneration on [0, 0]');
+    realmService.triggerRealmGeneration([0, 0]);
+
+    listenToNextGeneratedChunk(result => {
+      console.log('[main] listenToNextGeneratedChunk', result);
+    });
+
+    setTimeout(() => {
+      console.log('[main] triggerRealmGeneration on [0, 1]');
+      realmService.triggerRealmGeneration([0, 1]);
+    }, 7000);
+  })();
 
   return realm;
 }

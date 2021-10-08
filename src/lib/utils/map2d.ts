@@ -67,6 +67,10 @@ class Map2D<T> {
       })
     });
   }
+
+  fromEntries(entries: [[number, number], T][]) {
+    // WIP
+  }
 }
 
 export default Map2D;

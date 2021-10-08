@@ -12,6 +12,7 @@ export interface Chunk {
   textureUrl: string;
   subObjs: SubObj[];
 
+  attributesGenerated?: boolean;
   mesh?: THREE.Mesh;
   line?: THREE.Line; // for dev
 }
@@ -127,9 +128,9 @@ export function getChunkCell(chunkI: number, chunkJ: number, cellI: number, cell
   );
 }
 
-interface AttributeArrays {
-  positions: number[],
-  uvs: number[],
+export interface AttributeArrays {
+  positions: ArrayBuffer,
+  uvs: ArrayBuffer,
 }
 interface Point {
   position: [number, number, number];
@@ -137,9 +138,9 @@ interface Point {
   //normal: [number, number, number];
 }
 
-function chunkAttributeArrays(chunkI: number, chunkJ: number, chunks: Map2D<Chunk>): AttributeArrays {
+export function chunkAttributeArrays(chunkI: number, chunkJ: number, chunks: Map2D<Chunk>): AttributeArrays {
   const chunk = chunks.get(chunkI, chunkJ);
-  return chunk.cells.entries().map(([[i, j], cell]) => (
+  const { positions, uvs } = chunk.cells.entries().map(([[i, j], cell]) => (
     cellAttributeArrays(cell, chunkI, chunkJ, i, j, chunks)
   )).reduce((attributeArrays, cellAttributeArrays) => {
     return {
@@ -147,9 +148,18 @@ function chunkAttributeArrays(chunkI: number, chunkJ: number, chunks: Map2D<Chun
       uvs: [...attributeArrays.uvs, ...cellAttributeArrays.uvs],
     }
   }, { positions: [], uvs: [] });
+
+  return {
+    positions: (new Float32Array(positions)).buffer,
+    uvs: (new Float32Array(uvs)).buffer,
+  };
 }
 
-function cellAttributeArrays(cell: Cell, chunkI: number, chunkJ: number, i: number, j: number, chunks: Map2D<Chunk>): AttributeArrays {
+export interface CellAttributeArrays {
+  positions: number[],
+  uvs: number[],
+}
+function cellAttributeArrays(cell: Cell, chunkI: number, chunkJ: number, i: number, j: number, chunks: Map2D<Chunk>): CellAttributeArrays {
   const neighbors = [
     getChunkCell(chunkI, chunkJ, i - 1, j + 1, chunks), // left top
     getChunkCell(chunkI, chunkJ, i + 0, j + 1, chunks),
