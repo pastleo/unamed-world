@@ -16,7 +16,7 @@ export interface Game {
   time: number;
 }
 
-export function setup(): Game {
+export async function setup(): Promise<Game> {
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   const loader = new THREE.TextureLoader();
@@ -30,7 +30,7 @@ export function setup(): Game {
   const connManager = new BrowserConnManager();
   const networkAgent = new Agent(connManager);
 
-  const realm = createRealm();
+  const realm = await createRealm();
 
   const game: Game = {
     renderer,

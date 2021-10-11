@@ -1,7 +1,6 @@
 class RowCol<T> {
   readonly array: T[] = [];
   startI: number = 0;
-  operations: string[] = [];
 
   constructor(fillData?: (i: number) => T, left: number = 0, right: number = 0) {
     if (typeof fillData === 'function') {
@@ -11,7 +10,6 @@ class RowCol<T> {
   }
 
   put(i: number, data: T) {
-    this.operations.push(`put ${i}`);
     if (i < this.startI) {
       this.array.splice(0, 0, data, ...Array(this.startI - i - 1).fill(null));
       this.startI = i;
@@ -42,6 +40,15 @@ class Map2D<T> {
     }
   }
 
+  static fromEntries<T>(entries: [[number, number], T][]): Map2D<T> {
+    const map2d = new Map2D<T>();
+    entries.forEach(([[i, j], data]) => {
+      map2d.put(i, j, data);
+    });
+
+    return map2d;
+  }
+
   put(i: number, j: number, data: T): void {
     let row = this.map.get(j);
     if (!row) {
@@ -66,10 +73,6 @@ class Map2D<T> {
         ]];
       })
     });
-  }
-
-  fromEntries(entries: [[number, number], T][]) {
-    // WIP
   }
 }
 

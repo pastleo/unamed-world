@@ -14,7 +14,6 @@ export interface Chunk {
 
   attributesGenerated?: boolean;
   mesh?: THREE.Mesh;
-  line?: THREE.Line; // for dev
 }
 
 export interface Cell {
@@ -26,30 +25,23 @@ export interface Cell {
 
 const CELL_OFFSET = (CHUNK_SIZE / 2) % 1;
 
-export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chunks: Map2D<Chunk>, loader: THREE.TextureLoader): void {
-  const attributeArrays = chunkAttributeArrays(chunkI, chunkJ, chunks);
+const chunkMaterialCache = new Map<string, THREE.MeshBasicMaterial>();
 
+export function createChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, attributeArrays: AttributeArrays, loader: THREE.TextureLoader): THREE.Mesh {
   const geometry = new THREE.BufferGeometry();
-  const material = new THREE.MeshBasicMaterial({
-    map: loader.load(chunk.textureUrl, texture => {
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-    }),
-  });
 
-  {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(
-      new Float32Array(attributeArrays.positions),
-      3,
-    ));
-
-    const wireframe = new THREE.WireframeGeometry(geometry);
-
-    if (chunk.line) {
-      chunk.line.removeFromParent();
-    }
-    chunk.line = new THREE.LineSegments(wireframe);
+  let material: THREE.MeshBasicMaterial;
+  const cachedMaterial = chunkMaterialCache.get(chunk.textureUrl);
+  if (cachedMaterial) {
+    material = cachedMaterial;
+  } else {
+    material = new THREE.MeshBasicMaterial({
+      map: loader.load(chunk.textureUrl, texture => {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+      }),
+    });
+    chunkMaterialCache.set(chunk.textureUrl, material);
   }
 
   geometry.setAttribute('position', new THREE.BufferAttribute(
@@ -61,12 +53,10 @@ export function calcChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, chun
     2,
   ));
 
-  if (chunk.mesh) {
-    chunk.mesh.removeFromParent();
-  }
-  chunk.mesh = new THREE.Mesh(geometry, material);
-  chunk.mesh.position.x = chunkI * CHUNK_SIZE;
-  chunk.mesh.position.y = chunkJ * CHUNK_SIZE;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.x = chunkI * CHUNK_SIZE;
+  mesh.position.y = chunkJ * CHUNK_SIZE;
+  return mesh;
 }
 
 export function reCalcChunkSubObjs(chunk: Chunk, realmObj: Obj, func: (subObj: SubObj, located: Located) => void): void {

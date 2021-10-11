@@ -48,7 +48,6 @@ export default startService;
 // main thread API:
 export const service = spawnService<RealmService>('realm');
 export const listenToNextGeneratedChunk = createListenToServiceFn(service?.nextGeneratedChunk);
-///////
 
 const CELL_MIDDLE_PERCENTAGE_OFFSET = 1 / (CHUNK_SIZE * 2);
 type GeneratedChunk = [chunkI: number, chunkJ: number, chunk: Chunk];
@@ -100,7 +99,7 @@ function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2, notifyNewChunk: (
 
     if (chunk.attributesGenerated) return;
 
-    generateChunk(chunkI, chunkJ, chunk, realm, notifyNewChunk);
+    queueGenerateChunkAttrs(chunkI, chunkJ, chunk, realm, notifyNewChunk);
     newChunkIJs.add([chunkI, chunkJ]);
     newChunks.push([chunkI, chunkJ, chunk]);
   });
@@ -127,18 +126,34 @@ function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2, notifyNewChunk: (
   )).filter(
     ([_i, _j, chunk]) => chunk
   ).forEach(([chunkI, chunkJ, chunk]) => {
-    generateChunk(chunkI, chunkJ, chunk, realm, notifyNewChunk);
+    queueGenerateChunkAttrs(chunkI, chunkJ, chunk, realm, notifyNewChunk);
   });
 }
 
-function generateChunk(chunkI: number, chunkJ: number, chunk: Chunk, realm: Realm, notifyNewChunk: (value: ChunkGenerationResult) => void) {
-  const attributeArrays = chunkAttributeArrays(chunkI, chunkJ, realm.obj.chunks);
-  chunk.attributesGenerated = true;
+const generatingChunkQueue: GeneratedChunk[] = [];
 
-  notifyNewChunk(Comlink.transfer({
-    chunkI, chunkJ,
-    cellEntries: chunk.cells.entries(),
-    textureUrl: chunk.textureUrl,
-    attributeArrays,
-  }, [attributeArrays.positions, attributeArrays.uvs]));
+function queueGenerateChunkAttrs(chunkI: number, chunkJ: number, chunk: Chunk, realm: Realm, notifyNewChunk: (value: ChunkGenerationResult) => void) {
+  generatingChunkQueue.push([chunkI, chunkJ, chunk]);
+
+  if (generatingChunkQueue.length > 1) return;
+  generateChunkAttrs(realm, notifyNewChunk);
+}
+
+function generateChunkAttrs(realm: Realm, notifyNewChunk: (value: ChunkGenerationResult) => void) {
+  setTimeout(() => {
+    if (generatingChunkQueue.length <= 0) return;
+    const [chunkI, chunkJ, chunk] = generatingChunkQueue.shift();
+
+    const attributeArrays = chunkAttributeArrays(chunkI, chunkJ, realm.obj.chunks);
+    chunk.attributesGenerated = true;
+
+    notifyNewChunk(Comlink.transfer({
+      chunkI, chunkJ,
+      cellEntries: chunk.cells.entries(),
+      textureUrl: chunk.textureUrl,
+      attributeArrays,
+    }, [attributeArrays.positions, attributeArrays.uvs]));
+
+    generateChunkAttrs(realm, notifyNewChunk);
+  });
 }

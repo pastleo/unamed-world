@@ -1,15 +1,12 @@
 import * as THREE from 'three';
 import { Game } from './game';
 import Obj from './obj/obj';
-import { Chunk, Cell } from './obj/chunk';
+import { Cell } from './obj/chunk';
 import { initSprite } from './sprite';
-import { calcChunkMesh, reCalcChunkSubObjs } from './obj/chunk';
+import { createChunkMesh, reCalcChunkSubObjs } from './obj/chunk';
 import Map2D from './utils/map2d';
-import { Vec2, rangeVec2s } from './utils/utils';
-import SetVec2 from './utils/setVec2';
-import { service as realmService, listenToNextGeneratedChunk } from './services/realm';
-
-import { CHUNK_SIZE } from './consts';
+import { Vec2 } from './utils/utils';
+import { service as realmService, listenToNextGeneratedChunk, ChunkGenerationResult } from './services/realm';
 
 import { createDevRealm } from './dev-data';
 
@@ -22,82 +19,26 @@ export interface Realm {
   ];
 }
 
-const AUTO_GENERATION_RANGE = 4;
-
-export function create(): Realm {
+export async function create(): Promise<Realm> {
   const realm = createDevRealm();
-  generateRealmChunk(realm, [0, 0]);
 
-  (async () => {
-    console.log(realmService);
-    console.log('[main] start');
-    await realmService.create();
-    console.log('[main] triggerRealmGeneration on [0, 0]');
-    realmService.triggerRealmGeneration([0, 0]);
-
-    listenToNextGeneratedChunk(result => {
-      console.log('[main] listenToNextGeneratedChunk', result);
-    });
-
-    setTimeout(() => {
-      console.log('[main] triggerRealmGeneration on [0, 1]');
-      realmService.triggerRealmGeneration([0, 1]);
-    }, 7000);
-  })();
+  await realmService.create();
 
   return realm;
 }
 
-const CELL_MIDDLE_PERCENTAGE_OFFSET = 1 / (CHUNK_SIZE * 2);
-type GeneratedChunk = [chunkI: number, chunkJ: number, chunk: Chunk];
-function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2): GeneratedChunk[] {
-  const newChunks: GeneratedChunk[] = [];
-  rangeVec2s(centerChunkIJ, AUTO_GENERATION_RANGE).forEach(([chunkI, chunkJ]) => {
-    const chunk = realm.obj.chunks.get(chunkI, chunkJ);
-    if (chunk) return;
-    const upChunk = realm.obj.chunks.get(chunkI, chunkJ + 1)
-    const bottomChunk = realm.obj.chunks.get(chunkI, chunkJ - 1)
-    const leftChunk = realm.obj.chunks.get(chunkI - 1, chunkJ)
-    const rightChunk = realm.obj.chunks.get(chunkI + 1, chunkJ)
-
-    const cells = new Map2D<Cell>((i, j) => {
-      const upEdgeCell = upChunk?.cells.get(i, 0);
-      const bottomEdgeCell = bottomChunk?.cells.get(i, CHUNK_SIZE - 1);
-      const leftEdgeCell = leftChunk?.cells.get(CHUNK_SIZE - 1, j);
-      const rightEdgeCell = rightChunk?.cells.get(0, j);
-
-      const cellCoordPercentage = [i / CHUNK_SIZE, j / CHUNK_SIZE].map(p => p + CELL_MIDDLE_PERCENTAGE_OFFSET);
-      const [zSum, zDivideFactor] = ([
-        [upEdgeCell, 1 - cellCoordPercentage[1]],
-        [bottomEdgeCell, cellCoordPercentage[1]],
-        [leftEdgeCell, 1 - cellCoordPercentage[0]],
-        [rightEdgeCell, cellCoordPercentage[0]],
-      ] as [Cell, number][]).filter(
-        ([cell]) => cell
-      ).reduce<[number, number]>(
-        ([zSum, zDivideFactor], [cell, p]) => ([zSum + cell.z * p, zDivideFactor + p]),
-        [0, 0],
-      );
-
-      return { z: zSum / zDivideFactor, flatness: 0.5 };
-    }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
-
-    const newChunk: Chunk = {
-      cells,
-      textureUrl: (upChunk || bottomChunk || leftChunk || rightChunk).textureUrl,
-      subObjs: [],
-    }
-
-    realm.obj.chunks.put(chunkI, chunkJ, newChunk);
-    newChunks.push([chunkI, chunkJ, newChunk]);
+export function addToScene(realm: Realm, loader: THREE.TextureLoader, game: Game) {
+  listenToNextGeneratedChunk(result => {
+    handleNextGeneratedChunk(result, realm, loader, game);
   });
 
-  return newChunks;
-}
+  realmService.triggerRealmGeneration([0, 0]);
 
-export function addToScene(realm: Realm, loader: THREE.TextureLoader, game: Game) {
-  realm.obj.chunks.entries().forEach(([[i, j], chunk]) => {
-    addChunkToScene(i, j, chunk, realm, loader, game);
+  realm.obj.chunks.entries().forEach(([_, chunk]) => {
+    reCalcChunkSubObjs(chunk, realm.obj, (subObj, located) => {
+      initSprite(subObj, realm.obj, loader, located);
+      game.scene.add(subObj.sprite);
+    });
   });
 
   const backgroundLoader = new THREE.CubeTextureLoader();
@@ -106,51 +47,31 @@ export function addToScene(realm: Realm, loader: THREE.TextureLoader, game: Game
   game.scene.rotation.x = -Math.PI / 2; // because our z is normal coord system's y
 }
 
-function addChunkToScene(chunkI: number, chunkJ: number, chunk: Chunk, realm: Realm, loader: THREE.TextureLoader, game: Game) {
-  calcChunkMesh(chunk, chunkI, chunkJ, realm.obj.chunks, loader);
+function handleNextGeneratedChunk(result: ChunkGenerationResult, realm: Realm, loader: THREE.TextureLoader, game: Game) {
+  const { chunkI, chunkJ, cellEntries, textureUrl, attributeArrays } = result;
+
+  const cells = Map2D.fromEntries<Cell>(cellEntries);
+
+  let chunk = realm.obj.chunks.get(chunkI, chunkJ);
+  if (chunk) {
+    chunk.cells = cells;
+    chunk.textureUrl = textureUrl;
+  } else {
+    chunk = {
+      cells, textureUrl, subObjs: [],
+    }
+  }
+
+  if (chunk.mesh) {
+    chunk.mesh.removeFromParent();
+  }
+
+  chunk.mesh = createChunkMesh(chunk, chunkI, chunkJ, attributeArrays, loader);
   game.scene.add(chunk.mesh);
-  reCalcChunkSubObjs(chunk, realm.obj, (subObj, located) => {
-    initSprite(subObj, realm.obj, loader, located);
-    game.scene.add(subObj.sprite);
-  });
 }
 
-export function triggerRealmGeneration(realm: Realm, centerChunkIJ: Vec2, game: Game) {
-  const newChunks = generateRealmChunk(realm, centerChunkIJ);
-  if (newChunks.length <= 0) return;
-
-  const newChunkIJs = new SetVec2();
-
-  const loader = new THREE.TextureLoader();
-  newChunks.forEach(([i, j, chunk]) => {
-    addChunkToScene(i, j, chunk, realm, loader, game);
-
-    newChunkIJs.add([i, j]);
-  });
-
-  const reCalcChunkIJs = new SetVec2();
-  newChunks.forEach(([chunkI, chunkJ]) => {
-    [
-      [-1, -1], [-1, 0], [-1, 1],
-      [0, -1],           [0, 1],
-      [1, -1], [1, 0], [1, 1],
-    ].forEach(([dI, dJ]) => {
-      const ij: Vec2 = [chunkI + dI, chunkJ + dJ];
-
-      if (!newChunkIJs.has(ij)) {
-        reCalcChunkIJs.add(ij);
-      }
-    });
-  });
-
-  reCalcChunkIJs.values().map(([chunkI, chunkJ]) => (
-    [chunkI, chunkJ, realm.obj.chunks.get(chunkI, chunkJ)] as [number, number, Chunk]
-  )).filter(
-    ([_i, _j, chunk]) => chunk
-  ).forEach(([chunkI, chunkJ, chunk]) => {
-    calcChunkMesh(chunk, chunkI, chunkJ, realm.obj.chunks, loader);
-    game.scene.add(chunk.mesh);
-  });
+export function triggerRealmGeneration(_realm: Realm, centerChunkIJ: Vec2, _game: Game) {
+  realmService.triggerRealmGeneration(centerChunkIJ);
 }
 
 // TODO:
