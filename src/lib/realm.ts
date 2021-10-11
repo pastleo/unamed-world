@@ -44,7 +44,7 @@ export function addToScene(realm: Realm, loader: THREE.TextureLoader, game: Game
   const backgroundLoader = new THREE.CubeTextureLoader();
   const texture = backgroundLoader.load(realm.backgrounds);
   game.scene.background = texture;
-  game.scene.rotation.x = -Math.PI / 2; // because our z is normal coord system's y
+  //game.scene.rotation.x = -Math.PI / 2; // because our z is normal coord system's y
 }
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, realm: Realm, loader: THREE.TextureLoader, game: Game) {

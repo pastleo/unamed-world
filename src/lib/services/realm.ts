@@ -33,10 +33,8 @@ function startService(): RealmService {
   return {
     create: () => {
       realm = createDevRealm();
-      console.log('[realm service] realm created:', realm);
     },
     triggerRealmGeneration: (centerChunkIJ: Vec2) => {
-      console.log('[realm service] triggerRealmGeneration', centerChunkIJ);
       generateRealmChunk(realm, centerChunkIJ, notifyNewChunk);
     },
     nextGeneratedChunk,
@@ -75,11 +73,11 @@ function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2, notifyNewChunk: (
       ] as [Cell, number][]).filter(
         ([cell]) => cell
       ).reduce<[number, number]>(
-        ([zSum, zDivideFactor], [cell, p]) => ([zSum + cell.z * p, zDivideFactor + p]),
+        ([zSum, zDivideFactor], [cell, p]) => ([zSum + cell.altitude * p, zDivideFactor + p]),
         [0, 0],
       );
 
-      return { z: zSum / zDivideFactor, flatness: 0.5 };
+      return { altitude: zSum / zDivideFactor, flatness: 0.5 };
     }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
     const newChunk: Chunk = {
@@ -133,6 +131,7 @@ function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2, notifyNewChunk: (
 const generatingChunkQueue: GeneratedChunk[] = [];
 
 function queueGenerateChunkAttrs(chunkI: number, chunkJ: number, chunk: Chunk, realm: Realm, notifyNewChunk: (value: ChunkGenerationResult) => void) {
+  chunk.attributesGenerated = true;
   generatingChunkQueue.push([chunkI, chunkJ, chunk]);
 
   if (generatingChunkQueue.length > 1) return;
@@ -145,7 +144,6 @@ function generateChunkAttrs(realm: Realm, notifyNewChunk: (value: ChunkGeneratio
     const [chunkI, chunkJ, chunk] = generatingChunkQueue.shift();
 
     const attributeArrays = chunkAttributeArrays(chunkI, chunkJ, realm.obj.chunks);
-    chunk.attributesGenerated = true;
 
     notifyNewChunk(Comlink.transfer({
       chunkI, chunkJ,

@@ -6,8 +6,9 @@ export interface Camera {
   cameraBase: THREE.Object3D;
   cameraAngleBase: THREE.Object3D;
 }
-const INIT_CAMERA_ANGLE = 45 * Math.PI / 180;
-const MAX_CAMERA_ANGLE = 60 * Math.PI / 180;
+const INIT_CAMERA_ANGLE = -45 * Math.PI / 180;
+const MAX_CAMERA_ANGLE = -30 * Math.PI / 180;
+const MIN_CAMERA_ANGLE = -90 * Math.PI / 180;
 const MIN_CAMERA_DISTANCE = 4;
 const MAX_CAMERA_DISTANCE = 32;
 
@@ -31,22 +32,20 @@ export function resize(width: number, height: number, camera: Camera) {
   camera.camera.updateProjectionMatrix();
 }
 
-export function moveCameraAngle(xyRotations: Vec2, camera: Camera): void {
-  camera.cameraAngleBase.rotation.x += xyRotations[1];
+export function moveCameraAngle(xzRotations: Vec2, camera: Camera): void {
+  camera.cameraAngleBase.rotation.x += xzRotations[1];
   if (camera.cameraAngleBase.rotation.x > MAX_CAMERA_ANGLE) {
     camera.cameraAngleBase.rotation.x = MAX_CAMERA_ANGLE;
-  } else if (camera.cameraAngleBase.rotation.x < 0) {
-    camera.cameraAngleBase.rotation.x = 0;
+  } else if (camera.cameraAngleBase.rotation.x < MIN_CAMERA_ANGLE) {
+    camera.cameraAngleBase.rotation.x = MIN_CAMERA_ANGLE;
   }
-  camera.cameraBase.rotation.z += xyRotations[0];
+  camera.cameraBase.rotation.y += xzRotations[0];
 }
 
-export function moveCameraPosition(movedVec: Vec2 | Vec3, camera: Camera): void {
+export function moveCameraPosition(movedVec: Vec3, camera: Camera): void {
   camera.cameraBase.position.x += movedVec[0];
   camera.cameraBase.position.y += movedVec[1];
-  if (movedVec.length >= 3) {
-    camera.cameraBase.position.z += movedVec[2];
-  }
+  camera.cameraBase.position.z += movedVec[2];
 }
 
 export function adjCameraDistance(distanceDelta: number, camera: Camera): void {
@@ -59,8 +58,8 @@ export function adjCameraDistance(distanceDelta: number, camera: Camera): void {
 }
 
 export function vecAfterCameraRotation(vec: Vec2, camera: Camera): Vec2 {
-  const cos = Math.cos(camera.cameraBase.rotation.z);
-  const sin = Math.sin(camera.cameraBase.rotation.z);
+  const cos = Math.cos(camera.cameraBase.rotation.y);
+  const sin = Math.sin(camera.cameraBase.rotation.y);
   return [
     vec[0] * cos - vec[1] * sin,
     vec[0] * sin + vec[1] * cos,

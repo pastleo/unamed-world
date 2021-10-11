@@ -3,7 +3,7 @@ import Obj from './obj';
 import { SubObj, addSubObj } from './subObj';
 import Map2D from '../utils/map2d';
 import {
-  averagePresentNumbers, step, mod,
+  Vec3, averagePresentNumbers, step, mod, add,
 } from '../utils/utils';
 import { CHUNK_SIZE, CELL_STEPS } from '../consts';
 
@@ -17,7 +17,7 @@ export interface Chunk {
 }
 
 export interface Cell {
-  z: number;
+  altitude: number;
   flatness: number;
   //sharpness: number;
   //uv: [number, number];
@@ -55,7 +55,7 @@ export function createChunkMesh(chunk: Chunk, chunkI: number, chunkJ: number, at
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.x = chunkI * CHUNK_SIZE;
-  mesh.position.y = chunkJ * CHUNK_SIZE;
+  mesh.position.z = chunkJ * CHUNK_SIZE;
   return mesh;
 }
 
@@ -69,19 +69,19 @@ export function reCalcChunkSubObjs(chunk: Chunk, realmObj: Obj, func: (subObj: S
   });
 }
 
-export function calcZAt(x: number, y: number, localed: Located, chunks: Map2D<Chunk>): number {
+export function calcAltitudeAt(x: number, z: number, localed: Located, chunks: Map2D<Chunk>): number {
   const [cell, cellI, cellJ, _chunk, chunkI, chunkJ] = localed;
 
   const offsetI = Math.floor((x + CELL_OFFSET) * 2) - Math.floor(x + CELL_OFFSET - 1) * 2 - 2;
-  const offsetJ = Math.floor((y + CELL_OFFSET) * 2) - Math.floor(y + CELL_OFFSET - 1) * 2 - 2;
+  const offsetJ = Math.floor((z + CELL_OFFSET) * 2) - Math.floor(z + CELL_OFFSET - 1) * 2 - 2;
 
   const cellZs = [
     getChunkCell(chunkI, chunkJ, cellI - 1 + offsetI, cellJ + 0 + offsetJ, chunks),
     getChunkCell(chunkI, chunkJ, cellI + 0 + offsetI, cellJ + 0 + offsetJ, chunks),
     getChunkCell(chunkI, chunkJ, cellI - 1 + offsetI, cellJ - 1 + offsetJ, chunks),
     getChunkCell(chunkI, chunkJ, cellI + 0 + offsetI, cellJ - 1 + offsetJ, chunks),
-  ].map(c => c ?? cell).map(c => c.z);
-  const progress = [mod(x + CELL_OFFSET + 0.5, 1), mod(y + CELL_OFFSET + 0.5, 1)];
+  ].map(c => c ?? cell).map(c => c.altitude);
+  const progress = [mod(x + CELL_OFFSET + 0.5, 1), mod(z + CELL_OFFSET + 0.5, 1)];
 
   return (
     (cellZs[0] * (1 - progress[0]) + cellZs[1] * progress[0]) * progress[1] +
@@ -90,14 +90,14 @@ export function calcZAt(x: number, y: number, localed: Located, chunks: Map2D<Ch
 }
 
 export type Located = [cell: Cell, cellI: number, cellJ: number, chunk: Chunk, chunkI: number, chunkJ: number];
-export function locateChunkCell(x: number, y: number, chunks: Map2D<Chunk>): Located {
+export function locateChunkCell(x: number, z: number, chunks: Map2D<Chunk>): Located {
   const chunkI = Math.floor((x + CHUNK_SIZE / 2) / CHUNK_SIZE);
-  const chunkJ = Math.floor((y + CHUNK_SIZE / 2) / CHUNK_SIZE);
+  const chunkJ = Math.floor((z + CHUNK_SIZE / 2) / CHUNK_SIZE);
   const chunk = chunks.get(chunkI, chunkJ);
   if (!chunk) return null;
 
   const cellI = Math.floor(x + CHUNK_SIZE / 2 - chunkI * CHUNK_SIZE);
-  const cellJ = Math.floor(y + CHUNK_SIZE / 2 - chunkJ * CHUNK_SIZE);
+  const cellJ = Math.floor(z + CHUNK_SIZE / 2 - chunkJ * CHUNK_SIZE);
 
   return [
     chunk.cells.get(cellI, cellJ),
@@ -162,41 +162,41 @@ function cellAttributeArrays(cell: Cell, chunkI: number, chunkJ: number, i: numb
     getChunkCell(chunkI, chunkJ, i + 1, j - 1, chunks), // right bottom
   ];
 
-  const cornerZ = [
+  const cornerAltitude = [
     averagePresentNumbers(
-      neighbors[0]?.z, neighbors[1]?.z, neighbors[3]?.z, neighbors[4]?.z,
+      neighbors[0]?.altitude, neighbors[1]?.altitude, neighbors[3]?.altitude, neighbors[4]?.altitude,
     ),
     averagePresentNumbers(
-      neighbors[1]?.z, neighbors[2]?.z, neighbors[4]?.z, neighbors[5]?.z,
+      neighbors[1]?.altitude, neighbors[2]?.altitude, neighbors[4]?.altitude, neighbors[5]?.altitude,
     ),
     averagePresentNumbers(
-      neighbors[3]?.z, neighbors[4]?.z, neighbors[6]?.z, neighbors[7]?.z,
+      neighbors[3]?.altitude, neighbors[4]?.altitude, neighbors[6]?.altitude, neighbors[7]?.altitude,
     ),
     averagePresentNumbers(
-      neighbors[4]?.z, neighbors[5]?.z, neighbors[7]?.z, neighbors[8]?.z,
+      neighbors[4]?.altitude, neighbors[5]?.altitude, neighbors[7]?.altitude, neighbors[8]?.altitude,
     ),
   ];
 
-  const positionOffset = [-CHUNK_SIZE / 2 + 0.5, -CHUNK_SIZE / 2 + 0.5, 0];
+  const positionOffset = [-CHUNK_SIZE / 2 + 0.5, 0, -CHUNK_SIZE / 2 + 0.5] as Vec3;
   const uvOffset = [0.5, 0.5];
-  const centerPosition = [i + positionOffset[0], j + positionOffset[1], cell.z + positionOffset[2]] as [number, number, number];
+  const centerPosition = add([i, cell.altitude, j] as Vec3, positionOffset);
   const centerPoint: Point = {
     position: centerPosition,
-    uv: [(centerPosition[0] + uvOffset[0]) / CHUNK_SIZE, (centerPosition[1] + uvOffset[1]) / CHUNK_SIZE]
+    uv: [(centerPosition[0] + uvOffset[0]) / CHUNK_SIZE, (centerPosition[2] + uvOffset[1]) / CHUNK_SIZE]
   };
   const points: Point[][] = [[-1, 1], [1, 1], [-1, -1], [1, -1]].map((signs, cornerI) => {
     const bezierPoints = [
       centerPoint.position,
-      [
-        i + cell.flatness * 0.5 * signs[0] + positionOffset[0],
-        j + cell.flatness * 0.5 * signs[1] + positionOffset[1],
-        cell.z + positionOffset[2],
-      ],
-      [
-        i + 0.5 * signs[0] + positionOffset[0],
-        j + 0.5 * signs[1] + positionOffset[1],
-        cornerZ[cornerI] + positionOffset[2],
-      ],
+      add([
+        i + cell.flatness * 0.5 * signs[0],
+        cell.altitude,
+        j + cell.flatness * 0.5 * signs[1],
+      ], positionOffset),
+      add([
+        i + 0.5 * signs[0],
+        cornerAltitude[cornerI],
+        j + 0.5 * signs[1],
+      ], positionOffset),
     ];
 
     return Array(CELL_STEPS).fill(null).map(
@@ -213,7 +213,7 @@ function cellAttributeArrays(cell: Cell, chunkI: number, chunkJ: number, i: numb
           position,
           uv: [
             (position[0] + uvOffset[0]) / CHUNK_SIZE,
-            (position[1] + uvOffset[1]) / CHUNK_SIZE,
+            (position[2] + uvOffset[1]) / CHUNK_SIZE,
           ],
         };
       }
@@ -222,31 +222,31 @@ function cellAttributeArrays(cell: Cell, chunkI: number, chunkJ: number, i: numb
 
   const positions = [[0, 1], [1, 3], [3, 2], [2, 0]].flatMap(cornerIs => ([
     centerPoint.position,
-    points[cornerIs[1]][0].position,
     points[cornerIs[0]][0].position,
+    points[cornerIs[1]][0].position,
     ...Array(CELL_STEPS - 1).fill(null).map((_, i) => i + 1).flatMap(i => ([
       points[cornerIs[0]][i-1].position,
-      points[cornerIs[1]][i-1].position,
       points[cornerIs[0]][i].position,
+      points[cornerIs[1]][i-1].position,
 
       points[cornerIs[0]][i].position,
-      points[cornerIs[1]][i-1].position,
       points[cornerIs[1]][i].position,
+      points[cornerIs[1]][i-1].position,
     ]))
   ])).flat();
 
   const uvs = [[0, 1], [1, 3], [3, 2], [2, 0]].flatMap(cornerIs => ([
     centerPoint.uv,
-    points[cornerIs[1]][0].uv,
     points[cornerIs[0]][0].uv,
+    points[cornerIs[1]][0].uv,
     ...Array(CELL_STEPS - 1).fill(null).map((_, i) => i + 1).flatMap(i => ([
       points[cornerIs[0]][i-1].uv,
-      points[cornerIs[1]][i-1].uv,
       points[cornerIs[0]][i].uv,
+      points[cornerIs[1]][i-1].uv,
 
       points[cornerIs[0]][i].uv,
-      points[cornerIs[1]][i-1].uv,
       points[cornerIs[1]][i].uv,
+      points[cornerIs[1]][i-1].uv,
     ]))
   ])).flat();
 

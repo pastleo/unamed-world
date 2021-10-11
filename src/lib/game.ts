@@ -49,7 +49,7 @@ export async function setup(): Promise<Game> {
   addPlayerToRealm(player, loader, game);
   startListeners(game.input, game);
 
-  camera.cameraBase.position.z = player.mounting.sprite.position.z;
+  camera.cameraBase.position.y = player.mounting.sprite.position.y;
 
   // ===============
 

@@ -90,18 +90,18 @@ export function createDevChunk(cellData: number[], textureUrl: string, subObjs: 
   const [up, down, left, right] = borderOption || [false, false, false, false];
 
   const cells = new Map2D<Cell>((i, j) => {
-    let z = cellData[j * CHUNK_SIZE + i] || 0;
+    let altitude = cellData[j * CHUNK_SIZE + i] || 0;
     if (
       (j === (CHUNK_SIZE - 1) && up) ||
       (j === 0 && down) ||
       (i === 0 && left) ||
       (i === (CHUNK_SIZE - 1) && right)
     ) {
-      z = borderZ;
+      altitude = borderZ;
     }
 
     return (
-      { z, flatness: 0.5 }
+      { altitude, flatness: 0.5 }
     )
   }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
@@ -114,7 +114,7 @@ export function createDevChunk(cellData: number[], textureUrl: string, subObjs: 
 
 export function createRndChunk(textureUrl: string, subObjs: SubObj[] = []): Chunk {
   const cells = new Map2D<Cell>((_i, _j) => (
-    { z: Math.random(), flatness: 0.5 }
+    { altitude: Math.random(), flatness: 0.5 }
   ), 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
   return {

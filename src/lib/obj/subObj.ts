@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import Obj from './obj';
-import { Chunk, locateChunkCell, calcZAt, Located } from './chunk';
+import { Chunk, locateChunkCell, calcAltitudeAt, Located } from './chunk';
 import Map2D from '../utils/map2d';
 import { Vec2, Vec3, add } from '../utils/utils';
 
@@ -26,15 +26,15 @@ export interface SubObj {
   afterMovingTimeout?: ReturnType<typeof setTimeout>;
 }
 
-export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number, locatedArg?: Located): SubObj {
-  const located = locatedArg || locateChunkCell(x, y, realmObj.chunks);
+export function addSubObj(obj: Obj, realmObj: Obj, x: number, z: number, locatedArg?: Located): SubObj {
+  const located = locatedArg || locateChunkCell(x, z, realmObj.chunks);
   const [_cell, cellI, cellJ, chunk, chunkI, chunkJ] = located;
 
   const subObj: SubObj = {
     obj,
     cellI, cellJ,
     chunkI, chunkJ,
-    position: [x, y, 0] as Vec3,
+    position: [x, 0, z] as Vec3,
     rotation: [0, 0, 0] as Vec3,
     state: subObjState.normal,
   };
@@ -46,8 +46,8 @@ export function addSubObj(obj: Obj, realmObj: Obj, x: number, y: number, located
 export function moveSubObj(
   subObj: SubObj, vec: Vec2, chunks: Map2D<Chunk>
 ) {
-  const newPosition = add(subObj.position, [...vec, 0]);
-  const located = locateChunkCell(newPosition[0], newPosition[1], chunks);
+  const newPosition = add(subObj.position, [vec[0], 0, vec[1]]);
+  const located = locateChunkCell(newPosition[0], newPosition[2], chunks);
 
   const [_cell, cellI, cellJ, chunk, chunkI, chunkJ] = located;
 
@@ -68,7 +68,6 @@ export function moveSubObj(
 
 export function calcSubObjLocalPos(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {
   subObj.sprite.position.x = subObj.position[0];
-  subObj.sprite.position.y = subObj.position[1];
-  const z = calcZAt(subObj.position[0], subObj.position[1], localed, chunks) + subObj.obj.tall;
-  subObj.sprite.position.z = z;
+  subObj.sprite.position.y = calcAltitudeAt(subObj.position[0], subObj.position[2], localed, chunks) + subObj.obj.tall;
+  subObj.sprite.position.z = subObj.position[2];
 }

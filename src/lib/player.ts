@@ -14,9 +14,6 @@ export interface Player {
   obj: Obj;
 
   mounting?: SubObj;
-  moveTarget?: Vec2;
-  moveTargetDistance?: number;
-  afterMovingTimeout?: ReturnType<typeof setTimeout>;
   chunkI?: number;
   chunkJ?: number;
 }
@@ -36,7 +33,7 @@ export function addToRealm(player: Player, loader: THREE.TextureLoader, game: Ga
 
 export function update(player: Player, _tDiff: number, game: Game) {
   if (player.mounting.moveTarget) {
-    game.camera.cameraBase.position.z = player.mounting.sprite.position.z;
+    game.camera.cameraBase.position.y = player.mounting.sprite.position.y;
   }
   if (player.chunkI !== player.mounting.chunkI || player.chunkJ !== player.mounting.chunkJ) {
     player.chunkI = player.mounting.chunkI;

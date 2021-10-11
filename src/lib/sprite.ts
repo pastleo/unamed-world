@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { Game } from './game';
 import Obj from './obj/obj';
 import { SubObj, addSubObj } from './obj/subObj';
-import { calcZAt, Chunk, Located, locateChunkCell } from './obj/chunk';
-import { Vec2 } from './utils/utils';
+import { calcAltitudeAt, Chunk, Located, locateChunkCell } from './obj/chunk';
+import { Vec2, mod } from './utils/utils';
 import Map2D from './utils/map2d';
 
 type SpriteAnimation = [start: number, end: number];
@@ -19,9 +19,9 @@ export interface SpriteSheetMaterial {
   walking?: SpriteStateAnimation;
 }
 
-export function createSubObjSprite(obj: Obj, realmObj: Obj, x: number, y: number, loader: THREE.TextureLoader): SubObj {
-  const located = locateChunkCell(x, y, realmObj.chunks);
-  const subObj = addSubObj(obj, realmObj, x, y, located);
+export function createSubObjSprite(obj: Obj, realmObj: Obj, x: number, z: number, loader: THREE.TextureLoader): SubObj {
+  const located = locateChunkCell(x, z, realmObj.chunks);
+  const subObj = addSubObj(obj, realmObj, x, z, located);
   initSprite(subObj, realmObj, loader, located);
 
   return subObj;
@@ -39,9 +39,8 @@ export function initSprite(subObj: SubObj, realmObj: Obj, loader: THREE.TextureL
 
 function updateSpritePosition(subObj: SubObj, localed: Located, chunks: Map2D<Chunk>) {
   subObj.sprite.position.x = subObj.position[0];
-  subObj.sprite.position.y = subObj.position[1];
-  const z = calcZAt(subObj.position[0], subObj.position[1], localed, chunks) + subObj.obj.tall;
-  subObj.sprite.position.z = z;
+  subObj.sprite.position.y = calcAltitudeAt(subObj.position[0], subObj.position[1], localed, chunks) + subObj.obj.tall;
+  subObj.sprite.position.z = subObj.position[2];
 }
 
 function initSpriteTexture(spriteSheetMaterial: SpriteSheetMaterial, texture: THREE.Texture, subObj: SubObj) {
@@ -62,13 +61,16 @@ export function setSpriteTexture(spriteSheetMaterial: SpriteSheetMaterial, textu
   const time = game?.time || 0;
 
   const animation = spriteSheetMaterial[subObj.state] || spriteSheetMaterial.normal;
-  const zRotation = (subObj.rotation[2] - game?.camera.cameraBase.rotation.z + Math.PI * 2) % (Math.PI * 2);
-  if (zRotation < Math.PI * 0.472 || zRotation > Math.PI * 1.527) {
+  const viewedRotationDeg = mod(Math.floor(
+    (subObj.rotation[1] + (game?.camera.cameraBase.rotation.y || 0)) / Math.PI * 180
+  ), 360);
+
+  if (viewedRotationDeg > 5 && viewedRotationDeg < 175) {
     texture.repeat.set(
       1/spriteSheetMaterial.colRow[0],
       1/spriteSheetMaterial.colRow[1],
     );
-  } else if (zRotation > Math.PI * 0.527 && zRotation < Math.PI * 1.472) {
+  } else if (viewedRotationDeg > 185 && viewedRotationDeg < 355) {
     texture.repeat.set(
       -1/spriteSheetMaterial.colRow[0],
       1/spriteSheetMaterial.colRow[1],
