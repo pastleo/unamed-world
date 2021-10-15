@@ -158,7 +158,6 @@ export function startListeners(input: Input, game: Game) {
       input.touchmove = true;
 
       movePlayer(
-        game.player,
         multiply(
           vecAfterCameraRotation(
             [preOffsetX - offsetX, offsetY - preOffsetY],
@@ -249,7 +248,7 @@ export function update(input: Input, tDiff: number, game: Game) {
   }
 
   if (inputVec[0] !== 0 || inputVec[1] !== 0) {
-    movePlayer(game.player, multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01), game);
+    movePlayer(multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01), game);
   }
 }
 

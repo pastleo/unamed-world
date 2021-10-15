@@ -18,14 +18,15 @@ class ECS<ComponentMapT extends Record<string, any>> {
   }
 
   deallocate(ref: EntityRef): boolean {
-    const [index] = ref;
     const entity = this.getEntity(ref);
+    const [index] = ref;
 
     if (!entity) return false;
 
     entity.alive = false;
     this.freeIndices.push(index);
 
+    // garbage collect
     Object.entries(this.entityComponents).forEach(([_, array]) => {
       array.rm(index);
     });
@@ -68,6 +69,7 @@ class ECS<ComponentMapT extends Record<string, any>> {
   }
 
   private getEntity(ref: EntityRef): Entity | null {
+    if (!Array.isArray(ref)) return null;
     const [index, generation] = ref;
     const entity = this.entities[index];
     if (!entity || !entity.alive || entity.generation !== generation) {
@@ -120,4 +122,8 @@ class GenerationalArray<T> {
       [index, this.generations[index], value]
     ));
   }
+}
+
+export function entityEqual(e1: EntityRef, e2: EntityRef): boolean {
+  return e1[0] === e2[0] && e1[1] === e2[1];
 }

@@ -1,7 +1,11 @@
+import { GameECS } from './gameECS';
+
+import { EntityRef } from './utils/ecs';
+
 import Obj from './obj/obj';
 import { Cell, Chunk } from './obj/chunk';
 import { SubObj, subObjState } from './obj/subObj';
-import { Realm } from './realm';
+import { Realm } from './ori/realm';
 import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
 import { Vec3 } from './utils/utils';
@@ -29,6 +33,51 @@ const DEV_CHUNK_DATA_2 = [
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
 ];
+
+export const backgrounds = [
+  'assets/skybox/pos-x.png',
+  'assets/skybox/neg-x.png',
+  'assets/skybox/pos-y.png',
+  'assets/skybox/neg-y.png',
+  'assets/skybox/pos-z.png',
+  'assets/skybox/neg-z.png',
+] as [string, string, string, string, string, string];
+
+export const heroObjSpriteComponents = [
+  ['obj', { id: 'hero-1' }],
+  ['obj/sprite', {
+    url: 'assets/hero.png',
+    eightBitStyle: true,
+    colRow: [6, 5],
+    stateAnimations: {
+      normal: {
+        animations: [[0, 1]],
+        speed: 500,
+      },
+      walking: {
+        animations: [[6, 11]],
+        speed: 200,
+      },
+    },
+    tall: 1,
+  }],
+  ['obj/walkable', {
+    radius: 0.5,
+    speed: 4,
+    maxClimbRad: Math.PI * 0.3,
+  }]
+];
+
+export function loadPlayerObjSpriteComponents(ecs: GameECS): EntityRef {
+  const objEntity = ecs.allocate();
+  heroObjSpriteComponents.forEach(([ componentName, component ]) => {
+    ecs.setComponent(objEntity, componentName as any, component as any);
+    // TODO: when implementing restore feature, validation is required
+  });
+
+  return objEntity
+}
+
 export function createDevRealm(): Realm {
   const chunks = new Map2D<Chunk>();
 
@@ -74,14 +123,7 @@ export function createDevRealm(): Realm {
       radius: 1,
       tall: 0,
     },
-    backgrounds: [
-      'assets/skybox/pos-x.png',
-      'assets/skybox/neg-x.png',
-      'assets/skybox/pos-y.png',
-      'assets/skybox/neg-y.png',
-      'assets/skybox/pos-z.png',
-      'assets/skybox/neg-z.png',
-    ]
+    backgrounds,
   }
 }
 

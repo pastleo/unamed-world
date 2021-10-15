@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Game } from './game';
 import { Vec2, Vec3 } from './utils/utils';
 
 export interface Camera {
@@ -12,7 +13,7 @@ const MIN_CAMERA_ANGLE = -90 * Math.PI / 180;
 const MIN_CAMERA_DISTANCE = 4;
 const MAX_CAMERA_DISTANCE = 32;
 
-export function create(): Camera {
+export function init(): Camera {
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
   const cameraBase = new THREE.Object3D();
   const cameraAngleBase = new THREE.Object3D();
@@ -25,6 +26,10 @@ export function create(): Camera {
   return {
     camera, cameraBase, cameraAngleBase
   }
+}
+
+export function addToScene(camera: Camera, game: Game) {
+  game.scene.add(camera.cameraBase);
 }
 
 export function resize(width: number, height: number, camera: Camera) {
@@ -40,6 +45,16 @@ export function moveCameraAngle(xzRotations: Vec2, camera: Camera): void {
     camera.cameraAngleBase.rotation.x = MIN_CAMERA_ANGLE;
   }
   camera.cameraBase.rotation.y += xzRotations[0];
+}
+
+export function setCameraPosition(position: Vec3, camera: Camera): void {
+  camera.cameraBase.position.x = position[0];
+  camera.cameraBase.position.y = position[1];
+  camera.cameraBase.position.z = position[2];
+}
+
+export function setCameraPositionY(y: number, camera: Camera): void {
+  camera.cameraBase.position.y = y;
 }
 
 export function moveCameraPosition(movedVec: Vec3, camera: Camera): void {

@@ -70,3 +70,11 @@ export function averagePresentNumbers(...ns: number[]): number {
 export function step(vecA: number[], vecB: number[], progress: number) {
   return vecA.map((va, i) => va * (1 - progress) + vecB[i] * progress);
 }
+
+export function warnIfNotPresent(...values: any[]) {
+  if (values.findIndex(v => v === null || v === undefined) >= 0) {
+    console.warn('values should present but null or undefined detected, values:', values)
+    return true; // for caller to if (warnIfNotPresent(...)) return;
+  }
+  return false;
+}

@@ -1,12 +1,12 @@
 import * as Comlink from 'comlink';
 
-import { Realm } from '../realm';
+import { Realm } from '../ori/realm';
 import { Chunk, Cell, AttributeArrays, chunkAttributeArrays } from '../obj/chunk';
 import { Vec2, rangeVec2s } from '../utils/utils';
 import SetVec2 from '../utils/setVec2';
 import Map2D from '../utils/map2d';
 import { CHUNK_SIZE } from '../consts';
-import { spawnService, createServiceNextValueFn, createListenToServiceFn } from '../utils/service';
+import { spawnWorker, createWorkerNextValueFn, createListenToWorkerFn } from '../utils/worker';
 
 import { createDevRealm } from '../dev-data';
 
@@ -20,15 +20,15 @@ export interface ChunkGenerationResult {
   attributeArrays: AttributeArrays;
 }
 
-interface RealmService {
+export interface RealmWorker {
   create: () => void;
   triggerRealmGeneration: (centerChunkIJ: Vec2) => void;
   nextGeneratedChunk: () => Promise<ChunkGenerationResult>;
 }
 
-function startService(): RealmService {
+function startWorker(): RealmWorker {
   let realm: Realm;
-  const [notifyNewChunk, nextGeneratedChunk] = createServiceNextValueFn<ChunkGenerationResult>();
+  const [notifyNewChunk, nextGeneratedChunk] = createWorkerNextValueFn<ChunkGenerationResult>();
 
   return {
     create: () => {
@@ -41,11 +41,11 @@ function startService(): RealmService {
   }
 }
 
-export default startService;
+export default startWorker;
 
-// main thread API:
-export const service = spawnService<RealmService>('realm');
-export const listenToNextGeneratedChunk = createListenToServiceFn(service?.nextGeneratedChunk);
+// deprecated:
+export const service = spawnWorker<RealmWorker>('realm');
+export const listenToNextGeneratedChunk = createListenToWorkerFn(service?.nextGeneratedChunk);
 
 const CELL_MIDDLE_PERCENTAGE_OFFSET = 1 / (CHUNK_SIZE * 2);
 type GeneratedChunk = [chunkI: number, chunkJ: number, chunk: Chunk];
