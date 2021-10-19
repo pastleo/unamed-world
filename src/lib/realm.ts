@@ -25,12 +25,15 @@ export function init(ecs: GameECS): Realm {
   const currentObj = ecs.allocate();
   const worker = spawnWorker<RealmWorker>('realm');
 
+  // TODO: built-in empty realm:
   ecs.setComponent(currentObj, 'obj/realm', {
     chunks: new Map2D(),
     backgrounds,
   });
 
-  // TODO: when implementing ECS saving/restore feature, transfer realm, chunk entities and components to worker.create()
+  // TODO: load realm asynchronously, adding subObjs
+
+  // TODO: transfer realm, chunk entities and components to worker.create()
   worker.create();
 
   return {
@@ -42,24 +45,26 @@ export function init(ecs: GameECS): Realm {
 export function addToScene(game: Game) {
   const { backgrounds } = game.ecs.getComponent(game.realm.currentObj, 'obj/realm');
 
-  listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
-    handleNextGeneratedChunk(result, game.realm, game);
-  });
+  { // TODO: await realm loading completion
+    listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
+      handleNextGeneratedChunk(result, game.realm, game);
+    });
 
-  const backgroundLoader = new THREE.CubeTextureLoader();
-  const texture = backgroundLoader.load(backgrounds);
-  game.scene.background = texture;
+    const backgroundLoader = new THREE.CubeTextureLoader();
+    const texture = backgroundLoader.load(backgrounds);
+    game.scene.background = texture;
 
-  game.realm.worker.triggerRealmGeneration([0, 0]);
+    game.realm.worker.triggerRealmGeneration([0, 0]);
+  }
 }
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, realm: Realm, game: Game) {
   const { chunks } = game.ecs.getComponent(realm.currentObj, 'obj/realm');
-  const { chunkI, chunkJ, cellEntries, textureUrl, attributeArrays } = result;
+  const { chunkIJ, cellEntries, textureUrl, attributeArrays } = result;
 
   const cells = Map2D.fromEntries<Cell>(cellEntries);
 
-  const chunkEntity = chunks.get(chunkI, chunkJ) || game.ecs.allocate();
+  const chunkEntity = chunks.get(...chunkIJ) || game.ecs.allocate();
   let chunk = game.ecs.getComponent(chunkEntity, 'chunk');
   if (chunk) {
     chunk.cells = cells;
@@ -67,14 +72,14 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, realm: Realm, g
   } else {
     chunk = {
       cells, textureUrl,
-      chunkIJ: [chunkI, chunkJ],
+      chunkIJ,
       chunkEntity,
       subObjs: [], // TODO: add subObj to scene
       persistance: false,
     }
 
     game.ecs.setComponent(chunkEntity, 'chunk', chunk);
-    chunks.put(chunkI, chunkJ, chunkEntity);
+    chunks.put(...chunkIJ, chunkEntity);
   }
 
   chunk.subObjs.forEach(subObjEntity => {
@@ -82,7 +87,7 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, realm: Realm, g
     updateSpritePosition(subObjEntity, game);
   })
 
-  createChunkMesh(chunkEntity, [chunkI, chunkJ], attributeArrays, game);
+  createChunkMesh(chunkEntity, chunkIJ, attributeArrays, game);
 }
 
 export function triggerRealmGeneration(centerChunkIJ: Vec2, game: Game) {

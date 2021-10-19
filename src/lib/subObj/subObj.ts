@@ -54,7 +54,7 @@ export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
   subObj.cellIJ = cellIJ;
 
   if (chunkIJ[0] !== subObj.chunkIJ[0] || chunkIJ[1] !== subObj.chunkIJ[1]) {
-    const oriChunk = getChunk(subObj.chunkIJ, game);
+    const oriChunk = getChunk(subObj.chunkIJ, game.realm.currentObj, game.ecs);
     const index = oriChunk.subObjs.findIndex(entity => entityEqual(entity, subObjEntity));
     oriChunk.subObjs.splice(index, 1);
     chunk.subObjs.push(subObjEntity);

@@ -1,4 +1,5 @@
 import { Game } from '../game';
+import { GameECS } from '../gameECS';
 
 import { Vec2, Vec3, mod, warnIfNotPresent } from '../utils/utils';
 import { EntityRef } from '../utils/ecs';
@@ -37,7 +38,7 @@ export function locateChunkCell(position: Vec3, game: Game): Located {
     Math.floor((position[2] + CHUNK_SIZE / 2) / CHUNK_SIZE),
   ] as Vec2;
 
-  const chunk = getChunk(chunkIJ, game);
+  const chunk = getChunk(chunkIJ, game.realm.currentObj, game.ecs);
   
   const cellIJ = [
     Math.floor(position[0] + CHUNK_SIZE / 2 - chunkIJ[0] * CHUNK_SIZE),
@@ -53,15 +54,17 @@ export function locateChunkCell(position: Vec3, game: Game): Located {
   }
 }
 
-export function getChunk(chunkIJ: Vec2, game: Game): ChunkComponent {
-  const chunks = game.ecs.getComponent(game.realm.currentObj, 'obj/realm')?.chunks;
+export function getChunk(chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS, dontAutoCreate?: boolean): ChunkComponent {
+  const chunks = ecs.getComponent(realmEntity, 'obj/realm')?.chunks;
   if (warnIfNotPresent(chunks)) return null;
 
   let chunkEntity = chunks.get(chunkIJ[0], chunkIJ[1]);
-  let chunk = game.ecs.getComponent(chunkEntity, 'chunk');
+  let chunk = ecs.getComponent(chunkEntity, 'chunk');
   
   if (!chunk) {
-    chunkEntity = game.ecs.allocate();
+    if (dontAutoCreate) return null;
+
+    chunkEntity = ecs.allocate();
     chunk = {
       cells: tmpChunkCells(),
       chunkEntity,
@@ -70,18 +73,20 @@ export function getChunk(chunkIJ: Vec2, game: Game): ChunkComponent {
       persistance: false,
       textureUrl: '',
     }
-    game.ecs.setComponent(chunkEntity, 'chunk', chunk);
+    ecs.setComponent(chunkEntity, 'chunk', chunk);
     chunks.put(chunkIJ[0], chunkIJ[1], chunkEntity);
     return chunk;
   };
   return chunk;
 }
 
-export function getChunkCell(chunkIJ: Vec2, cellIJ: Vec2, game: Game): Cell {
+export function getChunkCell(chunkIJ: Vec2, cellIJ: Vec2, realmEntity: EntityRef, ecs: GameECS, dontAutoCreate?: boolean): Cell {
   const chunkOffsetI = Math.floor(cellIJ[0] / CHUNK_SIZE);
   const chunkOffsetJ = Math.floor(cellIJ[1] / CHUNK_SIZE);
 
-  const chunk = getChunk([chunkIJ[0] + chunkOffsetI, chunkIJ[1] + chunkOffsetJ], game);
+  const chunk = getChunk([chunkIJ[0] + chunkOffsetI, chunkIJ[1] + chunkOffsetJ], realmEntity, ecs, dontAutoCreate);
+
+  if (!chunk) return null;
 
   return chunk.cells.get(
     cellIJ[0] - chunkOffsetI * CHUNK_SIZE,
@@ -95,10 +100,10 @@ export function calcAltitudeAt(position: Vec3, located: Located, game: Game): nu
   const offsetJ = Math.floor((position[2] + CELL_OFFSET) * 2) - Math.floor(position[2] + CELL_OFFSET - 1) * 2 - 2;
 
   const cellZs = [
-    getChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ + 0 + offsetJ], game),
-    getChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ + 0 + offsetJ], game),
-    getChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ - 1 + offsetJ], game),
-    getChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ - 1 + offsetJ], game),
+    getChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ + 0 + offsetJ], game.realm.currentObj, game.ecs),
+    getChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ + 0 + offsetJ], game.realm.currentObj, game.ecs),
+    getChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ - 1 + offsetJ], game.realm.currentObj, game.ecs),
+    getChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ - 1 + offsetJ], game.realm.currentObj, game.ecs),
   ].map(c => c ?? located.cell).map(c => c.altitude);
   const progress = [mod(position[0] + CELL_OFFSET + 0.5, 1), mod(position[2] + CELL_OFFSET + 0.5, 1)];
 

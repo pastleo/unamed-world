@@ -96,7 +96,7 @@ function movableRange(
 
   const collidedSubObjs = [chunkI - 1, chunkI, chunkI + 1].flatMap(ci => (
     [chunkJ - 1, chunkJ, chunkJ + 1].flatMap(cj => (
-      getChunk([ci, cj], game).subObjs
+      getChunk([ci, cj], game.realm.currentObj, game.ecs).subObjs
     ))
   )).filter(
     sObjEntity => !entityEqual(sObjEntity, subObjEntity)
@@ -126,7 +126,7 @@ function sloppedMovableRange(
   const { cellIJ , cell } = located;
 
   if (subObj.cellIJ[0] !== cellIJ[0] || subObj.cellIJ[1] !== cellIJ[1]) {
-    const currentCell = getChunkCell(subObj.chunkIJ, subObj.cellIJ, game);
+    const currentCell = getChunkCell(subObj.chunkIJ, subObj.cellIJ, game.realm.currentObj, game.ecs);
     const cellSlope = Math.PI * 0.5 - Math.atan2(1, cell.altitude - currentCell.altitude);
     if (cellSlope >= objWalkable.maxClimbRad) {
       return 0;

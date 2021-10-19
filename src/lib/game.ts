@@ -3,7 +3,7 @@ import { Agent, BrowserConnManager } from 'unnamed-network';
 
 import { GameECS, init as initECS } from './gameECS';
 
-import { Realm as RealmV2, init as initRealm, addToScene as addRealmToScene } from './realm';
+import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
 import { Input, create as createInput, startListeners } from './input';
@@ -14,7 +14,7 @@ export interface Game {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: Camera;
-  realm: RealmV2;
+  realm: Realm;
   player: Player;
   networkAgent: Agent;
   input: Input,

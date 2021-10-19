@@ -1,20 +1,22 @@
 import * as Comlink from 'comlink';
 
-import { Realm } from '../ori/realm';
-import { Chunk, Cell, AttributeArrays, chunkAttributeArrays } from '../obj/chunk';
-import { Vec2, rangeVec2s } from '../utils/utils';
+import { GameECS, init as initECS } from '../gameECS';
+import { Cell, getChunk, getChunkCell } from '../chunk/chunk';
+import { AttributeArrays } from '../chunk/renderAttribute';
+
+import { EntityRef } from '../utils/ecs';
+import { Vec2, Vec3, rangeVec2s, step, add, averagePresentNumbers } from '../utils/utils';
 import SetVec2 from '../utils/setVec2';
 import Map2D from '../utils/map2d';
-import { CHUNK_SIZE } from '../consts';
-import { spawnWorker, createWorkerNextValueFn, createListenToWorkerFn } from '../utils/worker';
+import { createWorkerNextValueFn } from '../utils/worker';
 
-import { createDevRealm } from '../dev-data';
+import { CHUNK_SIZE, CELL_STEPS } from '../consts';
+import { backgrounds, loadRealmComponents } from '../dev-data';
 
 const AUTO_GENERATION_RANGE = 4;
 
 export interface ChunkGenerationResult {
-  chunkI: number;
-  chunkJ: number;
+  chunkIJ: Vec2;
   cellEntries?: [[number, number], Cell][];
   textureUrl: string;
   attributeArrays: AttributeArrays;
@@ -26,16 +28,37 @@ export interface RealmWorker {
   nextGeneratedChunk: () => Promise<ChunkGenerationResult>;
 }
 
+interface RealmWorkerGlobal {
+  ecs: GameECS;
+  realmEntity: EntityRef;
+  generatingChunkQueue: EntityRef[];
+  notifyNewChunk: (value: ChunkGenerationResult) => void;
+}
+
 function startWorker(): RealmWorker {
-  let realm: Realm;
+  const ecs = initECS();
+  const realmEntity = ecs.allocate();
+
+  ecs.setComponent(realmEntity, 'obj/realm', {
+    chunks: new Map2D(),
+    backgrounds,
+  });
+
   const [notifyNewChunk, nextGeneratedChunk] = createWorkerNextValueFn<ChunkGenerationResult>();
+
+
+  const worker: RealmWorkerGlobal = {
+    ecs, realmEntity,
+    generatingChunkQueue: [],
+    notifyNewChunk,
+  };
 
   return {
     create: () => {
-      realm = createDevRealm();
+      loadRealmComponents(realmEntity, ecs);
     },
     triggerRealmGeneration: (centerChunkIJ: Vec2) => {
-      generateRealmChunk(realm, centerChunkIJ, notifyNewChunk);
+      generateRealmChunk(centerChunkIJ, worker);
     },
     nextGeneratedChunk,
   }
@@ -43,20 +66,15 @@ function startWorker(): RealmWorker {
 
 export default startWorker;
 
-// deprecated:
-export const service = spawnWorker<RealmWorker>('realm');
-export const listenToNextGeneratedChunk = createListenToWorkerFn(service?.nextGeneratedChunk);
-
 const CELL_MIDDLE_PERCENTAGE_OFFSET = 1 / (CHUNK_SIZE * 2);
-type GeneratedChunk = [chunkI: number, chunkJ: number, chunk: Chunk];
-function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2, notifyNewChunk: (value: ChunkGenerationResult) => void): GeneratedChunk[] {
-  rangeVec2s(centerChunkIJ, AUTO_GENERATION_RANGE).forEach(([chunkI, chunkJ]) => {
-    const chunk = realm.obj.chunks.get(chunkI, chunkJ);
-    if (chunk) return;
-    const upChunk = realm.obj.chunks.get(chunkI, chunkJ + 1)
-    const bottomChunk = realm.obj.chunks.get(chunkI, chunkJ - 1)
-    const leftChunk = realm.obj.chunks.get(chunkI - 1, chunkJ)
-    const rightChunk = realm.obj.chunks.get(chunkI + 1, chunkJ)
+function generateRealmChunk(centerChunkIJ: Vec2, worker: RealmWorkerGlobal) {
+  const realm = worker.ecs.getComponent(worker.realmEntity, 'obj/realm');
+  rangeVec2s(centerChunkIJ, AUTO_GENERATION_RANGE).forEach(chunkIJ => {
+    if (realm.chunks.get(...chunkIJ)) return;
+    const upChunk = getChunk(add(chunkIJ, [0, 1]), worker.realmEntity, worker.ecs, true);
+    const bottomChunk = getChunk(add(chunkIJ, [0, -1]), worker.realmEntity, worker.ecs, true);
+    const leftChunk = getChunk(add(chunkIJ, [-1, 0]), worker.realmEntity, worker.ecs, true);
+    const rightChunk = getChunk(add(chunkIJ, [1, 0]), worker.realmEntity, worker.ecs, true);
 
     const cells = new Map2D<Cell>((i, j) => {
       const upEdgeCell = upChunk?.cells.get(i, 0);
@@ -80,32 +98,36 @@ function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2, notifyNewChunk: (
       return { altitude: zSum / zDivideFactor, flatness: 0.5 };
     }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
-    const newChunk: Chunk = {
+    const chunkEntity = worker.ecs.allocate();
+    worker.ecs.setComponent(chunkEntity, 'chunk', {
       cells,
-      textureUrl: (upChunk || bottomChunk || leftChunk || rightChunk).textureUrl,
-      subObjs: [],
-    }
+      chunkEntity,
+      chunkIJ,
+      subObjs: [], // not used
+      persistance: false,
+      textureUrl: (upChunk || bottomChunk || leftChunk || rightChunk).textureUrl || '',
+    });
 
-    realm.obj.chunks.put(chunkI, chunkJ, newChunk);
+   realm.chunks.put(...chunkIJ, chunkEntity);
   });
 
-  const newChunks: GeneratedChunk[] = [];
+  const newChunks: [chunkIJ: Vec2, chunkEntity: EntityRef][] = [];
 
   const newChunkIJs = new SetVec2();
-  rangeVec2s(centerChunkIJ, AUTO_GENERATION_RANGE).forEach(([chunkI, chunkJ]) => {
-    const chunk = realm.obj.chunks.get(chunkI, chunkJ);
+  rangeVec2s(centerChunkIJ, AUTO_GENERATION_RANGE).forEach(chunkIJ => {
+    const chunkEntity = realm.chunks.get(...chunkIJ);
 
-    if (chunk.attributesGenerated) return;
+    if (worker.ecs.getComponent(chunkEntity, 'chunk/renderAttribute')?.attributesGenerated) return;
 
-    queueGenerateChunkAttrs(chunkI, chunkJ, chunk, realm, notifyNewChunk);
-    newChunkIJs.add([chunkI, chunkJ]);
-    newChunks.push([chunkI, chunkJ, chunk]);
+    queueGenerateChunkAttrs(chunkEntity, worker);
+    newChunkIJs.add(chunkIJ);
+    newChunks.push([chunkIJ, chunkEntity]);
   });
 
   if (newChunks.length <= 0) return;
 
   const reCalcChunkIJs = new SetVec2();
-  newChunks.forEach(([chunkI, chunkJ]) => {
+  newChunks.forEach(([[chunkI, chunkJ]]) => {
     [
       [-1, -1], [-1, 0], [-1, 1],
       [0, -1],           [0, 1],
@@ -119,39 +141,171 @@ function generateRealmChunk(realm: Realm, centerChunkIJ: Vec2, notifyNewChunk: (
     });
   });
 
-  reCalcChunkIJs.values().map(([chunkI, chunkJ]) => (
-    [chunkI, chunkJ, realm.obj.chunks.get(chunkI, chunkJ)] as [number, number, Chunk]
+  reCalcChunkIJs.values().map(chunkIJ => (
+    realm.chunks.get(...chunkIJ)
   )).filter(
-    ([_i, _j, chunk]) => chunk
-  ).forEach(([chunkI, chunkJ, chunk]) => {
-    queueGenerateChunkAttrs(chunkI, chunkJ, chunk, realm, notifyNewChunk);
+    chunkEntity => !!chunkEntity
+  ).forEach(chunkEntity => {
+    queueGenerateChunkAttrs(chunkEntity, worker);
   });
 }
 
-const generatingChunkQueue: GeneratedChunk[] = [];
+function queueGenerateChunkAttrs(chunkEntity: EntityRef, worker: RealmWorkerGlobal) {
+  worker.ecs.setComponent(chunkEntity, 'chunk/renderAttribute', {
+    attributesGenerated: true,
+  });
+  worker.generatingChunkQueue.push(chunkEntity);
 
-function queueGenerateChunkAttrs(chunkI: number, chunkJ: number, chunk: Chunk, realm: Realm, notifyNewChunk: (value: ChunkGenerationResult) => void) {
-  chunk.attributesGenerated = true;
-  generatingChunkQueue.push([chunkI, chunkJ, chunk]);
-
-  if (generatingChunkQueue.length > 1) return;
-  generateChunkAttrs(realm, notifyNewChunk);
+  if (worker.generatingChunkQueue.length > 1) return;
+  generateChunkAttrs(worker);
 }
 
-function generateChunkAttrs(realm: Realm, notifyNewChunk: (value: ChunkGenerationResult) => void) {
+function generateChunkAttrs(worker: RealmWorkerGlobal) {
   setTimeout(() => {
-    if (generatingChunkQueue.length <= 0) return;
-    const [chunkI, chunkJ, chunk] = generatingChunkQueue.shift();
+    if (worker.generatingChunkQueue.length <= 0) return;
+    const chunkEntity = worker.generatingChunkQueue.shift();
+    const chunk = worker.ecs.getComponent(chunkEntity, 'chunk');
 
-    const attributeArrays = chunkAttributeArrays(chunkI, chunkJ, realm.obj.chunks);
+    const attributeArrays = chunkAttributeArrays(chunkEntity, worker);
 
-    notifyNewChunk(Comlink.transfer({
-      chunkI, chunkJ,
+    worker.notifyNewChunk(Comlink.transfer({
+      chunkIJ: chunk.chunkIJ,
       cellEntries: chunk.cells.entries(),
       textureUrl: chunk.textureUrl,
       attributeArrays,
     }, [attributeArrays.positions, attributeArrays.uvs]));
 
-    generateChunkAttrs(realm, notifyNewChunk);
+    generateChunkAttrs(worker);
   });
+}
+
+interface Point {
+  position: [number, number, number];
+  uv: [number, number];
+  //normal: [number, number, number];
+}
+export function chunkAttributeArrays(chunkEntity: EntityRef, worker: RealmWorkerGlobal): AttributeArrays {
+  const chunk = worker.ecs.getComponent(chunkEntity, 'chunk');;
+  const { chunkIJ } = chunk;
+  const { positions, uvs } = chunk.cells.entries().map(([ij, cell]) => (
+    cellAttributeArrays(cell, chunkIJ, ij, worker)
+  )).reduce((attributeArrays, cellAttributeArrays) => {
+    return {
+      positions: [...attributeArrays.positions, ...cellAttributeArrays.positions],
+      uvs: [...attributeArrays.uvs, ...cellAttributeArrays.uvs],
+    }
+  }, { positions: [], uvs: [] });
+
+  return {
+    positions: (new Float32Array(positions)).buffer,
+    uvs: (new Float32Array(uvs)).buffer,
+  };
+}
+
+export interface CellAttributeArrays {
+  positions: number[],
+  uvs: number[],
+}
+function cellAttributeArrays(cell: Cell, chunkIJ: Vec2, ij: Vec2, worker: RealmWorkerGlobal): CellAttributeArrays {
+  const neighbors = [
+    getChunkCell(chunkIJ, add(ij, [-1, 1]), worker.realmEntity, worker.ecs, true), // left top
+    getChunkCell(chunkIJ, add(ij, [0, 1]), worker.realmEntity, worker.ecs, true),
+    getChunkCell(chunkIJ, add(ij, [1, 1]), worker.realmEntity, worker.ecs, true), // right top
+    getChunkCell(chunkIJ, add(ij, [-1, 0]), worker.realmEntity, worker.ecs, true),
+    cell, // center
+    getChunkCell(chunkIJ, add(ij, [1, 0]), worker.realmEntity, worker.ecs, true), 
+    getChunkCell(chunkIJ, add(ij, [-1, -1]), worker.realmEntity, worker.ecs, true), // left bottom
+    getChunkCell(chunkIJ, add(ij, [0, -1]), worker.realmEntity, worker.ecs, true),
+    getChunkCell(chunkIJ, add(ij, [1, -1]), worker.realmEntity, worker.ecs, true), // right bottom
+  ];
+
+  const cornerAltitude = [
+    averagePresentNumbers(
+      neighbors[0]?.altitude, neighbors[1]?.altitude, neighbors[3]?.altitude, neighbors[4]?.altitude,
+    ),
+    averagePresentNumbers(
+      neighbors[1]?.altitude, neighbors[2]?.altitude, neighbors[4]?.altitude, neighbors[5]?.altitude,
+    ),
+    averagePresentNumbers(
+      neighbors[3]?.altitude, neighbors[4]?.altitude, neighbors[6]?.altitude, neighbors[7]?.altitude,
+    ),
+    averagePresentNumbers(
+      neighbors[4]?.altitude, neighbors[5]?.altitude, neighbors[7]?.altitude, neighbors[8]?.altitude,
+    ),
+  ];
+
+  const positionOffset = [-CHUNK_SIZE / 2 + 0.5, 0, -CHUNK_SIZE / 2 + 0.5] as Vec3;
+  const uvOffset = [0.5, 0.5];
+  const centerPosition = add([ij[0], cell.altitude, ij[1]] as Vec3, positionOffset);
+  const centerPoint: Point = {
+    position: centerPosition,
+    uv: [(centerPosition[0] + uvOffset[0]) / CHUNK_SIZE, (centerPosition[2] + uvOffset[1]) / CHUNK_SIZE]
+  };
+  const points: Point[][] = [[-1, 1], [1, 1], [-1, -1], [1, -1]].map((signs, cornerI) => {
+    const bezierPoints = [
+      centerPoint.position,
+      add([
+        ij[0] + cell.flatness * 0.5 * signs[0],
+        cell.altitude,
+        ij[1] + cell.flatness * 0.5 * signs[1],
+      ], positionOffset),
+      add([
+        ij[0] + 0.5 * signs[0],
+        cornerAltitude[cornerI],
+        ij[1] + 0.5 * signs[1],
+      ], positionOffset),
+    ];
+
+    return Array(CELL_STEPS).fill(null).map(
+      (_, stepI) => (stepI + 1) / CELL_STEPS
+    ).map(
+      progress => {
+        const position = step(
+          step(bezierPoints[0], bezierPoints[1], progress),
+          step(bezierPoints[1], bezierPoints[2], progress),
+          progress,
+        ) as [number, number, number];
+
+        return {
+          position,
+          uv: [
+            (position[0] + uvOffset[0]) / CHUNK_SIZE,
+            (position[2] + uvOffset[1]) / CHUNK_SIZE,
+          ],
+        };
+      }
+    );
+  });
+
+  const positions = [[0, 1], [1, 3], [3, 2], [2, 0]].flatMap(cornerIs => ([
+    centerPoint.position,
+    points[cornerIs[0]][0].position,
+    points[cornerIs[1]][0].position,
+    ...Array(CELL_STEPS - 1).fill(null).map((_, i) => i + 1).flatMap(i => ([
+      points[cornerIs[0]][i-1].position,
+      points[cornerIs[0]][i].position,
+      points[cornerIs[1]][i-1].position,
+
+      points[cornerIs[0]][i].position,
+      points[cornerIs[1]][i].position,
+      points[cornerIs[1]][i-1].position,
+    ]))
+  ])).flat();
+
+  const uvs = [[0, 1], [1, 3], [3, 2], [2, 0]].flatMap(cornerIs => ([
+    centerPoint.uv,
+    points[cornerIs[0]][0].uv,
+    points[cornerIs[1]][0].uv,
+    ...Array(CELL_STEPS - 1).fill(null).map((_, i) => i + 1).flatMap(i => ([
+      points[cornerIs[0]][i-1].uv,
+      points[cornerIs[0]][i].uv,
+      points[cornerIs[1]][i-1].uv,
+
+      points[cornerIs[0]][i].uv,
+      points[cornerIs[1]][i].uv,
+      points[cornerIs[1]][i-1].uv,
+    ]))
+  ])).flat();
+
+  return { positions, uvs };
 }

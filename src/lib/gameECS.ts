@@ -6,6 +6,7 @@ import { ObjSpriteComponent } from './obj/sprite';
 import { ObjWalkableComponent } from './obj/walkable';
 import { ChunkComponent } from './chunk/chunk';
 import { ChunkRenderComponent } from './chunk/render';
+import { ChunkRenderAttributeComponent } from './chunk/renderAttribute';
 import { SubObjComponent } from './subObj/subObj';
 import { SubObjSpriteRenderComponent } from './subObj/spriteRender';
 import { SubObjWalkingComponent } from './subObj/walking';
@@ -17,6 +18,7 @@ interface GameComponentMap {
   'obj/walkable': ObjWalkableComponent;
   'chunk': ChunkComponent;
   'chunk/render': ChunkRenderComponent;
+  'chunk/renderAttribute': ChunkRenderAttributeComponent;
   'subObj': SubObjComponent;
   'subObj/spriteRender': SubObjSpriteRenderComponent;
   'subObj/walking': SubObjWalkingComponent;

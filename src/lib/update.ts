@@ -24,7 +24,7 @@ export function resize(game: Game, width: number, height: number) {
 const UPDATE_CHUNK_RANGE = 2;
 function updateChunks(centerChunkIJ: Vec2, tDiff: number, game: Game) {
   rangeVec2s(centerChunkIJ, UPDATE_CHUNK_RANGE).map(chunkIJ => (
-    [chunkIJ, getChunk(chunkIJ, game)] as [Vec2, ChunkComponent]
+    [chunkIJ, getChunk(chunkIJ, game.realm.currentObj, game.ecs)] as [Vec2, ChunkComponent]
   )).forEach(([chunkIJ, chunk]) => {
     updateChunk(chunkIJ, chunk, tDiff, game);
   })

@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+
 import { Game } from '../game';
+import { AttributeArrays } from './renderAttribute';
+
 import { EntityRef } from '../utils/ecs';
 import { Vec2, warnIfNotPresent } from '../utils/utils';
-import { AttributeArrays } from '../obj/chunk';
 
 import { CHUNK_SIZE } from '../consts';
 
