@@ -28,12 +28,16 @@ export function initSprite(subObjEntity: EntityRef, game: Game) {
     })
   });
 
+  const sprite = new THREE.Sprite(material);
+	sprite.scale.x = objSprite.radius * 2;
+	sprite.scale.y = objSprite.tall;
+
   const subObjSpriteRender = {
-    sprite: new THREE.Sprite(material),
+    sprite,
     groundAltitude: 0,
   };
   game.ecs.setComponent(subObjEntity, 'subObj/spriteRender', subObjSpriteRender);
-  game.scene.add(subObjSpriteRender.sprite);
+  game.scene.add(sprite);
 
   updateSpritePosition(
     subObjEntity, game,
