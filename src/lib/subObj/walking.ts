@@ -1,5 +1,6 @@
 import { Game } from '../game';
 import { ObjWalkableComponent } from '../obj/walkable';
+import { ObjSpriteComponent } from '../obj/sprite';
 import { locateChunkCell, getChunkCell, calcAltitudeAt, getChunk } from '../chunk/chunk';
 import { SubObjComponent, moveSubObj } from './subObj';
 
@@ -22,9 +23,10 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   const subObjWalking = game.ecs.getComponent(subObjEntity, 'subObj/walking');
   const objWalkable = game.ecs.getComponent(subObj.obj, 'obj/walkable');
+  const objSprite = game.ecs.getComponent(subObj.obj, 'obj/sprite');
   if (subObjWalking?.moveTarget) {
     const movingRange = movableRange(
-      subObjEntity, subObj, subObjWalking, objWalkable,
+      subObjEntity, subObj, subObjWalking, objWalkable, objSprite,
       tDiff, game,
     );
 
@@ -80,11 +82,11 @@ export function setMoveTarget(subObjEntity: EntityRef, dVec: Vec2, game: Game): 
 function movableRange(
   subObjEntity: EntityRef,
   subObj: SubObjComponent, subObjWalking: SubObjWalkingComponent,
-  objWalkable: ObjWalkableComponent,
+  objWalkable: ObjWalkableComponent, objSprite: ObjSpriteComponent,
   tDiff: number, game: Game,
 ): number {
   const objRange = objWalkable.speed * tDiff * 0.001;
-  const sloppedRange = sloppedMovableRange(objRange, subObj, subObjWalking, objWalkable, game);
+  const sloppedRange = sloppedMovableRange(objRange, subObj, subObjWalking, objWalkable, objSprite, game);
 
   if (sloppedRange <= 0) return 0;
 
@@ -103,8 +105,8 @@ function movableRange(
   ).filter(
     sObjEntity => {
       const sObj = game.ecs.getComponent(sObjEntity, 'subObj');
-      const sObjWalkable = game.ecs.getComponent(sObj.obj, 'obj/walkable');
-      return ((sObjWalkable.radius || 0) + objWalkable.radius) > length(sub(sObj.position, newPosition))
+      const sObjSprite = game.ecs.getComponent(sObj.obj, 'obj/sprite');
+      return ((sObjSprite.radius || 0) + objSprite.radius) > length(sub(sObj.position, newPosition))
     }
   );
 
@@ -116,10 +118,10 @@ function movableRange(
 function sloppedMovableRange(
   objRange: number,
   subObj: SubObjComponent, subObjWalking: SubObjWalkingComponent,
-  objWalkable: ObjWalkableComponent,
+  objWalkable: ObjWalkableComponent, objSprite: ObjSpriteComponent,
   game: Game,
 ): number {
-  const movingVec = multiply(subObjWalking.moveTarget, objWalkable.radius / subObjWalking.moveTargetDistance);
+  const movingVec = multiply(subObjWalking.moveTarget, objSprite.radius / subObjWalking.moveTargetDistance);
 
   const newPosition = add(subObj.position, [movingVec[0], 0, movingVec[1]]);
   const located = locateChunkCell(newPosition, game);
@@ -134,7 +136,7 @@ function sloppedMovableRange(
   }
 
   const newAltitude = calcAltitudeAt(newPosition, located, game);
-  const slope = Math.PI * 0.5 - Math.atan2(objWalkable.radius, newAltitude - subObj.groundAltitude);
+  const slope = Math.PI * 0.5 - Math.atan2(objSprite.radius, newAltitude - subObj.groundAltitude);
 
   if (slope > 0) {
     const remainClimbRad = objWalkable.maxClimbRad - slope;

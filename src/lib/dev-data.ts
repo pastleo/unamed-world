@@ -8,7 +8,7 @@ import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
 import { Vec2 } from './utils/utils';
 
-const TEXTURE_URL_1 = 'assets/small-rocks.png';
+const TEXTURE_URL_1 = 'assets/ground.png';
 const DEV_CHUNK_DATA_1 = [
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
@@ -41,7 +41,32 @@ export const backgrounds = [
   'assets/skybox/neg-z.png',
 ] as [string, string, string, string, string, string];
 
-export const heroObjSpriteComponents = [
+const flyingBitchObjSpriteComponents = [
+  ['obj', { id: 'flying-bitch-1' }],
+  ['obj/sprite', {
+    url: 'assets/flying-bitch.png',
+    eightBitStyle: true,
+    colRow: [7, 1],
+    stateAnimations: {
+      normal: {
+        animations: [[0, 6]],
+        speed: 500,
+      },
+      walking: {
+        animations: [[0, 6]],
+        speed: 200,
+      },
+    },
+    tall: 1.4390243902439024,
+    radius: 0.5,
+  }],
+  ['obj/walkable', {
+    speed: 4,
+    maxClimbRad: Math.PI * 0.3,
+  }],
+];
+
+const heroObjSpriteComponents = [
   ['obj', { id: 'hero-1' }],
   ['obj/sprite', {
     url: 'assets/hero.png',
@@ -58,9 +83,34 @@ export const heroObjSpriteComponents = [
       },
     },
     tall: 1,
+    radius: 0.5,
   }],
   ['obj/walkable', {
+    speed: 4,
+    maxClimbRad: Math.PI * 0.3,
+  }],
+];
+
+const giraffeObjSpriteComponents = [
+  ['obj', { id: 'giraffe-1' }],
+  ['obj/sprite', {
+    url: 'assets/giraffe.png',
+    eightBitStyle: true,
+    colRow: [3, 1],
+    stateAnimations: {
+      normal: {
+        animations: [[0, 0]],
+        speed: 500,
+      },
+      walking: {
+        animations: [[0, 2]],
+        speed: 200,
+      },
+    },
+    tall: 2,
     radius: 0.5,
+  }],
+  ['obj/walkable', {
     speed: 4,
     maxClimbRad: Math.PI * 0.3,
   }],
@@ -68,7 +118,7 @@ export const heroObjSpriteComponents = [
 
 export function loadPlayerObjSpriteComponents(ecs: GameECS): EntityRef {
   const objEntity = ecs.allocate();
-  heroObjSpriteComponents.forEach(([ componentName, component ]) => {
+  flyingBitchObjSpriteComponents.forEach(([ componentName, component ]) => {
     ecs.setComponent(objEntity, componentName as any, component as any);
     // TODO: when implementing restore feature, validation is required
   });
