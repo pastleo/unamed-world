@@ -1,4 +1,4 @@
-import Game from './game';
+import { Game } from './game';
 import { movePlayer } from './player';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 import { Vec2, multiply } from './utils/utils';

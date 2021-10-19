@@ -1,4 +1,6 @@
-import { Cell, Chunk, SubObj, Obj, subObjState } from './obj';
+import Obj from './obj/obj';
+import { Cell, Chunk } from './obj/chunk';
+import { SubObj, subObjState } from './obj/subObj';
 import { Realm } from './realm';
 import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
@@ -141,7 +143,7 @@ export const heroObj: Obj = {
       animations: [[0, 1]],
       speed: 500,
     },
-    moving: {
+    walking: {
       animations: [[6, 11]],
       speed: 200,
     },

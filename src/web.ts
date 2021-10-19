@@ -1,6 +1,5 @@
-import setup from './lib/setup';
 import update, { resize } from './lib/update';
-import Game from './lib/game';
+import { Game, setup } from './lib/game';
 
 function startLoop(game: Game, now: number = 0) {
   const tDiff = now - game.time;
@@ -12,13 +11,17 @@ function startLoop(game: Game, now: number = 0) {
   game.renderer.render(game.scene, game.camera.camera);
 }
 
-const game = setup();
-(window as any).game = game; // for development
+async function main() {
+  const game = await setup();
+  (window as any).game = game; // for development
 
-document.body.appendChild(game.renderer.domElement);
+  document.body.appendChild(game.renderer.domElement);
 
-window.addEventListener('resize', () => {
-  resize(game, window.innerWidth, window.innerHeight);
-}, false);
+  window.addEventListener('resize', () => {
+    resize(game, window.innerWidth, window.innerHeight);
+  }, false);
 
-startLoop(game);
+  startLoop(game);
+}
+
+main();

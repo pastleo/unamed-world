@@ -4,7 +4,7 @@
   "description": "exploration of imagination",
   "main": "index.js",
   "scripts": {
-    "dev": "esbuild src/web.ts --bundle --sourcemap --outfile=www/web.js --servedir=www",
+    "dev": "esbuild src/web.ts src/web-worker.ts --bundle --sourcemap --outdir=www --servedir=www",
     "tc": "tsc -w -noEmit",
     "bundle-web": "esbuild src/web.ts --bundle --minify --sourcemap --outfile=www/web.js"
   },
@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@types/three": "^0.131.0",
+    "comlink": "^4.3.1",
     "isomorphic-webcrypto": "^2.3.8",
     "three": "^0.131.3",
     "unnamed-network": "file:../unnamed-network",
