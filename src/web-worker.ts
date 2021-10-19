@@ -1,9 +1,9 @@
 import * as Comlink from 'comlink';
-import startRealmService from './lib/services/realm';
+import startRealmService from './lib/worker/realm';
 
 self.onmessage = event => {
-  const { serviceName } = event.data;
-  switch (serviceName) {
+  const { workerName } = event.data;
+  switch (workerName) {
     case 'realm':
       Comlink.expose(startRealmService());
       break;

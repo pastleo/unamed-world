@@ -39,7 +39,7 @@ export function length<T extends Vec2 | Vec3>(v: T): number {
 }
 
 export function mod(v: number, d: number): number {
-  return v - Math.floor(v / d) * d;
+  return ((v % d) + d) % d;
 }
 
 export function clamp(v: number, edge0: number, edge1: number): number {
@@ -69,4 +69,12 @@ export function averagePresentNumbers(...ns: number[]): number {
 
 export function step(vecA: number[], vecB: number[], progress: number) {
   return vecA.map((va, i) => va * (1 - progress) + vecB[i] * progress);
+}
+
+export function warnIfNotPresent(...values: any[]) {
+  if (values.findIndex(v => v === null || v === undefined) >= 0) {
+    console.warn('values should present but null or undefined detected, values:', values)
+    return true; // for caller to if (warnIfNotPresent(...)) return;
+  }
+  return false;
 }

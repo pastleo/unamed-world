@@ -1,18 +1,19 @@
 import { Game } from './game';
+import { ChunkComponent, getChunk } from './chunk/chunk';
+import { updateSpriteTexture } from './subObj/spriteRender';
 import { update as updatePlayer } from './player';
 import { update as updateInput } from './input';
 import { resize as resizeCamera } from './camera';
-import { update as updateWalking } from './walking';
-import { setSpriteTexture } from './sprite';
-import { Chunk } from './obj/chunk';
-import { SubObj } from './obj/subObj';
+import { update as updateWalking } from './subObj/walking';
+
+import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
 
 export default function update(game: Game, tDiff: number) {
   updateInput(game.input, tDiff, game);
 
-  updateChunks([game.player.mounting.chunkI, game.player.mounting.chunkJ], tDiff, game);
-  updatePlayer(game.player, tDiff, game);
+  updateChunks(game.player.chunkIJ, tDiff, game);
+  updatePlayer(tDiff, game);
 }
 
 export function resize(game: Game, width: number, height: number) {
@@ -22,27 +23,20 @@ export function resize(game: Game, width: number, height: number) {
 
 const UPDATE_CHUNK_RANGE = 2;
 function updateChunks(centerChunkIJ: Vec2, tDiff: number, game: Game) {
-  rangeVec2s(centerChunkIJ, UPDATE_CHUNK_RANGE).map(([chunkI, chunkJ]) => (
-    [chunkI, chunkJ, game.realm.obj.chunks.get(chunkI, chunkJ)] as [number, number, Chunk]
-  )).filter(
-    ([_chunkI, _chunkJ, chunk]) => chunk
-  ).forEach(([chunkI, chunkJ, chunk]) => {
-    updateChunk(chunkI, chunkJ, chunk, tDiff, game);
+  rangeVec2s(centerChunkIJ, UPDATE_CHUNK_RANGE).map(chunkIJ => (
+    [chunkIJ, getChunk(chunkIJ, game.realm.currentObj, game.ecs)] as [Vec2, ChunkComponent]
+  )).forEach(([chunkIJ, chunk]) => {
+    updateChunk(chunkIJ, chunk, tDiff, game);
   })
 }
 
-function updateChunk(_chunkI: number, _chunkJ: number, chunk: Chunk, tDiff: number, game: Game) {
+function updateChunk(_chunkIJ: Vec2, chunk: ChunkComponent, tDiff: number, game: Game) {
   chunk.subObjs.forEach(subObj => {
     updateSubObj(subObj, tDiff, game);
   })
 }
 
-function updateSubObj(subObj: SubObj, tDiff: number, game: Game) {
+function updateSubObj(subObj: EntityRef, tDiff: number, game: Game) {
   updateWalking(subObj, tDiff, game);
-  setSpriteTexture(
-    subObj.obj.spriteSheetMaterial, 
-    subObj.sprite.material.map,
-    subObj,
-    game,
-  );
+  updateSpriteTexture(subObj, game);
 }

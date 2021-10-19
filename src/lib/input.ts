@@ -158,10 +158,12 @@ export function startListeners(input: Input, game: Game) {
       input.touchmove = true;
 
       movePlayer(
-        game.player,
-        vecAfterCameraRotation(
-          [(preOffsetX - offsetX) / 100, (offsetY - preOffsetY) / 100],
-          game.camera
+        multiply(
+          vecAfterCameraRotation(
+            [preOffsetX - offsetX, offsetY - preOffsetY],
+            game.camera
+          ),
+          0.01,
         ),
         game,
       );
@@ -239,14 +241,14 @@ export function update(input: Input, tDiff: number, game: Game) {
     inputVec[0] += tDiff;
   }
 
-  if (game.input.keyPressed.has('w')) {
-    inputVec[1] += tDiff;
-  } else if (game.input.keyPressed.has('s')) {
+  if (game.input.keyPressed.has('s')) {
     inputVec[1] -= tDiff;
+  } else if (game.input.keyPressed.has('w')) {
+    inputVec[1] += tDiff;
   }
 
   if (inputVec[0] !== 0 || inputVec[1] !== 0) {
-    movePlayer(game.player, multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01), game);
+    movePlayer(multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01), game);
   }
 }
 

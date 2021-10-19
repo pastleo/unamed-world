@@ -1,10 +1,12 @@
-import Obj from './obj/obj';
-import { Cell, Chunk } from './obj/chunk';
-import { SubObj, subObjState } from './obj/subObj';
-import { Realm } from './realm';
+import { GameECS } from './gameECS';
+
+import { EntityRef } from './utils/ecs';
+import { ObjRealmComponent } from './obj/realm';
+import { Cell } from './chunk/chunk';
+
 import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
-import { Vec3 } from './utils/utils';
+import { Vec2 } from './utils/utils';
 
 const TEXTURE_URL_1 = 'assets/small-rocks.png';
 const DEV_CHUNK_DATA_1 = [
@@ -29,127 +31,182 @@ const DEV_CHUNK_DATA_2 = [
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
 ];
-export function createDevRealm(): Realm {
-  const chunks = new Map2D<Chunk>();
 
-  chunks.put(-2, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, true, false], Z_HIGH));
-  chunks.put(-1, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, false], Z_HIGH));
-  chunks.put( 0, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, false], Z_HIGH));
-  chunks.put( 1, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, false], Z_HIGH));
-  chunks.put( 2, -3, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, true, false, true], Z_HIGH));
+export const backgrounds = [
+  'assets/skybox/pos-x.png',
+  'assets/skybox/neg-x.png',
+  'assets/skybox/pos-y.png',
+  'assets/skybox/neg-y.png',
+  'assets/skybox/pos-z.png',
+  'assets/skybox/neg-z.png',
+] as [string, string, string, string, string, string];
 
-  chunks.put(-2, -2, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, false, true, false], Z_HIGH));
-  chunks.put(-1, -2, createRndChunk(TEXTURE_URL_1));
-  chunks.put( 0, -2, createRndChunk(TEXTURE_URL_1));
-  chunks.put( 1, -2, createRndChunk(TEXTURE_URL_1));
-  chunks.put( 2, -2, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, false, false, true], Z_HIGH));
-
-  chunks.put(-2, -1, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, true, false], Z_HIGH));
-  chunks.put(-1, -1, createDevChunk(DEV_CHUNK_DATA_2, TEXTURE_URL_1));
-  chunks.put( 0, -1, createDevChunk(DEV_CHUNK_DATA_2, TEXTURE_URL_1));
-  chunks.put( 1, -1, createDevChunk(DEV_CHUNK_DATA_2, TEXTURE_URL_1));
-  chunks.put( 2, -1, createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, false, true], Z_HIGH));
-
-  chunks.put(-1, 0,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [false, false, true, false], Z_HIGH));
-  chunks.put( 0, 0,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1));
-  chunks.put( 1, 0,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [createDevSubObj(heroObj, 1, 0)], [false, false, false, true], Z_HIGH));
-
-  chunks.put(-1, 1,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, true, false], Z_HIGH));
-  chunks.put( 0, 1,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [], [true, false, false, false], Z_HIGH));
-  chunks.put( 1, 1,  createDevChunk(DEV_CHUNK_DATA_1, TEXTURE_URL_1, [createDevSubObj(heroObj, 1, 0)], [true, false, false, true], Z_HIGH));
-
-  return {
-    obj: {
-      chunks,
-      spriteSheetMaterial: {
-        url: '',
-        colRow: [1, 1],
-        normal: {
-          animations: [[0, 0]],
-          speed: 0,
-        },
+export const heroObjSpriteComponents = [
+  ['obj', { id: 'hero-1' }],
+  ['obj/sprite', {
+    url: 'assets/hero.png',
+    eightBitStyle: true,
+    colRow: [6, 5],
+    stateAnimations: {
+      normal: {
+        animations: [[0, 1]],
+        speed: 500,
       },
-      speed: 0,
-      maxClimbRad: 0,
-      radius: 1,
-      tall: 0,
+      walking: {
+        animations: [[6, 11]],
+        speed: 200,
+      },
     },
-    backgrounds: [
-      'assets/skybox/pos-x.png',
-      'assets/skybox/neg-x.png',
-      'assets/skybox/pos-y.png',
-      'assets/skybox/neg-y.png',
-      'assets/skybox/pos-z.png',
-      'assets/skybox/neg-z.png',
-    ]
-  }
+    tall: 1,
+  }],
+  ['obj/walkable', {
+    radius: 0.5,
+    speed: 4,
+    maxClimbRad: Math.PI * 0.3,
+  }],
+];
+
+export function loadPlayerObjSpriteComponents(ecs: GameECS): EntityRef {
+  const objEntity = ecs.allocate();
+  heroObjSpriteComponents.forEach(([ componentName, component ]) => {
+    ecs.setComponent(objEntity, componentName as any, component as any);
+    // TODO: when implementing restore feature, validation is required
+  });
+
+  return objEntity
+}
+
+export function loadRealmComponents(realmObjEntity: EntityRef, ecs: GameECS) {
+  const realm = ecs.getComponent(realmObjEntity, 'obj/realm');
+  loadRealm1(realm, ecs);
+}
+
+function loadRealm1(realm: ObjRealmComponent, ecs: GameECS) {
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, true, true, false], Z_HIGH),
+    [-2, -3], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, true, false, false], Z_HIGH),
+    [-1, -3], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, true, false, false], Z_HIGH),
+    [0, -3], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, true, false, false], Z_HIGH),
+    [1, -3], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, true, false, true], Z_HIGH),
+    [2, -3], [], realm.chunks, ecs
+  );
+
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, false, true, false], Z_HIGH),
+    [-2, -2], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, rndCells(),
+    [-1, -2], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, rndCells(),
+    [0, -2], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, rndCells(),
+    [1, -2], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, false, false, true], Z_HIGH),
+    [2, -2], [], realm.chunks, ecs
+  );
+
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [true, false, true, false], Z_HIGH),
+    [-2, -1], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_2),
+    [-1, -1], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_2),
+    [0, -1], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_2),
+    [1, -1], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [true, false, false, true], Z_HIGH),
+    [2, -1], [], realm.chunks, ecs
+  );
+
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, false, true, false], Z_HIGH),
+    [-1, 0], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1),
+    [0, 0], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, false, false, true], Z_HIGH),
+    [1, 0], [], realm.chunks, ecs
+  );
+
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [true, false, true, false], Z_HIGH),
+    [-1, 1], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [true, false, false, false], Z_HIGH),
+    [0, 1], [], realm.chunks, ecs
+  );
+  loadChunkComponent(
+    TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [true, false, false, true], Z_HIGH),
+    [1, 1], [], realm.chunks, ecs
+  );
+}
+
+function loadChunkComponent(textureUrl: string, cellFn: (i: number, j: number) => Cell, chunkIJ: Vec2, subObjs: EntityRef[], chunks: Map2D<EntityRef>, ecs: GameECS) {
+  const chunkEntity = ecs.allocate();
+  ecs.setComponent(chunkEntity, 'chunk', {
+    cells: new Map2D(cellFn, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1),
+    chunkEntity,
+    chunkIJ,
+    subObjs,
+    textureUrl,
+    persistance: true,
+  });
+  chunks.put(chunkIJ[0], chunkIJ[1], chunkEntity);
 }
 
 type BorderOption = [up: boolean, down: boolean, left: boolean, right: boolean];
-export function createDevChunk(cellData: number[], textureUrl: string, subObjs: SubObj[] = [], borderOption?: BorderOption, borderZ?: number): Chunk {
+function devCells(cellData: number[], borderOption?: BorderOption, borderZ?: number): (i: number, j: number) => Cell {
   const [up, down, left, right] = borderOption || [false, false, false, false];
 
-  const cells = new Map2D<Cell>((i, j) => {
-    let z = cellData[j * CHUNK_SIZE + i] || 0;
+  return (i, j) => {
+    let altitude = cellData[j * CHUNK_SIZE + i] || 0;
     if (
       (j === (CHUNK_SIZE - 1) && up) ||
       (j === 0 && down) ||
       (i === 0 && left) ||
       (i === (CHUNK_SIZE - 1) && right)
     ) {
-      z = borderZ;
+      altitude = borderZ;
     }
 
     return (
-      { z, flatness: 0.5 }
+      { altitude, flatness: 0.5 }
     )
-  }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
-
-  return {
-    cells,
-    textureUrl,
-    subObjs,
-  }
+  };
 }
-
-export function createRndChunk(textureUrl: string, subObjs: SubObj[] = []): Chunk {
-  const cells = new Map2D<Cell>((_i, _j) => (
-    { z: Math.random(), flatness: 0.5 }
-  ), 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
-
-  return {
-    cells,
-    textureUrl,
-    subObjs,
-  }
+function rndCells(): (i: number, j: number) => Cell {
+  return () => (
+    { altitude: Math.random(), flatness: 0.5 }
+  )
 }
-
-export function createDevSubObj(obj: Obj, chunkI: number, chunkJ: number): SubObj {
-  return {
-    obj,
-    position: [chunkI * CHUNK_SIZE, chunkJ * CHUNK_SIZE, 0] as Vec3,
-    rotation: [0, 0, 0] as Vec3,
-    state: subObjState.normal,
-  }
-}
-
-export const heroObj: Obj = {
-  chunks: new Map2D(),
-  spriteSheetMaterial: {
-    url: 'assets/hero.png',
-    colRow: [6, 5],
-    eightBitStyle: true,
-    normal: {
-      animations: [[0, 1]],
-      speed: 500,
-    },
-    walking: {
-      animations: [[6, 11]],
-      speed: 200,
-    },
-  },
-  tall: 0.5,
-  speed: 4,
-  maxClimbRad: Math.PI * 0.3,
-  radius: 0.5,
-};
