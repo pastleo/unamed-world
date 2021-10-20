@@ -30,6 +30,7 @@ export async function setup(): Promise<Game> {
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   const scene = new THREE.Scene();
+
   const camera = initCamera();
 
   const player = createPlayer(ecs);

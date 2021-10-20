@@ -1,11 +1,7 @@
 import * as THREE from 'three';
 import * as Comlink from 'comlink';
 
-import { EntityRef } from './utils/ecs';
-import { Vec2 } from './utils/utils';
-import { spawnWorker, listenToWorkerNextValue } from './utils/worker';
-import Map2D from './utils/map2d';
-
+import { createBaseRealm } from './obj/realm';
 import { Cell } from './chunk/chunk';
 import { createChunkMesh } from './chunk/render';
 import { RealmWorker } from './worker/realm';
@@ -14,38 +10,48 @@ import { GameECS } from './gameECS';
 import { ChunkGenerationResult } from './worker/realm';
 import { updateSpritePosition } from './subObj/spriteRender';
 
-import { backgrounds } from './dev-data';
+import { EntityRef } from './utils/ecs';
+import { Vec2 } from './utils/utils';
+import { spawnWorker, listenToWorkerNextValue } from './utils/worker';
+import Map2D from './utils/map2d';
+
+import { CHUNK_SIZE } from './consts';
 
 export interface Realm {
   currentObj: EntityRef;
+  light: THREE.DirectionalLight;
   worker: Comlink.Remote<RealmWorker>;
+  baseMaterial: THREE.Material;
 }
 
 export function init(ecs: GameECS): Realm {
-  const currentObj = ecs.allocate();
+  const currentObj = createBaseRealm(ecs);
+
+  const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+  light.position.set(0, 1, 0);
+  light.target.position.set(0, 0, 0);
+
   const worker = spawnWorker<RealmWorker>('realm');
-
-  // TODO: built-in empty realm:
-  ecs.setComponent(currentObj, 'obj/realm', {
-    chunks: new Map2D(),
-    backgrounds,
-  });
-
-  // TODO: load realm asynchronously, adding subObjs
-
-  // TODO: transfer realm, chunk entities and components to worker.create()
   worker.create();
 
   return {
     currentObj,
+    light,
     worker,
+    baseMaterial: createBaseMaterial(),
   };
 }
 
 export function addToScene(game: Game) {
   const { backgrounds } = game.ecs.getComponent(game.realm.currentObj, 'obj/realm');
 
-  { // TODO: await realm loading completion
+  game.scene.add(game.realm.light);
+  game.scene.add(game.realm.light.target);
+
+  {
+    // TODO: load realm asynchronously, adding subObjs
+    // TODO: transfer realm, chunk entities and components to worker.create()
+
     listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
       handleNextGeneratedChunk(result, game.realm, game);
     });
@@ -92,4 +98,35 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, realm: Realm, g
 
 export function triggerRealmGeneration(centerChunkIJ: Vec2, game: Game) {
   game.realm.worker.triggerRealmGeneration(centerChunkIJ);
+}
+
+function createBaseMaterial(): THREE.Material {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 1;
+
+  ctx.beginPath();
+  const cellSize = canvas.width / CHUNK_SIZE;
+  for(let i = 0; i <= CHUNK_SIZE; i++) {
+    const pos = cellSize * i;
+    ctx.moveTo(pos, 0);
+    ctx.lineTo(pos, canvas.height);
+    ctx.moveTo(0, pos);
+    ctx.lineTo(canvas.width, pos);
+  }
+  ctx.stroke();
+
+  const texture = new THREE.CanvasTexture(ctx.canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+
+  return new THREE.MeshPhongMaterial({
+    map: texture,
+    transparent: true,
+  });
 }

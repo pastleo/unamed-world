@@ -25,12 +25,12 @@ export function initSprite(subObjEntity: EntityRef, game: Game) {
         subObjSpriteRender,
         subObj, objSprite,
       );
-    })
+    }),
   });
 
   const sprite = new THREE.Sprite(material);
-	sprite.scale.x = objSprite.radius * 2;
-	sprite.scale.y = objSprite.tall;
+  sprite.scale.x = objSprite.radius * 2;
+  sprite.scale.y = objSprite.tall;
 
   const subObjSpriteRender = {
     sprite,

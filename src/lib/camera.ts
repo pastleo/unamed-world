@@ -2,16 +2,17 @@ import * as THREE from 'three';
 import { Game } from './game';
 import { Vec2, Vec3 } from './utils/utils';
 
+import {
+  INIT_CAMERA_ANGLE,
+  MAX_CAMERA_ANGLE, MIN_CAMERA_ANGLE,
+  MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE,
+} from './consts';
+
 export interface Camera {
   camera: THREE.PerspectiveCamera;
   cameraBase: THREE.Object3D;
   cameraAngleBase: THREE.Object3D;
 }
-const INIT_CAMERA_ANGLE = -45 * Math.PI / 180;
-const MAX_CAMERA_ANGLE = -30 * Math.PI / 180;
-const MIN_CAMERA_ANGLE = -90 * Math.PI / 180;
-const MIN_CAMERA_DISTANCE = 4;
-const MAX_CAMERA_DISTANCE = 32;
 
 export function init(): Camera {
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
