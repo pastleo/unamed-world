@@ -1,13 +1,14 @@
 import { Game } from './game';
 import { movePlayer } from './player';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
-import { Vec2, multiply } from './utils/utils';
+import { Vec2, multiply, add, lengthSq } from './utils/utils';
 
 export interface Input {
   keyPressed: Set<string>;
-  mousedown: null | 'left' | 'right' | 'middle';
-  mousemove: boolean;
-  mouseCoord: Vec2;
+  mousedown: null | 'left' | 'right' | 'middle' | 'rightClicked';
+  mouseMoved: boolean;
+  lastMouseCoord: Vec2;
+  mouseTotalMovement: Vec2;
   touched: boolean | 'multi';
   touchmove: boolean;
   touchCoord: Vec2;
@@ -28,8 +29,9 @@ export function create(): Input {
   return {
     keyPressed: new Set(),
     mousedown: null,
-    mouseCoord: [0, 0],
-    mousemove: false,
+    lastMouseCoord: [0, 0],
+    mouseTotalMovement: [0, 0],
+    mouseMoved: false,
     touched: false,
     touchmove: false,
     touchCoord: [0, 0],
@@ -53,45 +55,57 @@ export function startListeners(input: Input, game: Game) {
     if (input.mousedown) return;
 
     input.mousedown = MOUSE_BUTTONS[event.button];
-    input.mouseCoord = [event.offsetX, event.offsetY];
+    input.lastMouseCoord = [event.offsetX, event.offsetY];
+    input.mouseTotalMovement = [0, 0];
 
     if (input.mousedown === 'right') {
       game.renderer.domElement.requestPointerLock();
     }
   });
   game.renderer.domElement.addEventListener('mouseup', () => {
-    if (input.mousedown && !input.mousemove) {
-      if (input.mousedown === 'left') {
-        // use tool
-      } else return;
+    if (!input.mouseMoved) {
+      switch (input.mousedown) {
+        case 'left':
+        case 'middle':
+          // use tool accordingly
+          break;
+        case 'right':
+          input.mousedown = 'rightClicked';
+          return;
+      }
     }
 
     input.mousedown = null;
-    input.mousemove = false;
+    input.mouseMoved = false;
     document.exitPointerLock();
   });
+
   game.renderer.domElement.addEventListener('mousemove', event => {
     if (input.mousedown) {
       const { offsetX, offsetY } = event;
-      const [preOffsetX, preOffsetY] = input.mouseCoord;
-      const movementX = -event.movementX || offsetX - preOffsetX;
-      const movementY = -event.movementY || offsetY - preOffsetY;
+      const [preOffsetX, preOffsetY] = input.lastMouseCoord;
+      const movement: Vec2 = [
+        -event.movementX || offsetX - preOffsetX,
+        -event.movementY || offsetY - preOffsetY,
+      ];
+      input.lastMouseCoord = [offsetX, offsetY];
+      input.mouseTotalMovement = add(input.mouseTotalMovement, movement);
 
       if (
-        input.mousemove ||
-        (movementX * movementX + movementY * movementY) > 48
+        input.mouseMoved ||
+        lengthSq(input.mouseTotalMovement) > 48
       ) {
-        input.mousemove = true;
+        input.mouseMoved = true;
         if (input.mousedown === 'left') {
           // tool aiming
-        } else if (input.mousedown === 'right') {
+        } else if (input.mousedown.startsWith('right')) {
           moveCameraAngle(
-            [movementX / 100, movementY / 100],
+            multiply(input.mouseTotalMovement, 0.01),
             game.camera,
           );
         }
 
-        input.mouseCoord = [offsetX, offsetY];
+        input.mouseTotalMovement = [0, 0];
       }
     } else {
       // hover
@@ -99,12 +113,10 @@ export function startListeners(input: Input, game: Game) {
   });
 
   const exitPointerLock = () => {
-    if (
-      input.mousedown === 'right' &&
-      document.pointerLockElement !== game.renderer.domElement
-    ) {
+    if (document.pointerLockElement !== game.renderer.domElement) {
       input.mousedown = null;
-      input.mousemove = false;
+      input.mouseMoved = false;
+      document.exitPointerLock();
     }
   }
   document.addEventListener('pointerlockchange', exitPointerLock, false);
