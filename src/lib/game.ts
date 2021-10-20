@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Agent, BrowserConnManager } from 'unnamed-network';
+// import { Agent, BrowserConnManager } from 'unnamed-network';
 
 import { GameECS, init as initECS } from './gameECS';
 
@@ -16,7 +16,7 @@ export interface Game {
   camera: Camera;
   realm: Realm;
   player: Player;
-  networkAgent: Agent;
+  // networkAgent: Agent;
   input: Input,
   time: number;
 
@@ -34,8 +34,8 @@ export async function setup(): Promise<Game> {
 
   const player = createPlayer(ecs);
 
-  const connManager = new BrowserConnManager();
-  const networkAgent = new Agent(connManager);
+  // const connManager = new BrowserConnManager();
+  // const networkAgent = new Agent(connManager);
 
   const game: Game = {
     ecs,
@@ -44,7 +44,7 @@ export async function setup(): Promise<Game> {
     camera,
     realm: initRealm(ecs),
     player,
-    networkAgent,
+    // networkAgent,
     input: createInput(),
     time: 0,
     loader: new THREE.TextureLoader(),
