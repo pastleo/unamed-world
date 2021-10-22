@@ -3,7 +3,7 @@ import * as Comlink from 'comlink';
 // TODO: make workerName be 'realm' | '...'
 export function spawnWorker<T>(workerName: string): Comlink.Remote<T> {
   if (typeof window !== 'undefined') {
-    const worker = new Worker('web-worker.js');
+    const worker = new Worker((window as any).ENTRY_POINTS_MAPPING['web-worker.js'] || 'web-worker.js', { type: 'module' });
     worker.postMessage({ workerName });
     return Comlink.wrap<T>(worker);
   }
