@@ -1,6 +1,8 @@
 import * as Comlink from 'comlink';
 
 import { GameECS, init as initECS } from '../gameECS';
+import { getObjEntity } from '../obj/obj';
+import { createBaseRealm } from '../obj/realm';
 import { Cell, getChunk } from '../chunk/chunk';
 import { AttributeArrays, chunkAttributeArrays } from '../chunk/renderAttribute';
 
@@ -10,10 +12,8 @@ import SetVec2 from '../utils/setVec2';
 import Map2D from '../utils/map2d';
 import { createWorkerNextValueFn } from '../utils/worker';
 
-import { CHUNK_SIZE } from '../consts';
-import { backgrounds, loadRealmComponents } from '../dev-data';
-
-const AUTO_GENERATION_RANGE = 4;
+import { CHUNK_SIZE, REALM_CHUNK_AUTO_GENERATION_RANGE } from '../consts';
+ import { loadRealm1 } from '../dev-data';
 
 export interface ChunkGenerationResult {
   chunkIJ: Vec2;
@@ -23,7 +23,7 @@ export interface ChunkGenerationResult {
 }
 
 export interface RealmWorker {
-  create: () => void;
+  load: (id: string) => void;
   triggerRealmGeneration: (centerChunkIJ: Vec2) => void;
   nextGeneratedChunk: () => Promise<ChunkGenerationResult>;
 }
@@ -37,25 +37,20 @@ interface RealmWorkerGlobal {
 
 function startWorker(): RealmWorker {
   const ecs = initECS();
-  const realmEntity = ecs.allocate();
-
-  ecs.setComponent(realmEntity, 'obj/realm', {
-    chunks: new Map2D(),
-    backgrounds,
-  });
 
   const [notifyNewChunk, nextGeneratedChunk] = createWorkerNextValueFn<ChunkGenerationResult>();
 
-
   const worker: RealmWorkerGlobal = {
-    ecs, realmEntity,
+    ecs, realmEntity: createBaseRealm(ecs),
     generatingChunkQueue: [],
     notifyNewChunk,
   };
 
   return {
-    create: () => {
-      loadRealmComponents(realmEntity, ecs);
+    load: (id: string) => {
+      // TODO: load from localstorage
+      loadRealm1(ecs);
+      worker.realmEntity = getObjEntity(id); // id: 'realm-1'
     },
     triggerRealmGeneration: (centerChunkIJ: Vec2) => {
       generateRealmChunk(centerChunkIJ, worker);
@@ -69,7 +64,7 @@ export default startWorker;
 const CELL_MIDDLE_PERCENTAGE_OFFSET = 1 / (CHUNK_SIZE * 2);
 function generateRealmChunk(centerChunkIJ: Vec2, worker: RealmWorkerGlobal) {
   const realm = worker.ecs.getComponent(worker.realmEntity, 'obj/realm');
-  rangeVec2s(centerChunkIJ, AUTO_GENERATION_RANGE).forEach(chunkIJ => {
+  rangeVec2s(centerChunkIJ, REALM_CHUNK_AUTO_GENERATION_RANGE).forEach(chunkIJ => {
     if (realm.chunks.get(...chunkIJ)) return;
     const upChunk = getChunk(add(chunkIJ, [0, 1]), worker.realmEntity, worker.ecs, true);
     const bottomChunk = getChunk(add(chunkIJ, [0, -1]), worker.realmEntity, worker.ecs, true);
@@ -91,11 +86,13 @@ function generateRealmChunk(centerChunkIJ: Vec2, worker: RealmWorkerGlobal) {
       ] as [Cell, number][]).filter(
         ([cell]) => cell
       ).reduce<[number, number]>(
-        ([zSum, zDivideFactor], [cell, p]) => ([zSum + cell.altitude * p, zDivideFactor + p]),
+        ([zSum, zDivideFactor], [cell, p]) => {
+          return ([zSum + cell.altitude * p, zDivideFactor + p])
+        },
         [0, 0],
       );
 
-      return { altitude: zSum / zDivideFactor, flatness: 0.5 };
+      return { altitude: zDivideFactor <= 0 ? 0 : zSum / zDivideFactor, flatness: 0.5 };
     }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
     const chunkEntity = worker.ecs.allocate();
@@ -105,7 +102,7 @@ function generateRealmChunk(centerChunkIJ: Vec2, worker: RealmWorkerGlobal) {
       chunkIJ,
       subObjs: [], // not used
       persistance: false,
-      textureUrl: (upChunk || bottomChunk || leftChunk || rightChunk).textureUrl || '',
+      textureUrl: (upChunk || bottomChunk || leftChunk || rightChunk)?.textureUrl || '',
     });
 
    realm.chunks.put(...chunkIJ, chunkEntity);
@@ -114,7 +111,7 @@ function generateRealmChunk(centerChunkIJ: Vec2, worker: RealmWorkerGlobal) {
   const newChunks: [chunkIJ: Vec2, chunkEntity: EntityRef][] = [];
 
   const newChunkIJs = new SetVec2();
-  rangeVec2s(centerChunkIJ, AUTO_GENERATION_RANGE).forEach(chunkIJ => {
+  rangeVec2s(centerChunkIJ, REALM_CHUNK_AUTO_GENERATION_RANGE).forEach(chunkIJ => {
     const chunkEntity = realm.chunks.get(...chunkIJ);
 
     if (worker.ecs.getComponent(chunkEntity, 'chunk/renderAttribute')?.attributesGenerated) return;

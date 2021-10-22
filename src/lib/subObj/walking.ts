@@ -13,10 +13,13 @@ export interface SubObjWalkingComponent {
   moveTarget?: Vec2;
   moveTargetDistance?: number;
   afterMovingTimeout?: ReturnType<typeof setTimeout>;
+  collidedSubObjs: EntityRef[];
 }
 
 export function initSubObjWalking(subObjEntity: EntityRef, game: Game) {
-  game.ecs.setComponent(subObjEntity, 'subObj/walking', {});
+  game.ecs.setComponent(subObjEntity, 'subObj/walking', {
+    collidedSubObjs: [],
+  });
 }
 
 export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
@@ -109,6 +112,7 @@ function movableRange(
       return ((sObjSprite.radius || 0) + objSprite.radius) > length(sub(sObj.position, newPosition))
     }
   );
+  subObjWalking.collidedSubObjs = collidedSubObjs;
 
   if (collidedSubObjs.length) return 0;
 

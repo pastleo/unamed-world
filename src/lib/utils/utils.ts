@@ -31,6 +31,20 @@ export function multiply<T extends Vec2 | Vec3>(v: T, scalar: number, dstVArg?: 
   return dstV;
 }
 
+export function cross(a: Vec3, b: Vec3): Vec3 {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
+export function normalize<T extends Vec2 | Vec3>(v: T): T {
+  const l = length(v);
+  if (l <= 0) return Array(v.length).fill(0) as T;
+  return multiply(v, 1 / l);
+}
+
 export function lengthSq<T extends Vec2 | Vec3>(v: T): number {
   return v.reduce((p, v) => p + v * v, 0);
 }
@@ -67,8 +81,8 @@ export function averagePresentNumbers(...ns: number[]): number {
   return presentNumbers.reduce((p, c) => p + c, 0) / presentNumbers.length;
 }
 
-export function step(vecA: number[], vecB: number[], progress: number) {
-  return vecA.map((va, i) => va * (1 - progress) + vecB[i] * progress);
+export function step<T extends Vec2 | Vec3>(vecA: T, vecB: T, progress: number): T {
+  return vecA.map((va, i) => va * (1 - progress) + vecB[i] * progress) as T;
 }
 
 export function warnIfNotPresent(...values: any[]) {

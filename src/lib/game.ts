@@ -29,21 +29,16 @@ export async function setup(): Promise<Game> {
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
 
-  const scene = new THREE.Scene();
-  const camera = initCamera();
-
-  const player = createPlayer(ecs);
-
   // const connManager = new BrowserConnManager();
   // const networkAgent = new Agent(connManager);
 
   const game: Game = {
     ecs,
     renderer,
-    scene,
-    camera,
+    scene: new THREE.Scene,
+    camera: initCamera(),
     realm: initRealm(ecs),
-    player,
+    player: createPlayer(ecs),
     // networkAgent,
     input: createInput(),
     time: 0,
@@ -51,9 +46,9 @@ export async function setup(): Promise<Game> {
   }
 
   addRealmToScene(game);
-  addCameraToScene(camera, game);
+  addCameraToScene(game);
   addPlayerToRealm(game);
-  startListeners(game.input, game);
+  startListeners(game);
 
   return game;
 }

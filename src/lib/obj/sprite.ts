@@ -2,7 +2,7 @@ import { Vec2 } from '../utils/utils';
 import { SubObjState } from '../subObj/subObj';
 
 export interface ObjSpriteComponent {
-  url: string;
+  spritesheet: string;
   eightBitStyle?: boolean;
   colRow: Vec2;
   stateAnimations: Record<SubObjState, SpriteStateAnimation>;

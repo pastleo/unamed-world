@@ -12,35 +12,37 @@ export interface ChunkRenderComponent {
   mesh: THREE.Mesh;
 }
 
-const chunkMaterialCache = new Map<string, THREE.MeshBasicMaterial>();
-
+const textureCache = new Map<string, THREE.Texture>();
 export function createChunkMesh(chunkEntity: EntityRef, chunkIJ: Vec2, attributeArrays: AttributeArrays, game: Game) {
   const chunk = game.ecs.getComponent(chunkEntity, 'chunk');
   if (warnIfNotPresent(chunk)) return;
 
   const geometry = new THREE.BufferGeometry();
 
-  let material: THREE.MeshBasicMaterial;
-  const cachedMaterial = chunkMaterialCache.get(chunk.textureUrl);
-  if (cachedMaterial) {
-    material = cachedMaterial;
-  } else {
-    material = new THREE.MeshBasicMaterial({
-      map: game.loader.load(chunk.textureUrl, texture => {
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-      }),
+  let material: THREE.Material;
+  if (chunk.textureUrl) {
+    let texture = textureCache.get(chunk.textureUrl);
+
+    if (!texture) {
+      texture = game.loader.load(chunk.textureUrl);
+      textureCache.set(chunk.textureUrl, texture);
+    }
+    material = new THREE.MeshPhongMaterial({
+      map: texture,
+      transparent: true,
     });
-    chunkMaterialCache.set(chunk.textureUrl, material);
+  } else {
+    material = game.realm.baseMaterial;
   }
 
   geometry.setAttribute('position', new THREE.BufferAttribute(
-    new Float32Array(attributeArrays.positions),
-    3,
+    new Float32Array(attributeArrays.positions), 3,
   ));
   geometry.setAttribute('uv', new THREE.BufferAttribute(
-    new Float32Array(attributeArrays.uvs),
-    2,
+    new Float32Array(attributeArrays.uvs), 2,
+  ));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(
+    new Float32Array(attributeArrays.normals), 3,
   ));
 
   let chunkRender = game.ecs.getComponent(chunkEntity, 'chunk/render');
@@ -56,5 +58,6 @@ export function createChunkMesh(chunkEntity: EntityRef, chunkIJ: Vec2, attribute
 
   chunkRender.mesh.position.x = chunkIJ[0] * CHUNK_SIZE;
   chunkRender.mesh.position.z = chunkIJ[1] * CHUNK_SIZE;
+  chunkRender.mesh.renderOrder = -1;
   game.scene.add(chunkRender.mesh);
 }
