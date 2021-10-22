@@ -29,8 +29,8 @@ export function init(): Camera {
   }
 }
 
-export function addToScene(camera: Camera, game: Game) {
-  game.scene.add(camera.cameraBase);
+export function addToScene(game: Game) {
+  game.scene.add(game.camera.cameraBase);
 }
 
 export function resize(width: number, height: number, camera: Camera) {

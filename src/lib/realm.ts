@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as Comlink from 'comlink';
 
+import { getObjEntity } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
 import { Cell } from './chunk/chunk';
 import { createChunkMesh } from './chunk/render';
@@ -8,6 +9,7 @@ import { RealmWorker } from './worker/realm';
 import { Game } from './game';
 import { GameECS } from './gameECS';
 import { ChunkGenerationResult } from './worker/realm';
+import { addSubObj } from './subObj/subObj';
 import { updateSpritePosition } from './subObj/spriteRender';
 
 import { EntityRef } from './utils/ecs';
@@ -16,6 +18,7 @@ import { spawnWorker, listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
 
 import { CHUNK_SIZE } from './consts';
+import { loadObjSprites } from './dev-data';
 
 export interface Realm {
   currentObj: EntityRef;
@@ -32,7 +35,6 @@ export function init(ecs: GameECS): Realm {
   light.target.position.set(0, 0, 0);
 
   const worker = spawnWorker<RealmWorker>('realm');
-  worker.create();
 
   return {
     currentObj,
@@ -50,7 +52,17 @@ export function addToScene(game: Game) {
 
   {
     // TODO: load realm asynchronously, adding subObjs
-    // TODO: transfer realm, chunk entities and components to worker.create()
+    loadObjSprites(game.ecs);
+    addSubObj(getObjEntity('hero-1'), [-5, 0, -5], game);
+    addSubObj(getObjEntity('flying-bitch-1'), [0, 0, -5], game);
+    addSubObj(getObjEntity('giraffe-1'), [5, 0, -5], game);
+
+    // TODO: cache realm, chunk entities and components to localstorage
+    //
+    // TODO: should not hard-code
+    if (window.location.hash === '#/realm-1') {
+      game.realm.worker.load('realm-1');
+    }
 
     listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
       handleNextGeneratedChunk(result, game.realm, game);

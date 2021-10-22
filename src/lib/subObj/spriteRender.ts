@@ -17,15 +17,9 @@ export function initSprite(subObjEntity: EntityRef, game: Game) {
   const objSprite = game.ecs.getComponent(subObj.obj, 'obj/sprite');
   if (!objSprite) return;
 
+  const texture = game.loader.load(objSprite.spritesheet);
   const material = new THREE.SpriteMaterial({
-    map: game.loader.load(objSprite.url, texture => {
-      initSpriteTexture(objSprite, texture);
-      updateSpriteTexture(
-        subObjEntity, game,
-        subObjSpriteRender,
-        subObj, objSprite,
-      );
-    }),
+    map: texture,
   });
 
   const sprite = new THREE.Sprite(material);
@@ -37,6 +31,14 @@ export function initSprite(subObjEntity: EntityRef, game: Game) {
     groundAltitude: 0,
   };
   game.ecs.setComponent(subObjEntity, 'subObj/spriteRender', subObjSpriteRender);
+
+  initSpriteTexture(objSprite, texture);
+  updateSpriteTexture(
+    subObjEntity, game,
+    subObjSpriteRender,
+    subObj, objSprite,
+  );
+
   game.scene.add(sprite);
 
   updateSpritePosition(
@@ -97,6 +99,13 @@ export function updateSpriteTexture(
     ((spriteFrameIndex % objSprite.colRow[0]) + (flopped ? 1 : 0)) * (1/objSprite.colRow[0]),
     (objSprite.colRow[1] - Math.floor(spriteFrameIndex / objSprite.colRow[0]) - 1) * (1/objSprite.colRow[1]),
   );
+}
+
+export function destroySprite(subObjEntity: EntityRef, game: Game) {
+  const subObjSpriteRender = game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
+  if (warnIfNotPresent(subObjSpriteRender)) return;
+
+  subObjSpriteRender.sprite.removeFromParent();
 }
 
 function initSpriteTexture(objSprite: ObjSpriteComponent, texture: THREE.Texture) {

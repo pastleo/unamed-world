@@ -1,6 +1,7 @@
 import * as Comlink from 'comlink';
 
 import { GameECS, init as initECS } from '../gameECS';
+import { getObjEntity } from '../obj/obj';
 import { createBaseRealm } from '../obj/realm';
 import { Cell, getChunk } from '../chunk/chunk';
 import { AttributeArrays, chunkAttributeArrays } from '../chunk/renderAttribute';
@@ -12,7 +13,7 @@ import Map2D from '../utils/map2d';
 import { createWorkerNextValueFn } from '../utils/worker';
 
 import { CHUNK_SIZE, REALM_CHUNK_AUTO_GENERATION_RANGE } from '../consts';
-// import { loadRealmComponents } from '../dev-data';
+ import { loadRealm1 } from '../dev-data';
 
 export interface ChunkGenerationResult {
   chunkIJ: Vec2;
@@ -22,7 +23,7 @@ export interface ChunkGenerationResult {
 }
 
 export interface RealmWorker {
-  create: () => void;
+  load: (id: string) => void;
   triggerRealmGeneration: (centerChunkIJ: Vec2) => void;
   nextGeneratedChunk: () => Promise<ChunkGenerationResult>;
 }
@@ -36,19 +37,20 @@ interface RealmWorkerGlobal {
 
 function startWorker(): RealmWorker {
   const ecs = initECS();
-  const realmEntity = createBaseRealm(ecs);
 
   const [notifyNewChunk, nextGeneratedChunk] = createWorkerNextValueFn<ChunkGenerationResult>();
 
   const worker: RealmWorkerGlobal = {
-    ecs, realmEntity,
+    ecs, realmEntity: createBaseRealm(ecs),
     generatingChunkQueue: [],
     notifyNewChunk,
   };
 
   return {
-    create: () => {
-      // loadRealmComponents(realmEntity, ecs);
+    load: (id: string) => {
+      // TODO: load from localstorage
+      loadRealm1(ecs);
+      worker.realmEntity = getObjEntity(id); // id: 'realm-1'
     },
     triggerRealmGeneration: (centerChunkIJ: Vec2) => {
       generateRealmChunk(centerChunkIJ, worker);

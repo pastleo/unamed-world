@@ -1,6 +1,6 @@
 import { Game } from '../game';
 import { Located, getChunk, locateChunkCell, calcAltitudeAt } from '../chunk/chunk';
-import { initSprite, updateSpritePosition } from './spriteRender';
+import { initSprite, updateSpritePosition, destroySprite } from './spriteRender';
 
 import { EntityRef, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, add, warnIfNotPresent } from '../utils/utils';
@@ -54,10 +54,23 @@ export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
   subObj.cellIJ = cellIJ;
 
   if (chunkIJ[0] !== subObj.chunkIJ[0] || chunkIJ[1] !== subObj.chunkIJ[1]) {
-    const oriChunk = getChunk(subObj.chunkIJ, game.realm.currentObj, game.ecs);
-    const index = oriChunk.subObjs.findIndex(entity => entityEqual(entity, subObjEntity));
-    oriChunk.subObjs.splice(index, 1);
+    removeFromChunk(subObjEntity, subObj, game);
     chunk.subObjs.push(subObjEntity);
     subObj.chunkIJ = chunkIJ;
   }
+}
+
+export function removeSubObj(subObjEntity: EntityRef, game: Game) {
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  if (warnIfNotPresent(subObj)) return;
+
+  removeFromChunk(subObjEntity, subObj, game);
+  destroySprite(subObjEntity, game);
+  game.ecs.deallocate(subObjEntity);
+}
+
+function removeFromChunk(subObjEntity: EntityRef, subObj: SubObjComponent, game: Game) {
+  const oriChunk = getChunk(subObj.chunkIJ, game.realm.currentObj, game.ecs);
+  const index = oriChunk.subObjs.findIndex(entity => entityEqual(entity, subObjEntity));
+  oriChunk.subObjs.splice(index, 1);
 }

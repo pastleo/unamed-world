@@ -1,5 +1,7 @@
 import { GameECS } from './gameECS';
 
+import { createObj } from './obj/obj';
+
 import { EntityRef } from './utils/ecs';
 import { ObjRealmComponent } from './obj/realm';
 import { Cell } from './chunk/chunk';
@@ -42,9 +44,9 @@ export const backgrounds = [
 ] as [string, string, string, string, string, string];
 
 const flyingBitchObjSpriteComponents = [
-  ['obj', { id: 'flying-bitch-1' }],
+  'flying-bitch-1',
   ['obj/sprite', {
-    url: 'assets/flying-bitch.png',
+    spritesheet: 'assets/flying-bitch.png',
     eightBitStyle: true,
     colRow: [7, 1],
     stateAnimations: {
@@ -67,9 +69,9 @@ const flyingBitchObjSpriteComponents = [
 ];
 
 const heroObjSpriteComponents = [
-  ['obj', { id: 'hero-1' }],
+  'hero-1',
   ['obj/sprite', {
-    url: 'assets/hero.png',
+    spritesheet: 'assets/hero.png',
     eightBitStyle: true,
     colRow: [6, 5],
     stateAnimations: {
@@ -92,9 +94,9 @@ const heroObjSpriteComponents = [
 ];
 
 const giraffeObjSpriteComponents = [
-  ['obj', { id: 'giraffe-1' }],
+  'giraffe-1',
   ['obj/sprite', {
-    url: 'assets/giraffe.png',
+    spritesheet: 'assets/giraffe.png',
     eightBitStyle: true,
     colRow: [3, 1],
     stateAnimations: {
@@ -116,6 +118,20 @@ const giraffeObjSpriteComponents = [
   }],
 ];
 
+export function loadObjSprites(ecs: GameECS) {
+  [
+    flyingBitchObjSpriteComponents,
+    heroObjSpriteComponents,
+    giraffeObjSpriteComponents,
+  ].forEach(([id, ...components]) => {
+    const objEntity = createObj(id as string, ecs);
+    components.forEach(([ componentName, component ]) => {
+      ecs.setComponent(objEntity, componentName as any, component as any);
+      // TODO: when implementing restore feature, validation is required
+    });
+  });
+}
+
 export function loadPlayerObjSpriteComponents(ecs: GameECS): EntityRef {
   const objEntity = ecs.allocate();
   flyingBitchObjSpriteComponents.forEach(([ componentName, component ]) => {
@@ -126,12 +142,14 @@ export function loadPlayerObjSpriteComponents(ecs: GameECS): EntityRef {
   return objEntity
 }
 
-export function loadRealmComponents(realmObjEntity: EntityRef, ecs: GameECS) {
-  const realm = ecs.getComponent(realmObjEntity, 'obj/realm');
-  loadRealm1(realm, ecs);
-}
+export function loadRealm1(ecs: GameECS) {
+  const realmObjEntity = createObj('realm-1', ecs);
+  const realm: ObjRealmComponent = {
+    chunks: new Map2D(),
+    backgrounds,
+  };
+  ecs.setComponent(realmObjEntity, 'obj/realm', realm);
 
-function loadRealm1(realm: ObjRealmComponent, ecs: GameECS) {
   loadChunkComponent(
     TEXTURE_URL_1, devCells(DEV_CHUNK_DATA_1, [false, true, true, false], Z_HIGH),
     [-2, -3], [], realm.chunks, ecs

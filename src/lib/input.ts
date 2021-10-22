@@ -41,7 +41,8 @@ export function create(): Input {
   };
 }
 
-export function startListeners(input: Input, game: Game) {
+export function startListeners(game: Game) {
+  const { input } = game;
   window.addEventListener('keydown', event => {
     input.keyPressed.add(event.key);
   }, false);
