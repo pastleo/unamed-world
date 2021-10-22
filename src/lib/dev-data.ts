@@ -10,7 +10,7 @@ import Map2D from './utils/map2d';
 import { CHUNK_SIZE } from './consts';
 import { Vec2 } from './utils/utils';
 
-const TEXTURE_URL_1 = 'assets/ground.png';
+const TEXTURE_URL_1 = 'assets/ground.jpg';
 const DEV_CHUNK_DATA_1 = [
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,

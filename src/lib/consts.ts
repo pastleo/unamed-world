@@ -13,10 +13,10 @@ export const MAX_TARGET_DISTANCE = 2;
 export const STOP_TARGET_DISTANCE = 0.5;
 
 export const BASE_REALM_BACKGROUND = [
-  'assets/skybox/pos-x.png',
-  'assets/skybox/neg-x.png',
-  'assets/skybox/pos-y.png',
-  'assets/skybox/neg-y.png',
-  'assets/skybox/pos-z.png',
-  'assets/skybox/neg-z.png',
+  'assets/skybox/pos-x.jpg',
+  'assets/skybox/neg-x.jpg',
+  'assets/skybox/pos-y.jpg',
+  'assets/skybox/neg-y.jpg',
+  'assets/skybox/pos-z.jpg',
+  'assets/skybox/neg-z.jpg',
 ] as [string, string, string, string, string, string];
