@@ -1,5 +1,5 @@
 import { Game } from '../game';
-import { GameECS } from '../gameECS';
+import { GameECS, GameEntityComponents } from '../gameECS';
 
 import { Vec2, Vec3, mod, warnIfNotPresent } from '../utils/utils';
 import { EntityRef } from '../utils/ecs';
@@ -7,9 +7,10 @@ import Map2D from '../utils/map2d';
 
 import { CHUNK_SIZE } from '../consts';
 
+export type ChunkEntityComponents = GameEntityComponents;
+
 export interface ChunkComponent {
   cells: Map2D<Cell>;
-  chunkEntity: EntityRef;
   chunkIJ: Vec2;
   subObjs: EntityRef[];
   persistance: boolean;
@@ -29,7 +30,6 @@ export interface Located {
   cell: Cell;
   cellIJ: Vec2;
   chunk: ChunkComponent;
-  chunkEntity: EntityRef;
   chunkIJ: Vec2;
 }
 export function locateChunkCell(position: Vec3, game: Game): Located {
@@ -48,36 +48,57 @@ export function locateChunkCell(position: Vec3, game: Game): Located {
   return {
     cell: chunk.cells.get(...cellIJ),
     cellIJ,
-    chunkEntity: chunk.chunkEntity,
     chunk,
     chunkIJ,
   }
 }
 
-export function getChunk(chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS, dontAutoCreate?: boolean): ChunkComponent {
+export function getChunkEntityComponents(chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS, createChunkFn?: () => ChunkComponent): GameEntityComponents {
   const chunks = ecs.getComponent(realmEntity, 'obj/realm')?.chunks;
   if (warnIfNotPresent(chunks)) return null;
 
   let chunkEntity = chunks.get(chunkIJ[0], chunkIJ[1]);
-  let chunk = ecs.getComponent(chunkEntity, 'chunk');
+  let chunkEntityComponents = ecs.getEntityComponents(chunkEntity);
+  let chunk = chunkEntityComponents?.get('chunk');
   
   if (!chunk) {
-    if (dontAutoCreate) return null;
+    if (!createChunkFn) return null;
 
     chunkEntity = ecs.allocate();
-    chunk = {
-      cells: tmpChunkCells(),
-      chunkEntity,
-      chunkIJ,
-      subObjs: [],
-      persistance: false,
-      textureUrl: '',
-    }
+    chunkEntityComponents = ecs.getEntityComponents(chunkEntity);
+    chunk = createChunkFn();
     ecs.setComponent(chunkEntity, 'chunk', chunk);
     chunks.put(chunkIJ[0], chunkIJ[1], chunkEntity);
-    return chunk;
   };
-  return chunk;
+
+  return chunkEntityComponents;
+}
+
+export function getChunk(chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS, dontAutoCreate?: boolean): ChunkComponent {
+  return getChunkEntityComponents(chunkIJ, realmEntity, ecs, dontAutoCreate ? null : () => ({
+    cells: tmpChunkCells(),
+    chunkIJ,
+    subObjs: [],
+    persistance: false,
+    textureUrl: '',
+  }))?.get('chunk');
+}
+
+export function createOrUpdateChunk(chunkSrc: ChunkComponent, chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS): /* created: */ boolean {
+  const chunks = ecs.getComponent(realmEntity, 'obj/realm')?.chunks;
+  if (warnIfNotPresent(chunks)) return null;
+
+  let chunkEntity = chunks.get(chunkIJ[0], chunkIJ[1]);
+
+  if (ecs.getComponent(chunkEntity, 'chunk')) {
+    ecs.setComponent(chunkEntity, 'chunk', chunkSrc);
+    return false
+  } else {
+    chunkEntity = ecs.allocate();
+    ecs.setComponent(chunkEntity, 'chunk', chunkSrc);
+    chunks.put(chunkIJ[0], chunkIJ[1], chunkEntity);
+    return true;
+  };
 }
 
 export function getChunkCell(chunkIJ: Vec2, cellIJ: Vec2, realmEntity: EntityRef, ecs: GameECS, dontAutoCreate?: boolean): Cell {

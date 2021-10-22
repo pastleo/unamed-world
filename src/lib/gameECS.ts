@@ -1,4 +1,4 @@
-import ECS from './utils/ecs';
+import ECS, { EntityComponents } from './utils/ecs';
 
 import { ObjComponent } from './obj/obj';
 import { ObjRealmComponent } from './obj/realm';
@@ -25,6 +25,7 @@ interface GameComponentMap {
 }
 
 export type GameECS = ECS<GameComponentMap>;
+export type GameEntityComponents = EntityComponents<GameComponentMap>;
 
 export function init(): GameECS {
   return new ECS();

@@ -98,7 +98,6 @@ function generateRealmChunk(centerChunkIJ: Vec2, worker: RealmWorkerGlobal) {
     const chunkEntity = worker.ecs.allocate();
     worker.ecs.setComponent(chunkEntity, 'chunk', {
       cells,
-      chunkEntity,
       chunkIJ,
       subObjs: [], // not used
       persistance: false,

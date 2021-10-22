@@ -244,7 +244,6 @@ function loadChunkComponent(textureUrl: string, cellFn: (i: number, j: number) =
   const chunkEntity = ecs.allocate();
   ecs.setComponent(chunkEntity, 'chunk', {
     cells: new Map2D(cellFn, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1),
-    chunkEntity,
     chunkIJ,
     subObjs,
     textureUrl,
