@@ -4,15 +4,16 @@
   "description": "exploration of imagination",
   "main": "index.js",
   "scripts": {
-    "dev": "esbuild src/web.ts src/web-worker.ts --bundle --sourcemap --outdir=www --servedir=www",
+    "dev": "esbuild src/web.ts src/web-worker.ts --bundle --splitting --format=esm --sourcemap --outdir=www --servedir=www",
     "tc": "tsc -w -noEmit",
-    "bundle-web": "esbuild src/web.ts --bundle --minify --sourcemap --outfile=www/web.js"
+    "bundle": "rm -rf dist && cp -r www dist && esbuild src/web.ts src/web-worker.ts --bundle --splitting --format=esm --minify --outdir=dist --entry-names=[dir]/[name]-[hash] --metafile=dist/meta.json && esbuild-meta-into-html-script-src dist/meta.json www/index.html dist/index.html src/ dist/"
   },
   "author": "PastLeo",
   "license": "ISC",
   "dependencies": {
     "@types/three": "^0.131.0",
     "comlink": "^4.3.1",
+    "esbuild-meta-into-html-script-src": "^1.0.3",
     "isomorphic-webcrypto": "^2.3.8",
     "three": "^0.131.3",
     "unnamed-network": "file:../unnamed-network",
