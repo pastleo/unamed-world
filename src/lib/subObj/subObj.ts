@@ -1,4 +1,5 @@
 import { Game } from '../game';
+import { GameEntityComponents } from '../gameECS';
 import { Located, getChunk, locateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { initSprite, updateSpritePosition, destroySprite } from './spriteRender';
 
@@ -6,6 +7,8 @@ import { EntityRef, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, add, warnIfNotPresent } from '../utils/utils';
 
 export type SubObjState = 'normal' | 'walking' | string;
+
+export type SubObjEntityComponents = GameEntityComponents;
 
 export interface SubObjComponent {
   obj: EntityRef;

@@ -3,16 +3,15 @@ import * as Comlink from 'comlink';
 
 import { getObjEntity } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
-import { Cell } from './chunk/chunk';
+import { ChunkComponent, ChunkEntityComponents, Cell, getChunkEntityComponents } from './chunk/chunk';
 import { createChunkMesh } from './chunk/render';
-import { RealmWorker } from './worker/realm';
 import { Game } from './game';
 import { GameECS } from './gameECS';
-import { ChunkGenerationResult } from './worker/realm';
+import { RealmWorker, ChunkGenerationResult } from './worker/realm';
 import { addSubObj } from './subObj/subObj';
 import { updateSpritePosition } from './subObj/spriteRender';
 
-import { EntityRef } from './utils/ecs';
+import { EntityRef, entityEqual } from './utils/ecs';
 import { Vec2 } from './utils/utils';
 import { spawnWorker, listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
@@ -65,7 +64,7 @@ export function addToScene(game: Game) {
     }
 
     listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
-      handleNextGeneratedChunk(result, game.realm, game);
+      handleNextGeneratedChunk(result, game);
     });
 
     const backgroundLoader = new THREE.CubeTextureLoader();
@@ -76,36 +75,49 @@ export function addToScene(game: Game) {
   }
 }
 
-function handleNextGeneratedChunk(result: ChunkGenerationResult, realm: Realm, game: Game) {
-  const { chunks } = game.ecs.getComponent(realm.currentObj, 'obj/realm');
-  const { chunkIJ, cellEntries, textureUrl, attributeArrays } = result;
-
-  const cells = Map2D.fromEntries<Cell>(cellEntries);
-
-  const chunkEntity = chunks.get(...chunkIJ) || game.ecs.allocate();
-  let chunk = game.ecs.getComponent(chunkEntity, 'chunk');
-  if (chunk) {
-    chunk.cells = cells;
-    chunk.textureUrl = textureUrl;
-  } else {
+export function updateRealmChunk(chunkSrc: ChunkComponent, game: Game): ChunkEntityComponents {
+  let updating = true;
+  const chunkEntityComponents = getChunkEntityComponents(chunkSrc.chunkIJ, game.realm.currentObj, game.ecs, () => {
+    updating = false;
+    return chunkSrc;
+  });
+  let chunk = chunkEntityComponents.get('chunk');
+  if (updating) {
     chunk = {
-      cells, textureUrl,
-      chunkIJ,
-      chunkEntity,
-      subObjs: [], // TODO: add subObj to scene
-      persistance: false,
-    }
-
-    game.ecs.setComponent(chunkEntity, 'chunk', chunk);
-    chunks.put(...chunkIJ, chunkEntity);
+      ...chunkSrc,
+      subObjs: [
+        ...chunk.subObjs,
+        ...chunkSrc.subObjs.filter(
+          srcSobj => chunk.subObjs.findIndex(
+            existingSobj => entityEqual(srcSobj, existingSobj)
+          ) === -1
+        )
+      ],
+    };
+    chunkEntityComponents.set('chunk', chunk);
   }
 
   chunk.subObjs.forEach(subObjEntity => {
     // all possible subObj render systems:
+    // initSprite()...
     updateSpritePosition(subObjEntity, game);
-  })
+  });
 
-  createChunkMesh(chunkEntity, chunkIJ, attributeArrays, game);
+  return chunkEntityComponents;
+}
+
+function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
+  const { chunkIJ, cellEntries, textureUrl, attributeArrays } = result;
+
+  const cells = Map2D.fromEntries<Cell>(cellEntries);
+  const chunkEntityComponents = updateRealmChunk({
+    cells, textureUrl,
+    chunkIJ,
+    subObjs: [],
+    persistance: false,
+  }, game);
+
+  createChunkMesh(chunkEntityComponents, chunkIJ, attributeArrays, game);
 }
 
 export function triggerRealmGeneration(centerChunkIJ: Vec2, game: Game) {

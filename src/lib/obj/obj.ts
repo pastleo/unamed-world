@@ -1,6 +1,8 @@
-import { GameECS } from '../gameECS';
+import { GameECS, GameEntityComponents } from '../gameECS';
 
 import { EntityRef } from '../utils/ecs';
+
+export type ObjEntityComponents = GameEntityComponents;
 
 export interface ObjComponent {
   id: string

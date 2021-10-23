@@ -1,8 +1,8 @@
 import { Game } from '../game';
-import { ObjWalkableComponent } from '../obj/walkable';
-import { ObjSpriteComponent } from '../obj/sprite';
+import { ObjEntityComponents } from '../obj/obj';
+import { SubObjEntityComponents } from '../subObj/subObj';
 import { locateChunkCell, getChunkCell, calcAltitudeAt, getChunk } from '../chunk/chunk';
-import { SubObjComponent, moveSubObj } from './subObj';
+import { moveSubObj } from './subObj';
 
 import { EntityRef, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, sub, add, length, multiply, clamp } from '../utils/utils';
@@ -23,15 +23,14 @@ export function initSubObjWalking(subObjEntity: EntityRef, game: Game) {
 }
 
 export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
-  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
-  const subObjWalking = game.ecs.getComponent(subObjEntity, 'subObj/walking');
-  const objWalkable = game.ecs.getComponent(subObj.obj, 'obj/walkable');
-  const objSprite = game.ecs.getComponent(subObj.obj, 'obj/sprite');
+  const subObj = game.ecs.getEntityComponents(subObjEntity);
+
+  const subObjComponent = subObj.get('subObj');
+  const subObjWalking = subObj.get('subObj/walking');
+  const obj = game.ecs.getEntityComponents(subObjComponent.obj);
+
   if (subObjWalking?.moveTarget) {
-    const movingRange = movableRange(
-      subObjEntity, subObj, subObjWalking, objWalkable, objSprite,
-      tDiff, game,
-    );
+    const movingRange = movableRange(subObj, obj, tDiff, game);
 
     if (movingRange > 0) {
       const progressGoingToMake = clamp(movingRange / subObjWalking.moveTargetDistance, 0, 1);
@@ -41,12 +40,12 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
       multiply(subObjWalking.moveTarget, 1 - progressGoingToMake, subObjWalking.moveTarget);
       subObjWalking.moveTargetDistance = length(subObjWalking.moveTarget);
 
-      subObj.rotation[1] = Math.PI - Math.atan2(movingVec[0], movingVec[1]);
+      subObjComponent.rotation[1] = Math.PI - Math.atan2(movingVec[0], movingVec[1]);
     }
 
     if (movingRange <= 0 || subObjWalking.moveTargetDistance < STOP_TARGET_DISTANCE) {
       subObjWalking.afterMovingTimeout = setTimeout(() => {
-        subObj.state = 'normal';
+        subObjComponent.state = 'normal';
       }, 50);
       delete subObjWalking.moveTarget;
     }
@@ -83,19 +82,23 @@ export function setMoveTarget(subObjEntity: EntityRef, dVec: Vec2, game: Game): 
 }
 
 function movableRange(
-  subObjEntity: EntityRef,
-  subObj: SubObjComponent, subObjWalking: SubObjWalkingComponent,
-  objWalkable: ObjWalkableComponent, objSprite: ObjSpriteComponent,
+  subObj: SubObjEntityComponents,
+  obj: ObjEntityComponents,
   tDiff: number, game: Game,
 ): number {
+  const subObjComponent = subObj.get('subObj');
+  const subObjWalking = subObj.get('subObj/walking');
+  const objWalkable = obj.get('obj/walkable');
+  const objSprite = obj.get('obj/sprite');
+
   const objRange = objWalkable.speed * tDiff * 0.001;
-  const sloppedRange = sloppedMovableRange(objRange, subObj, subObjWalking, objWalkable, objSprite, game);
+  const sloppedRange = sloppedMovableRange(objRange, subObj, obj, game);
 
   if (sloppedRange <= 0) return 0;
 
   const movingVec = multiply(subObjWalking.moveTarget, sloppedRange / subObjWalking.moveTargetDistance);
 
-  const newPosition = add(subObj.position, [movingVec[0], 0, movingVec[1]]);
+  const newPosition = add(subObjComponent.position, [movingVec[0], 0, movingVec[1]]);
   const located = locateChunkCell(newPosition, game);
   const [chunkI, chunkJ] = located.chunkIJ;
 
@@ -104,7 +107,7 @@ function movableRange(
       getChunk([ci, cj], game.realm.currentObj, game.ecs).subObjs
     ))
   )).filter(
-    sObjEntity => !entityEqual(sObjEntity, subObjEntity)
+    sObjEntity => !entityEqual(sObjEntity, subObj.entity)
   ).filter(
     sObjEntity => {
       const sObj = game.ecs.getComponent(sObjEntity, 'subObj');
@@ -121,18 +124,23 @@ function movableRange(
 
 function sloppedMovableRange(
   objRange: number,
-  subObj: SubObjComponent, subObjWalking: SubObjWalkingComponent,
-  objWalkable: ObjWalkableComponent, objSprite: ObjSpriteComponent,
+  subObj: SubObjEntityComponents,
+  obj: ObjEntityComponents,
   game: Game,
 ): number {
+  const subObjComponent = subObj.get('subObj');
+  const subObjWalking = subObj.get('subObj/walking');
+  const objWalkable = obj.get('obj/walkable');
+  const objSprite = obj.get('obj/sprite');
+
   const movingVec = multiply(subObjWalking.moveTarget, objSprite.radius / subObjWalking.moveTargetDistance);
 
-  const newPosition = add(subObj.position, [movingVec[0], 0, movingVec[1]]);
+  const newPosition = add(subObjComponent.position, [movingVec[0], 0, movingVec[1]]);
   const located = locateChunkCell(newPosition, game);
   const { cellIJ , cell } = located;
 
-  if (subObj.cellIJ[0] !== cellIJ[0] || subObj.cellIJ[1] !== cellIJ[1]) {
-    const currentCell = getChunkCell(subObj.chunkIJ, subObj.cellIJ, game.realm.currentObj, game.ecs);
+  if (subObjComponent.cellIJ[0] !== cellIJ[0] || subObjComponent.cellIJ[1] !== cellIJ[1]) {
+    const currentCell = getChunkCell(subObjComponent.chunkIJ, subObjComponent.cellIJ, game.realm.currentObj, game.ecs);
     const cellSlope = Math.PI * 0.5 - Math.atan2(1, cell.altitude - currentCell.altitude);
     if (cellSlope >= objWalkable.maxClimbRad) {
       return 0;
@@ -140,7 +148,7 @@ function sloppedMovableRange(
   }
 
   const newAltitude = calcAltitudeAt(newPosition, located, game);
-  const slope = Math.PI * 0.5 - Math.atan2(objSprite.radius, newAltitude - subObj.groundAltitude);
+  const slope = Math.PI * 0.5 - Math.atan2(objSprite.radius, newAltitude - subObjComponent.groundAltitude);
 
   if (slope > 0) {
     const remainClimbRad = objWalkable.maxClimbRad - slope;

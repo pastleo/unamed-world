@@ -58,14 +58,9 @@ class ECS<ComponentMapT extends Record<string, any>> {
     ))
   }
 
-  getEntityComponents(ref: EntityRef): [keyof ComponentMapT, ComponentMapT[keyof ComponentMapT]][] {
-    if (!this.getEntity(ref)) return [];
-    const [index, generation] = ref;
-    return Object.entries(this.entityComponents).map(([componentName, array]) => (
-      [componentName, array.get(index, generation)] as [keyof ComponentMapT, ComponentMapT[keyof ComponentMapT]]
-    )).filter(([_componentName, component]) => (
-      component !== null
-    ))
+  getEntityComponents(ref: EntityRef): EntityComponents<ComponentMapT> | null {
+    if (!this.getEntity(ref)) return null;
+    return new EntityComponents(ref, this);
   }
 
   private getEntity(ref: EntityRef): Entity | null {
@@ -126,4 +121,22 @@ class GenerationalArray<T> {
 
 export function entityEqual(e1: EntityRef, e2: EntityRef): boolean {
   return e1[0] === e2[0] && e1[1] === e2[1];
+}
+
+export class EntityComponents<ComponentMapT> {
+  entity: EntityRef;
+  private ecs: ECS<ComponentMapT>;
+
+  constructor(entity: EntityRef, ecs: ECS<ComponentMapT>) {
+    this.entity = entity;
+    this.ecs = ecs;
+  }
+
+  get<K extends keyof ComponentMapT>(componentName: string & K): ComponentMapT[K] | null {
+    return this.ecs.getComponent(this.entity, componentName);
+  }
+
+  set<K extends keyof ComponentMapT>(componentName: string & K, componentValue: ComponentMapT[K]): boolean {
+    return this.ecs.setComponent(this.entity, componentName, componentValue);
+  }
 }

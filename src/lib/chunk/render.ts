@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Game } from '../game';
 import { AttributeArrays } from './renderAttribute';
 
-import { EntityRef } from '../utils/ecs';
+import { GameEntityComponents } from '../gameECS';
 import { Vec2, warnIfNotPresent } from '../utils/utils';
 
 import { CHUNK_SIZE } from '../consts';
@@ -13,8 +13,9 @@ export interface ChunkRenderComponent {
 }
 
 const textureCache = new Map<string, THREE.Texture>();
-export function createChunkMesh(chunkEntity: EntityRef, chunkIJ: Vec2, attributeArrays: AttributeArrays, game: Game) {
-  const chunk = game.ecs.getComponent(chunkEntity, 'chunk');
+
+export function createChunkMesh(chunkEntityComponents: GameEntityComponents, chunkIJ: Vec2, attributeArrays: AttributeArrays, game: Game) {
+  const chunk = chunkEntityComponents.get('chunk');
   if (warnIfNotPresent(chunk)) return;
 
   const geometry = new THREE.BufferGeometry();
@@ -45,7 +46,7 @@ export function createChunkMesh(chunkEntity: EntityRef, chunkIJ: Vec2, attribute
     new Float32Array(attributeArrays.normals), 3,
   ));
 
-  let chunkRender = game.ecs.getComponent(chunkEntity, 'chunk/render');
+  let chunkRender = chunkEntityComponents.get('chunk/render');
   if (chunkRender) {
     chunkRender.mesh.removeFromParent();
     chunkRender.mesh = new THREE.Mesh(geometry, material);
@@ -53,7 +54,7 @@ export function createChunkMesh(chunkEntity: EntityRef, chunkIJ: Vec2, attribute
     chunkRender = {
       mesh: new THREE.Mesh(geometry, material),
     };
-    game.ecs.setComponent(chunkEntity, 'chunk/render', chunkRender);
+    chunkEntityComponents.set('chunk/render', chunkRender);
   }
 
   chunkRender.mesh.position.x = chunkIJ[0] * CHUNK_SIZE;
