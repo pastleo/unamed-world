@@ -1,6 +1,14 @@
 import update, { resize } from './lib/update';
 import { Game, setup } from './lib/game';
 
+import localForage from 'localforage';
+
+setInterval(async () => {
+  const value = await localForage.getItem<number>('hello-localForage-cnt') || 0;
+  console.log('web', { value });
+  await localForage.setItem('hello-localForage-cnt', value + 1);
+}, 1000);
+
 function startLoop(game: Game, now: number = 0) {
   const tDiff = now - game.time;
   game.time = now;

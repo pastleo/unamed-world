@@ -16,6 +16,7 @@
     "comlink": "^4.3.1",
     "esbuild-meta-into-html-script-src": "^1.0.3",
     "isomorphic-webcrypto": "^2.3.8",
+    "localforage": "^1.10.0",
     "three": "^0.131.3",
     "ws": "^8.2.0"
   },
