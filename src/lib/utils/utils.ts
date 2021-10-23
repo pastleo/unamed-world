@@ -92,3 +92,9 @@ export function warnIfNotPresent(...values: any[]) {
   }
   return false;
 }
+
+export function getBuiltOutPath(entryPoint: string) {
+  return (typeof window !== 'undefined' ? JSON.parse(
+    (document.querySelector('meta[name=entry-points-mapping]') as HTMLMetaElement)?.content || '{}'
+  ) : {})[entryPoint] || entryPoint;
+}

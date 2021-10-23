@@ -1,9 +1,13 @@
 import * as Comlink from 'comlink';
 
+import { getBuiltOutPath } from './utils';
+
 // TODO: make workerName be 'realm' | '...'
 export function spawnWorker<T>(workerName: string): Comlink.Remote<T> {
   if (typeof window !== 'undefined') {
-    const worker = new Worker((window as any).ENTRY_POINTS_MAPPING['web-worker.js'] || 'web-worker.js', { type: 'module' });
+    const worker = new Worker(getBuiltOutPath('web-worker.js'), {
+      // type: 'module' // firefox 93 and old iOS safari does not support ESM worker
+    });
     worker.postMessage({ workerName });
     return Comlink.wrap<T>(worker);
   }
