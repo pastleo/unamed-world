@@ -1,7 +1,7 @@
 {
-  "name": "unnamed-world",
+  "name": "unamed-world",
   "version": "0.0.1",
-  "description": "exploration of imagination",
+  "description": "world for exploration of imagination",
   "main": "index.js",
   "scripts": {
     "dev": "esbuild src/web.ts src/web-worker.ts --bundle --sourcemap --outdir=www --servedir=www",
@@ -16,7 +16,6 @@
     "esbuild-meta-into-html-script-src": "^1.0.3",
     "isomorphic-webcrypto": "^2.3.8",
     "three": "^0.131.3",
-    "unnamed-network": "file:../unnamed-network",
     "ws": "^8.2.0"
   },
   "devDependencies": {

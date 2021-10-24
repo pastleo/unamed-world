@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-// import { Agent, BrowserConnManager } from 'unnamed-network';
 
 import { GameECS, init as initECS } from './gameECS';
 
@@ -28,9 +27,6 @@ export async function setup(): Promise<Game> {
 
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
-
-  // const connManager = new BrowserConnManager();
-  // const networkAgent = new Agent(connManager);
 
   const game: Game = {
     ecs,
