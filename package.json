@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "esbuild src/web.ts src/web-worker.ts --bundle --sourcemap --outdir=www --servedir=www",
     "tc": "tsc -w -noEmit",
-    "bundle": "rm -rf dist && cp -r www dist && esbuild src/web.ts src/web-worker.ts --bundle --minify --outdir=dist --entry-names=[dir]/[name]-[hash] --metafile=dist/meta.json && esbuild-meta-into-html-script-src dist/meta.json www/index.html dist/index.html src/ dist/"
+    "ci-tc": "tsc -noEmit",
+    "build": "rm -rf dist && cp -r www dist && esbuild src/web.ts src/web-worker.ts --bundle --minify --outdir=dist --entry-names=[dir]/[name]-[hash] --metafile=dist/meta.json && esbuild-meta-into-html-script-src dist/meta.json www/index.html dist/index.html src/ dist/"
   },
   "author": "PastLeo",
   "license": "ISC",
