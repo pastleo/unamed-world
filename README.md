@@ -1,10 +1,10 @@
-# unnamed-world
+# unamed-world
 
 ## Setup for development
 
 ```sh
-git clone https://github.com/pastleo/unnamed-world.git
-cd unnamed-world
+git clone https://github.com/pastleo/unamed-world.git
+cd unamed-world
 npm install
 npm run dev
 ```
