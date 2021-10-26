@@ -20,6 +20,7 @@ export interface ChunkGenerationResult {
   cellEntries?: [[number, number], Cell][];
   textureUrl: string;
   attributeArrays: AttributeArrays;
+  persistance: boolean;
 }
 
 export interface RealmWorker {
@@ -50,7 +51,7 @@ function startWorker(): RealmWorker {
     load: (id: string) => {
       // TODO: load from localstorage
       loadRealm1(ecs);
-      worker.realmEntity = getObjEntity(id); // id: 'realm-1'
+      worker.realmEntity = getObjEntity(id, ecs); // id: 'realm-1'
     },
     triggerRealmGeneration: (centerChunkIJ: Vec2) => {
       generateRealmChunk(centerChunkIJ, worker);
@@ -169,6 +170,7 @@ function generateChunkAttrs(worker: RealmWorkerGlobal) {
       cellEntries: chunk.cells.entries(),
       textureUrl: chunk.textureUrl,
       attributeArrays,
+      persistance: chunk.persistance,
     }, [attributeArrays.positions, attributeArrays.uvs]));
 
     generateChunkAttrs(worker);

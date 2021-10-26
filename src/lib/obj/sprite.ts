@@ -15,3 +15,8 @@ export interface SpriteStateAnimation {
   animations: SpriteAnimation[]; // WIP: for different facing directions
   speed: number;
 }
+
+export type PackedObjSpriteComponent = ObjSpriteComponent;
+export function pack(objSpriteComponent: ObjSpriteComponent): PackedObjSpriteComponent {
+  return objSpriteComponent;
+}

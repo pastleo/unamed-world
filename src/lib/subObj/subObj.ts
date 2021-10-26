@@ -1,9 +1,9 @@
 import { Game } from '../game';
-import { GameEntityComponents } from '../gameECS';
+import { GameECS, GameEntityComponents } from '../gameECS';
 import { Located, getChunk, locateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { initSprite, updateSpritePosition, destroySprite } from './spriteRender';
 
-import { EntityRef, entityEqual } from '../utils/ecs';
+import { EntityRef, UUID, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, add, warnIfNotPresent } from '../utils/utils';
 
 export type SubObjState = 'normal' | 'walking' | string;
@@ -70,6 +70,24 @@ export function removeSubObj(subObjEntity: EntityRef, game: Game) {
   removeFromChunk(subObjEntity, subObj, game);
   destroySprite(subObjEntity, game);
   game.ecs.deallocate(subObjEntity);
+}
+
+export interface PackedSubObjComponent {
+  obj: UUID;
+  position: Vec3;
+  rotation: Vec3;
+  groundAltitude: number;
+  state: SubObjState;
+  cellIJ: Vec2;
+  chunkIJ: Vec2;
+}
+
+export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubObjComponent {
+  const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = subObjComponent;
+  return {
+    obj: ecs.getUUID(obj),
+    position, rotation, groundAltitude, state, cellIJ, chunkIJ,
+  }
 }
 
 function removeFromChunk(subObjEntity: EntityRef, subObj: SubObjComponent, game: Game) {

@@ -1,3 +1,5 @@
+import crypto from 'isomorphic-webcrypto';
+
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
 
@@ -97,4 +99,25 @@ export function getBuiltOutPath(entryPoint: string) {
   return (typeof window !== 'undefined' ? JSON.parse(
     (document.querySelector('meta[name=entry-points-mapping]') as HTMLMetaElement)?.content || '{}'
   ) : {})[entryPoint] || entryPoint;
+}
+
+const UUID_TEMPLATE = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+const UUID_TEMPLATE_REGEX = /[xy]/g;
+const UUID_Y_SYMBOLS = ['8', '9', 'a', 'b'];
+const UUID_RND_SIZE = UUID_TEMPLATE.replace(/[^x]/g, '').length;
+export function genUUID() {
+  const rndArr = new Uint8Array(Math.ceil(UUID_RND_SIZE / 2));
+  crypto.getRandomValues(rndArr);
+
+  let i = 0;
+	return UUID_TEMPLATE.replace(UUID_TEMPLATE_REGEX, s => {
+    if (s === 'y') {
+      return UUID_Y_SYMBOLS[Math.floor(Math.random() * UUID_Y_SYMBOLS.length)];
+    }
+    
+    const rndArrIndex = Math.floor((i++) / 2);
+    const value = rndArr[rndArrIndex] & 0xF;
+    rndArr[rndArrIndex] = rndArr[rndArrIndex] >> 4;
+    return value.toString(16);
+  });
 }

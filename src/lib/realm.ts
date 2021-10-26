@@ -2,22 +2,24 @@ import * as THREE from 'three';
 import * as Comlink from 'comlink';
 
 import { getObjEntity } from './obj/obj';
-import { createBaseRealm } from './obj/realm';
-import { ChunkComponent, ChunkEntityComponents, Cell, getChunkEntityComponents } from './chunk/chunk';
+import { createBaseRealm, pack as packObjRealm } from './obj/realm';
+import { ChunkComponent, ChunkEntityComponents, Cell, getChunkEntityComponents, pack as packChunk } from './chunk/chunk';
 import { createChunkMesh } from './chunk/render';
 import { Game } from './game';
 import { GameECS } from './gameECS';
 import { RealmWorker, ChunkGenerationResult } from './worker/realm';
-import { addSubObj } from './subObj/subObj';
+import { addSubObj, pack as packSubObj } from './subObj/subObj';
+import { pack as packObjSprite } from './obj/sprite';
+import { pack as packObjWalkable } from './obj/walkable';
 import { updateSpritePosition } from './subObj/spriteRender';
 
-import { EntityRef, entityEqual } from './utils/ecs';
+import { EntityRef, UUID, entityEqual } from './utils/ecs';
 import { Vec2 } from './utils/utils';
 import { spawnWorker, listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
 
 import { CHUNK_SIZE } from './consts';
-import { loadObjSprites } from './dev-data';
+import { loadObjSprites, loadRealm1 } from './dev-data';
 
 export interface Realm {
   currentObj: EntityRef;
@@ -27,7 +29,13 @@ export interface Realm {
 }
 
 export function init(ecs: GameECS): Realm {
-  const currentObj = createBaseRealm(ecs);
+  let currentObj = createBaseRealm(ecs);
+
+  // TODO: should not hard-code, downloading realm should be moved to addToScene and switch to target realm
+  if (window.location.hash === '#/realm-1') {
+    loadRealm1(ecs);
+    currentObj = getObjEntity('realm-1', ecs);
+  }
 
   const light = new THREE.DirectionalLight(0xFFFFFF, 1);
   light.position.set(0, 1, 0);
@@ -52,9 +60,9 @@ export function addToScene(game: Game) {
   {
     // TODO: load realm asynchronously, adding subObjs
     loadObjSprites(game.ecs);
-    addSubObj(getObjEntity('hero-1'), [-5, 0, -5], game);
-    addSubObj(getObjEntity('flying-bitch-1'), [0, 0, -5], game);
-    addSubObj(getObjEntity('giraffe-1'), [5, 0, -5], game);
+    addSubObj(getObjEntity('hero-1', game.ecs), [-5, 0, -5], game);
+    addSubObj(getObjEntity('flying-bitch-1', game.ecs), [0, 0, -5], game);
+    addSubObj(getObjEntity('giraffe-1', game.ecs), [5, 0, -5], game);
 
     // TODO: cache realm, chunk entities and components to localstorage
     //
@@ -85,6 +93,7 @@ export function updateRealmChunk(chunkSrc: ChunkComponent, game: Game): ChunkEnt
   if (updating) {
     chunk = {
       ...chunkSrc,
+      persistance: chunkSrc.persistance || chunk.persistance,
       subObjs: [
         ...chunk.subObjs,
         ...chunkSrc.subObjs.filter(
@@ -107,14 +116,14 @@ export function updateRealmChunk(chunkSrc: ChunkComponent, game: Game): ChunkEnt
 }
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
-  const { chunkIJ, cellEntries, textureUrl, attributeArrays } = result;
+  const { chunkIJ, cellEntries, textureUrl, attributeArrays, persistance } = result;
 
   const cells = Map2D.fromEntries<Cell>(cellEntries);
   const chunkEntityComponents = updateRealmChunk({
     cells, textureUrl,
     chunkIJ,
     subObjs: [],
-    persistance: false,
+    persistance,
   }, game);
 
   createChunkMesh(chunkEntityComponents, chunkIJ, attributeArrays, game);
@@ -122,6 +131,74 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
 
 export function triggerRealmGeneration(centerChunkIJ: Vec2, game: Game) {
   game.realm.worker.triggerRealmGeneration(centerChunkIJ);
+}
+
+export function exportRealm(game: Game) {
+  console.log('start exportRealm');
+  const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
+
+  const realmUUID = game.ecs.getUUID(game.realm.currentObj);
+  const subObjUUIDs: UUID[] = [];
+
+  const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), game.ecs);
+  const packedChunks = packedObjRealm.chunkEntries.map(([_chunkIJ, uuid]) => {
+    const packedChunk = packChunk(
+      game.ecs.getComponent(
+        game.ecs.fromUUID(uuid),
+        'chunk',
+      ),
+      game.ecs,
+    );
+    subObjUUIDs.push(...packedChunk.subObjs);
+
+    return [uuid, packedChunk];
+  });
+  const packedSubObjs = subObjUUIDs.map(uuid => ([
+    uuid,
+    packSubObj(
+      game.ecs.getComponent(
+        game.ecs.fromUUID(uuid),
+        'subObj',
+      ),
+      game.ecs,
+    )
+  ]));
+  
+  const objRealmJson = {
+    realmUUID,
+    packedObjRealm,
+    packedChunks,
+    packedSubObjs,
+  };
+  download(objRealmJson, `${realmUUID}-realm.json`);
+
+  // TODO: generate sprite components for this realm
+
+  // WIP ============
+  ['hero-1', 'flying-bitch-1', 'giraffe-1'].forEach(objUUID => {
+    const objEntityComponents = game.ecs.getEntityComponents(getObjEntity(objUUID, game.ecs));
+    const packedObjSprite = packObjSprite(objEntityComponents.get('obj/sprite'));
+    const packedObjWalkable = packObjWalkable(objEntityComponents.get('obj/walkable'));
+
+    const objSpriteJson = {
+      objUUID,
+      packedObjSprite,
+      packedObjWalkable,
+    };
+    download(objSpriteJson, `${objUUID}-sprite.json`);
+  });
+}
+
+function download(json: any, filename: string) {
+  const blob = new Blob([
+    JSON.stringify(json)
+  ], {type: "application/json"});
+  const elem = document.createElement('a');
+  elem.href = URL.createObjectURL(blob);
+  elem.download = filename;        
+  document.body.appendChild(elem);
+  elem.click();        
+  document.body.removeChild(elem);
 }
 
 function createBaseMaterial(): THREE.Material {

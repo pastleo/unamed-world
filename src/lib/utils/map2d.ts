@@ -76,4 +76,6 @@ class Map2D<T> {
   }
 }
 
+export type Map2DEntries<T> = [[number, number], T][];
+
 export default Map2D;

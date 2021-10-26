@@ -2,7 +2,7 @@ import { Game } from './game';
 import { GameECS } from './gameECS';
 import { EntityRef } from './utils/ecs';
 
-import { createObj, getObjEntity } from './obj/obj';
+import { createObjEntity, getObjEntity } from './obj/obj';
 import { addSubObj, removeSubObj } from './subObj/subObj';
 import { locateChunkCell } from './chunk/chunk';
 import { setCameraPosition, setCameraPositionY } from './camera';
@@ -22,7 +22,7 @@ export interface Player {
 export function create(ecs: GameECS): Player {
   createBaseSubObj(ecs);
 
-  const objEntity = getObjEntity('base');
+  const objEntity = getObjEntity('base', ecs);
   const subObjEntity = ecs.allocate();
 
   return {
@@ -71,7 +71,7 @@ export function update(_tDiff: number, game: Game) {
   // TODO: other ways to trigger mountable mounting
   if (
     subObjWalking.collidedSubObjs.length >= 1 &&
-    game.ecs.getComponent(player.objEntity, 'obj').id === 'base'
+    game.ecs.getUUID(player.objEntity) === 'base'
   ) {
     removeSubObj(player.subObjEntity, game);
     mountSubObj(subObjWalking.collidedSubObjs[0], game);
@@ -97,7 +97,7 @@ export function createBaseSubObj(ecs: GameECS) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 256, 256);
 
-  const objEntity = createObj('base', ecs);
+  const objEntity = createObjEntity(ecs, 'base');
   ecs.setComponent(objEntity, 'obj/sprite', {
     spritesheet: canvas.toDataURL('image/png'), // use 'image/webp' when Safari finally support webp
     eightBitStyle: true,

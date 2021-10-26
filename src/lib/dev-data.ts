@@ -1,6 +1,6 @@
 import { GameECS } from './gameECS';
 
-import { createObj } from './obj/obj';
+import { createObjEntity } from './obj/obj';
 
 import { EntityRef } from './utils/ecs';
 import { ObjRealmComponent } from './obj/realm';
@@ -35,12 +35,12 @@ const DEV_CHUNK_DATA_2 = [
 ];
 
 export const backgrounds = [
-  'assets/skybox/pos-x.png',
-  'assets/skybox/neg-x.png',
-  'assets/skybox/pos-y.png',
-  'assets/skybox/neg-y.png',
-  'assets/skybox/pos-z.png',
-  'assets/skybox/neg-z.png',
+  'assets/skybox/pos-x.jpg',
+  'assets/skybox/neg-x.jpg',
+  'assets/skybox/pos-y.jpg',
+  'assets/skybox/neg-y.jpg',
+  'assets/skybox/pos-z.jpg',
+  'assets/skybox/neg-z.jpg',
 ] as [string, string, string, string, string, string];
 
 const flyingBitchObjSpriteComponents = [
@@ -124,7 +124,7 @@ export function loadObjSprites(ecs: GameECS) {
     heroObjSpriteComponents,
     giraffeObjSpriteComponents,
   ].forEach(([id, ...components]) => {
-    const objEntity = createObj(id as string, ecs);
+    const objEntity = createObjEntity(ecs, id as string);
     components.forEach(([ componentName, component ]) => {
       ecs.setComponent(objEntity, componentName as any, component as any);
       // TODO: when implementing restore feature, validation is required
@@ -143,7 +143,7 @@ export function loadPlayerObjSpriteComponents(ecs: GameECS): EntityRef {
 }
 
 export function loadRealm1(ecs: GameECS) {
-  const realmObjEntity = createObj('realm-1', ecs);
+  const realmObjEntity = createObjEntity(ecs, 'realm-1');
   const realm: ObjRealmComponent = {
     chunks: new Map2D(),
     backgrounds,

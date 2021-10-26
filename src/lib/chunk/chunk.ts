@@ -2,16 +2,16 @@ import { Game } from '../game';
 import { GameECS, GameEntityComponents } from '../gameECS';
 
 import { Vec2, Vec3, mod, warnIfNotPresent } from '../utils/utils';
-import { EntityRef } from '../utils/ecs';
-import Map2D from '../utils/map2d';
+import { EntityRef, UUID } from '../utils/ecs';
+import Map2D, { Map2DEntries } from '../utils/map2d';
 
 import { CHUNK_SIZE } from '../consts';
 
 export type ChunkEntityComponents = GameEntityComponents;
 
 export interface ChunkComponent {
-  cells: Map2D<Cell>;
   chunkIJ: Vec2;
+  cells: Map2D<Cell>;
   subObjs: EntityRef[];
   persistance: boolean;
   textureUrl: string;
@@ -132,6 +132,23 @@ export function calcAltitudeAt(position: Vec3, located: Located, game: Game): nu
     (cellZs[0] * (1 - progress[0]) + cellZs[1] * progress[0]) * progress[1] +
     (cellZs[2] * (1 - progress[0]) + cellZs[3] * progress[0]) * (1 - progress[1])
   );
+}
+
+export interface PackedChunkComponent {
+  chunkIJ: Vec2;
+  cellsEntries: Map2DEntries<Cell>;
+  subObjs: UUID[];
+  textureUrl: string;
+}
+
+export function pack(chunk: ChunkComponent, ecs: GameECS): PackedChunkComponent {
+  const { chunkIJ, cells, subObjs, textureUrl } = chunk;
+  return {
+    chunkIJ,
+    cellsEntries: cells.entries(),
+    subObjs: subObjs.map(subObjEntity => ecs.getUUID(subObjEntity)),
+    textureUrl,
+  }
 }
 
 function tmpChunkCells(): Map2D<Cell> {
