@@ -1,5 +1,9 @@
-import { Vec2 } from '../utils/utils';
+import { GameECS } from '../gameECS';
+
 import { SubObjState } from '../subObj/subObj';
+
+import { EntityRef } from '../utils/ecs';
+import { Vec2 } from '../utils/utils';
 
 export interface ObjSpriteComponent {
   spritesheet: string;
@@ -19,4 +23,8 @@ export interface SpriteStateAnimation {
 export type PackedObjSpriteComponent = ObjSpriteComponent;
 export function pack(objSpriteComponent: ObjSpriteComponent): PackedObjSpriteComponent {
   return objSpriteComponent;
+}
+
+export function unpack(objEntity: EntityRef, packedObjSprite: PackedObjSpriteComponent, ecs: GameECS) {
+  ecs.setComponent(objEntity, 'obj/sprite', packedObjSprite);
 }
