@@ -2,7 +2,6 @@ import { Game } from './game';
 import { movePlayer } from './player';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 import { Vec2, multiply, add, lengthSq } from './utils/utils';
-import { exportRealm } from './realm';
 
 export interface Input {
   keyPressed: Set<string>;
@@ -68,7 +67,6 @@ export function startListeners(game: Game) {
     if (!input.mouseMoved) {
       switch (input.mousedown) {
         case 'left':
-          exportRealm(game);
           break;
         case 'middle':
           // use tool accordingly
@@ -134,7 +132,6 @@ export function startListeners(game: Game) {
     event.preventDefault(); // prevent simulating mouse click
 
     if (input.touched && !input.touchmove) {
-      exportRealm(game);
       // use tool
     }
     input.touched = false;

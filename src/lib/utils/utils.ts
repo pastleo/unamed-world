@@ -88,8 +88,8 @@ export function step<T extends Vec2 | Vec3>(vecA: T, vecB: T, progress: number):
 }
 
 export function warnIfNotPresent(...values: any[]) {
-  if (values.findIndex(v => v === null || v === undefined) >= 0) {
-    console.warn('values should present but null or undefined detected, values:', values)
+  if (values.findIndex(v => v === null || v === undefined || v === false) >= 0) {
+    console.warn('values should not be false, null or undefined, caller should be upper level in call stack, values:', values)
     return true; // for caller to if (warnIfNotPresent(...)) return;
   }
   return false;
@@ -120,4 +120,18 @@ export function genUUID() {
     rndArr[rndArrIndex] = rndArr[rndArrIndex] >> 4;
     return value.toString(16);
   });
+}
+
+export function downloadJson(json: any, filename: string) {
+  const blob = new Blob(
+    [JSON.stringify(json)],
+    { type: 'application/json' },
+  );
+
+  const aTag = document.createElement('a');
+  aTag.href = URL.createObjectURL(blob);
+  aTag.download = filename;
+  document.body.appendChild(aTag);
+  aTag.click();
+  document.body.removeChild(aTag);
 }

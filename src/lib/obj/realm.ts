@@ -42,3 +42,12 @@ export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmC
     backgrounds,
   }
 }
+
+export function unpack(objRealmEntity: EntityRef, packedObjRealm: PackedObjRealmComponent, ecs: GameECS) {
+  ecs.setComponent(objRealmEntity, 'obj/realm', {
+    chunks: Map2D.fromEntries(packedObjRealm.chunkEntries.map(([chunkIJ, UUID]) => (
+      [chunkIJ, ecs.fromUUID(UUID)]
+    ))),
+    backgrounds: packedObjRealm.backgrounds,
+  });
+}
