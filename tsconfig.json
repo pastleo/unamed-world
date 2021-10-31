@@ -4,6 +4,7 @@
     "noImplicitAny": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "module": "es6",
     "target": "es2019",
     "lib": ["DOM", "es2019"],

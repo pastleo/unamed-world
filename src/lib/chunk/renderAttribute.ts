@@ -11,6 +11,7 @@ import {
 import { CHUNK_SIZE, CELL_STEPS } from '../consts';
 
 export interface ChunkRenderAttributeComponent {
+  cellSent: boolean;
   attributesGenerated: boolean;
 }
 
@@ -52,17 +53,16 @@ export function chunkAttributeArrays(chunkEntity: EntityRef, realmEntity: Entity
 }
 
 function cellAttributeArrays(cell: Cell, chunkIJ: Vec2, ij: Vec2, realmEntity: EntityRef, ecs: GameECS): CellAttributeArrays {
-
   const neighbors = [
-    getChunkCell(chunkIJ, add(ij, [-1, 1]), realmEntity, ecs, true), // left top
-    getChunkCell(chunkIJ, add(ij, [0, 1]), realmEntity, ecs, true),
-    getChunkCell(chunkIJ, add(ij, [1, 1]), realmEntity, ecs, true), // right top
-    getChunkCell(chunkIJ, add(ij, [-1, 0]), realmEntity, ecs, true),
+    getChunkCell(chunkIJ, add(ij, [-1, 1]), realmEntity, ecs), // left top
+    getChunkCell(chunkIJ, add(ij, [0, 1]), realmEntity, ecs),
+    getChunkCell(chunkIJ, add(ij, [1, 1]), realmEntity, ecs), // right top
+    getChunkCell(chunkIJ, add(ij, [-1, 0]), realmEntity, ecs),
     cell, // center
-    getChunkCell(chunkIJ, add(ij, [1, 0]), realmEntity, ecs, true), 
-    getChunkCell(chunkIJ, add(ij, [-1, -1]), realmEntity, ecs, true), // left bottom
-    getChunkCell(chunkIJ, add(ij, [0, -1]), realmEntity, ecs, true),
-    getChunkCell(chunkIJ, add(ij, [1, -1]), realmEntity, ecs, true), // right bottom
+    getChunkCell(chunkIJ, add(ij, [1, 0]), realmEntity, ecs),
+    getChunkCell(chunkIJ, add(ij, [-1, -1]), realmEntity, ecs), // left bottom
+    getChunkCell(chunkIJ, add(ij, [0, -1]), realmEntity, ecs),
+    getChunkCell(chunkIJ, add(ij, [1, -1]), realmEntity, ecs), // right bottom
   ];
 
   const cornerAltitude = [

@@ -1,5 +1,8 @@
+import { genUUID } from './utils';
+
 class ECS<ComponentMapT extends Record<string, any>> {
   private entities: Entity[] = [];
+  private UUIDs: Map<string, EntityRef> = new Map();
   private freeIndices: number[] = [];
   private entityComponents: Record<string, GenerationalArray<ComponentMapT[keyof ComponentMapT]>> = {};
 
@@ -24,6 +27,10 @@ class ECS<ComponentMapT extends Record<string, any>> {
     if (!entity) return false;
 
     entity.alive = false;
+    if (entity.UUID) {
+      this.UUIDs.delete(entity.UUID);
+      delete entity.UUID;
+    }
     this.freeIndices.push(index);
 
     // garbage collect
@@ -63,6 +70,25 @@ class ECS<ComponentMapT extends Record<string, any>> {
     return new EntityComponents(ref, this);
   }
 
+  getUUID(ref: EntityRef): UUID | null {
+    const entity = this.getEntity(ref);
+    if (!entity) return null;
+    if (entity.UUID) return entity.UUID;
+    entity.UUID = genUUID();
+    this.UUIDs.set(entity.UUID, ref);
+    return entity.UUID;
+  }
+
+  fromUUID(uuid: UUID): EntityRef {
+    let ref = this.UUIDs.get(uuid);
+    if (!this.getEntity(ref)) {
+      ref = this.allocate();
+      this.entities[ref[0]].UUID = uuid; // just allocated, directly access should be fine
+      this.UUIDs.set(uuid, ref);
+    }
+    return ref;
+  }
+
   private getEntity(ref: EntityRef): Entity | null {
     if (!Array.isArray(ref)) return null;
     const [index, generation] = ref;
@@ -89,9 +115,11 @@ export default ECS;
 interface Entity {
   generation: number;
   alive: boolean;
+  UUID?: string;
 }
 
-export type EntityRef = [index: number, generation: number]
+export type EntityRef = [index: number, generation: number];
+export type UUID = string;
 
 class GenerationalArray<T> {
   array: T[] = [];

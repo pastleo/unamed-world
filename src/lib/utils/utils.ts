@@ -1,3 +1,5 @@
+import crypto from 'isomorphic-webcrypto';
+
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
 
@@ -86,8 +88,8 @@ export function step<T extends Vec2 | Vec3>(vecA: T, vecB: T, progress: number):
 }
 
 export function warnIfNotPresent(...values: any[]) {
-  if (values.findIndex(v => v === null || v === undefined) >= 0) {
-    console.warn('values should present but null or undefined detected, values:', values)
+  if (values.findIndex(v => v === null || v === undefined || v === false) >= 0) {
+    console.warn('values should not be false, null or undefined, caller should be upper level in call stack, values:', values)
     return true; // for caller to if (warnIfNotPresent(...)) return;
   }
   return false;
@@ -97,4 +99,39 @@ export function getBuiltOutPath(entryPoint: string) {
   return (typeof window !== 'undefined' ? JSON.parse(
     (document.querySelector('meta[name=entry-points-mapping]') as HTMLMetaElement)?.content || '{}'
   ) : {})[entryPoint] || entryPoint;
+}
+
+const UUID_TEMPLATE = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+const UUID_TEMPLATE_REGEX = /[xy]/g;
+const UUID_Y_SYMBOLS = ['8', '9', 'a', 'b'];
+const UUID_RND_SIZE = UUID_TEMPLATE.replace(/[^x]/g, '').length;
+export function genUUID() {
+  const rndArr = new Uint8Array(Math.ceil(UUID_RND_SIZE / 2));
+  crypto.getRandomValues(rndArr);
+
+  let i = 0;
+	return UUID_TEMPLATE.replace(UUID_TEMPLATE_REGEX, s => {
+    if (s === 'y') {
+      return UUID_Y_SYMBOLS[Math.floor(Math.random() * UUID_Y_SYMBOLS.length)];
+    }
+    
+    const rndArrIndex = Math.floor((i++) / 2);
+    const value = rndArr[rndArrIndex] & 0xF;
+    rndArr[rndArrIndex] = rndArr[rndArrIndex] >> 4;
+    return value.toString(16);
+  });
+}
+
+export function downloadJson(json: any, filename: string) {
+  const blob = new Blob(
+    [JSON.stringify(json)],
+    { type: 'application/json' },
+  );
+
+  const aTag = document.createElement('a');
+  aTag.href = URL.createObjectURL(blob);
+  aTag.download = filename;
+  document.body.appendChild(aTag);
+  aTag.click();
+  document.body.removeChild(aTag);
 }

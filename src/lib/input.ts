@@ -67,6 +67,7 @@ export function startListeners(game: Game) {
     if (!input.mouseMoved) {
       switch (input.mousedown) {
         case 'left':
+          break;
         case 'middle':
           // use tool accordingly
           break;
@@ -127,7 +128,8 @@ export function startListeners(game: Game) {
     input.touched = true;
     input.touchCoord = touchOffset(event.touches[0], game.renderer.domElement);
   });
-  game.renderer.domElement.addEventListener('touchend', _event => {
+  game.renderer.domElement.addEventListener('touchend', event => {
+    event.preventDefault(); // prevent simulating mouse click
 
     if (input.touched && !input.touchmove) {
       // use tool

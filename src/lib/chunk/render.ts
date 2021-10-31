@@ -14,7 +14,7 @@ export interface ChunkRenderComponent {
 
 const textureCache = new Map<string, THREE.Texture>();
 
-export function createChunkMesh(chunkEntityComponents: GameEntityComponents, chunkIJ: Vec2, attributeArrays: AttributeArrays, game: Game) {
+export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents, chunkIJ: Vec2, attributeArrays: AttributeArrays, game: Game) {
   const chunk = chunkEntityComponents.get('chunk');
   if (warnIfNotPresent(chunk)) return;
 
@@ -61,4 +61,11 @@ export function createChunkMesh(chunkEntityComponents: GameEntityComponents, chu
   chunkRender.mesh.position.z = chunkIJ[1] * CHUNK_SIZE;
   chunkRender.mesh.renderOrder = -1;
   game.scene.add(chunkRender.mesh);
+}
+
+export function removeChunkMeshFromScene(chunkEntityComponents: GameEntityComponents) {
+  const prevChunkRender = chunkEntityComponents.get('chunk/render');
+  if (prevChunkRender) {
+    prevChunkRender.mesh.removeFromParent();
+  }
 }
