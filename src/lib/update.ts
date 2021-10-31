@@ -5,6 +5,8 @@ import { update as updatePlayer } from './player';
 import { update as updateInput } from './input';
 import { resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
+import { fetchRealm, switchRealm } from './realm';
+import { jumpOnRealm } from './player';
 
 import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
@@ -21,6 +23,16 @@ export function resize(game: Game, width: number, height: number) {
   game.renderer.setSize(width, height);
 }
 
+export async function changeRealm(game: Game) {
+  const realmUUID = location.hash.slice(1).split('/')[1];
+  if (!realmUUID) return
+
+  const json = await fetchRealm(realmUUID);
+  if (switchRealm(json, game)) {
+    jumpOnRealm(game);
+  }
+}
+
 const UPDATE_CHUNK_RANGE = 2;
 function updateChunks(centerChunkIJ: Vec2, tDiff: number, game: Game) {
   rangeVec2s(centerChunkIJ, UPDATE_CHUNK_RANGE).map(chunkIJ => (
@@ -31,6 +43,7 @@ function updateChunks(centerChunkIJ: Vec2, tDiff: number, game: Game) {
 }
 
 function updateChunk(_chunkIJ: Vec2, chunk: ChunkComponent, tDiff: number, game: Game) {
+  if (!chunk) return;
   chunk.subObjs.forEach(subObj => {
     updateSubObj(subObj, tDiff, game);
   })

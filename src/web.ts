@@ -1,4 +1,4 @@
-import update, { resize } from './lib/update';
+import update, { resize, changeRealm } from './lib/update';
 import { Game, setup } from './lib/game';
 
 function startLoop(game: Game, now: number = 0) {
@@ -20,6 +20,10 @@ async function main() {
   window.addEventListener('resize', () => {
     resize(game, window.innerWidth, window.innerHeight);
   }, false);
+
+  window.addEventListener('hashchange', () => {
+    changeRealm(game);
+  });
 
   startLoop(game);
 }

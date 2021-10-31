@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Game } from '../game';
 import { SubObjComponent } from './subObj';
 import { ObjSpriteComponent } from '../obj/sprite';
+import { getObjOrBaseComponents } from '../sprite';
 
 import { EntityRef } from '../utils/ecs';
 import { mod, warnIfNotPresent } from '../utils/utils';
@@ -11,11 +12,17 @@ export interface SubObjSpriteRenderComponent {
   sprite: THREE.Sprite;
 }
 
-export function initSprite(subObjEntity: EntityRef, game: Game) {
-  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+export function addOrRefreshSpriteToScene(subObjEntity: EntityRef, game: Game) {
+  const subObjComponents = game.ecs.getEntityComponents(subObjEntity);
+  const subObj = subObjComponents.get('subObj');
   if (warnIfNotPresent(subObj)) return;
-  const objSprite = game.ecs.getComponent(subObj.obj, 'obj/sprite');
-  if (!objSprite) return;
+  const objSprite = getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');;
+  if (warnIfNotPresent(objSprite)) return;
+
+  let subObjSpriteRender = subObjComponents.get('subObj/spriteRender');
+  if (subObjSpriteRender) {
+    subObjSpriteRender.sprite.removeFromParent();
+  }
 
   const texture = game.loader.load(objSprite.spritesheet);
   const material = new THREE.SpriteMaterial({
@@ -26,10 +33,7 @@ export function initSprite(subObjEntity: EntityRef, game: Game) {
   sprite.scale.x = objSprite.radius * 2;
   sprite.scale.y = objSprite.tall;
 
-  const subObjSpriteRender = {
-    sprite,
-    groundAltitude: 0,
-  };
+  subObjSpriteRender = { sprite };
   game.ecs.setComponent(subObjEntity, 'subObj/spriteRender', subObjSpriteRender);
 
   initSpriteTexture(objSprite, texture);
@@ -40,23 +44,13 @@ export function initSprite(subObjEntity: EntityRef, game: Game) {
   );
 
   game.scene.add(sprite);
-
-  updateSpritePosition(
-    subObjEntity, game,
-    subObjSpriteRender,
-    subObj, objSprite,
-  );
 }
 
-export function updateSpritePosition(
-  subObjEntity: EntityRef, game: Game,
-  subObjSpriteRenderArg?: SubObjSpriteRenderComponent,
-  subObjArg?: SubObjComponent, objSpriteArg?: ObjSpriteComponent,
-) {
-  const subObjSpriteRender = subObjSpriteRenderArg ?? game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
+export function updateSpritePosition(subObjEntity: EntityRef, game: Game) {
+  const subObjSpriteRender = game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
   if (!subObjSpriteRender) return;
-  const subObj = subObjArg ?? game.ecs.getComponent(subObjEntity, 'subObj');
-  const objSprite = objSpriteArg ?? game.ecs.getComponent(subObj.obj, 'obj/sprite');
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  const objSprite = getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');;
   if (warnIfNotPresent(subObj, objSprite)) return;
 
   subObjSpriteRender.sprite.position.x = subObj.position[0];
@@ -72,7 +66,7 @@ export function updateSpriteTexture(
   const subObjSpriteRender = subObjSpriteRenderArg ?? game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
   if (!subObjSpriteRender) return;
   const subObj = subObjArg ?? game.ecs.getComponent(subObjEntity, 'subObj');
-  const objSprite = objSpriteArg ?? game.ecs.getComponent(subObj.obj, 'obj/sprite');
+  const objSprite = objSpriteArg ?? getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');
   if (warnIfNotPresent(subObj)) return;
 
   const texture = subObjSpriteRender.sprite.material.map;
@@ -101,7 +95,7 @@ export function updateSpriteTexture(
   );
 }
 
-export function destroySprite(subObjEntity: EntityRef, game: Game) {
+export function removeSprite(subObjEntity: EntityRef, game: Game) {
   const subObjSpriteRender = game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
   if (warnIfNotPresent(subObjSpriteRender)) return;
 

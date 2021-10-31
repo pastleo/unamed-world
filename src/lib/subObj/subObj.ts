@@ -1,7 +1,9 @@
 import { Game } from '../game';
 import { GameECS, GameEntityComponents } from '../gameECS';
-import { Located, getChunk, locateChunkCell, calcAltitudeAt } from '../chunk/chunk';
-import { initSprite, updateSpritePosition, destroySprite } from './spriteRender';
+import { requireObjSprite } from '../sprite';
+
+import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
+import { addOrRefreshSpriteToScene, updateSpritePosition, removeSprite } from './spriteRender';
 
 import { EntityRef, UUID, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, add, warnIfNotPresent } from '../utils/utils';
@@ -20,8 +22,8 @@ export interface SubObjComponent {
   chunkIJ: Vec2;
 }
 
-export function addSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
-  const located = locatedArg ?? locateChunkCell(position, game);
+export function createSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
+  const located = locatedArg ?? locateOrCreateChunkCell(position, game);
   if (warnIfNotPresent(located)) return;
   const { cellIJ, chunkIJ } = located;
 
@@ -33,26 +35,37 @@ export function addSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg
     cellIJ, chunkIJ,
   });
 
-  // all possible subObj render systems:
-  initSprite(subObjEntity, game);
-
   located.chunk.subObjs.push(subObjEntity);
+  addOrRefreshSubObjToScene(subObjEntity, game);
 
   return subObjEntity;
+}
+
+export function addOrRefreshSubObjToScene(subObjEntity: EntityRef, game: Game) {
+  requireObjSprite(subObjEntity, game.ecs.getComponent(subObjEntity, 'subObj').obj, game);
+
+  // all possible subObj render systems:
+  addOrRefreshSpriteToScene(subObjEntity, game);
+
+  updateSubObjPosition(subObjEntity, game);
+}
+
+export function updateSubObjPosition(subObjEntity: EntityRef, game: Game) {
+  // all possible subObj render systems:
+  updateSpritePosition(subObjEntity, game);
 }
 
 export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   const newPosition = add(subObj.position, [vec[0], 0, vec[1]]);
-  const located = locateChunkCell(newPosition, game);
+  const located = locateOrCreateChunkCell(newPosition, game);
 
   const { cellIJ, chunkIJ, chunk } = located;
 
   subObj.position = newPosition;
-
-  // all possible subObj render systems:
   subObj.groundAltitude = calcAltitudeAt(newPosition, located, game);
-  updateSpritePosition(subObjEntity, game);
+
+  updateSubObjPosition(subObjEntity, game);
 
   subObj.cellIJ = cellIJ;
 
@@ -63,12 +76,15 @@ export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
   }
 }
 
-export function removeSubObj(subObjEntity: EntityRef, game: Game) {
+export function destroySubObj(subObjEntity: EntityRef, game: Game) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   if (warnIfNotPresent(subObj)) return;
 
   removeFromChunk(subObjEntity, subObj, game);
-  destroySprite(subObjEntity, game);
+
+  // all possible subObj render systems:
+  removeSprite(subObjEntity, game);
+
   game.ecs.deallocate(subObjEntity);
 }
 
@@ -90,8 +106,16 @@ export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubO
   }
 }
 
+export function unpack(subObjEntity: EntityRef, packedSubObj: PackedSubObjComponent, ecs: GameECS) {
+  const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = packedSubObj;
+  ecs.setComponent(subObjEntity, 'subObj', {
+    obj: ecs.fromUUID(obj),
+    position, rotation, groundAltitude, state, cellIJ, chunkIJ,
+  });
+}
+
 function removeFromChunk(subObjEntity: EntityRef, subObj: SubObjComponent, game: Game) {
-  const oriChunk = getChunk(subObj.chunkIJ, game.realm.currentObj, game.ecs);
+  const oriChunk = getOrCreateChunk(subObj.chunkIJ, game.realm.currentObj, game.ecs);
   const index = oriChunk.subObjs.findIndex(entity => entityEqual(entity, subObjEntity));
-  oriChunk.subObjs.splice(index, 1);
+  if (index >= 0) oriChunk.subObjs.splice(index, 1);
 }
