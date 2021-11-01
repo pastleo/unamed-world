@@ -4,7 +4,7 @@ import { Cell, getChunkCell } from './chunk';
 import { EntityRef } from '../utils/ecs';
 import {
   Vec2, Vec3,
-  step, add, averagePresentNumbers,
+  stepVec, add, averagePresentNumbers,
   sub, cross, normalize,
 } from '../utils/utils';
 
@@ -91,9 +91,9 @@ function cellAttributeArrays(cell: Cell, chunkIJ: Vec2, ij: Vec2, realmEntity: E
     const bezierPoints = [
       centerPoint.position,
       add([
-        ij[0] + cell.flatness * 0.5 * signs[0],
+        ij[0] + cell.flatness * 0.05 * signs[0],
         cell.altitude,
-        ij[1] + cell.flatness * 0.5 * signs[1],
+        ij[1] + cell.flatness * 0.05 * signs[1],
       ], positionOffset),
       add([
         ij[0] + 0.5 * signs[0],
@@ -106,9 +106,9 @@ function cellAttributeArrays(cell: Cell, chunkIJ: Vec2, ij: Vec2, realmEntity: E
       (_, stepI) => (stepI + 1) / CELL_STEPS
     ).map(
       progress => {
-        const position = step(
-          step(bezierPoints[0], bezierPoints[1], progress),
-          step(bezierPoints[1], bezierPoints[2], progress),
+        const position = stepVec(
+          stepVec(bezierPoints[0], bezierPoints[1], progress),
+          stepVec(bezierPoints[1], bezierPoints[2], progress),
           progress,
         );
 
