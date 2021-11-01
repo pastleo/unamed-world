@@ -1,7 +1,8 @@
 import update, { resize, changeRealm } from './lib/update';
 import { Game, setup } from './lib/game';
 
-import Delatin from 'delatin';
+import { getChunk } from './lib/chunk/chunk';
+import { Vec2 } from './lib/utils/utils';
 
 function startLoop(game: Game, now: number = 0) {
   const tDiff = now - game.time;
@@ -15,7 +16,13 @@ function startLoop(game: Game, now: number = 0) {
 
 async function main() {
   const game = await setup();
-  (window as any).game = game; // for development
+
+  { // for development
+    (window as any).game = game;
+    (window as any).getChunk = (...ij: Vec2) => (
+      getChunk(ij, game.realm.currentObj, game.ecs)
+    );
+  }
 
   document.body.appendChild(game.renderer.domElement);
 
@@ -26,17 +33,6 @@ async function main() {
   window.addEventListener('hashchange', () => {
     changeRealm(game);
   });
-
-  { // survey
-    (window as any).Delatin = Delatin;
-    const d0 = new Delatin(Array(256).fill(0), 16, 16);
-    d0.run(0.3);
-    console.log('d0', d0.coords, d0.triangles);
-
-    const d1 = new Delatin(Array(256).fill(null).map(() => Math.random()), 16, 16)
-    d1.run(0.3);
-    console.log('d1', d1.coords, d1.triangles);
-  }
 
   startLoop(game);
 }

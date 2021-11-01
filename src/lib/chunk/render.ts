@@ -36,15 +36,18 @@ export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents,
     material = game.realm.baseMaterial;
   }
 
-  geometry.setAttribute('position', new THREE.BufferAttribute(
-    new Float32Array(attributeArrays.positions), 3,
-  ));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(
-    new Float32Array(attributeArrays.uvs), 2,
-  ));
-  geometry.setAttribute('normal', new THREE.BufferAttribute(
-    new Float32Array(attributeArrays.normals), 3,
-  ));
+  geometry.setAttribute('position',
+    new THREE.Float32BufferAttribute(attributeArrays.positions, 3),
+  );
+  geometry.setAttribute('uv',
+    new THREE.Float32BufferAttribute(attributeArrays.uvs, 2),
+  );
+  geometry.setAttribute('normal',
+    new THREE.Float32BufferAttribute(attributeArrays.normals, 3),
+  );
+  geometry.setIndex(
+    new THREE.Uint16BufferAttribute(attributeArrays.indices, 1)
+  );
 
   let chunkRender = chunkEntityComponents.get('chunk/render');
   if (chunkRender) {

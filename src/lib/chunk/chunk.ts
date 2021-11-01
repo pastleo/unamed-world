@@ -132,20 +132,20 @@ function correctChunkCellIJ(chunkIJ: Vec2, cellIJ: Vec2): [chunkIJ: Vec2, cellIJ
 }
 
 export function calcAltitudeAt(position: Vec3, located: Located, game: Game): number {
-  return calcAltitudeInChunk([position[0] + CELL_OFFSET, position[2] + CELL_OFFSET], located, game);
+  return calcAltitudeInChunk([position[0] + CELL_OFFSET, position[2] + CELL_OFFSET], located, game.realm.currentObj, game.ecs);
 }
 
-export function calcAltitudeInChunk(localPos: Vec2, located: Located, game: Game): number {
+export function calcAltitudeInChunk(localPos: Vec2, located: Located, realmEntity: EntityRef, ecs: GameECS): number {
   const [cellI, cellJ] = located.cellIJ;
   const offsetI = Math.floor(localPos[0] * 2) - Math.floor(localPos[0] - 1) * 2 - 2;
   const offsetJ = Math.floor(localPos[1] * 2) - Math.floor(localPos[1] - 1) * 2 - 2;
   const ratios = [mod(localPos[0] + 0.5, 1), mod(localPos[1] + 0.5, 1)];
 
   const cells = [
-    getOrCreateChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ - 1 + offsetJ], game.realm.currentObj, game.ecs),
-    getOrCreateChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ - 1 + offsetJ], game.realm.currentObj, game.ecs),
-    getOrCreateChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ + 0 + offsetJ], game.realm.currentObj, game.ecs),
-    getOrCreateChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ + 0 + offsetJ], game.realm.currentObj, game.ecs),
+    getOrCreateChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ - 1 + offsetJ], realmEntity, ecs),
+    getOrCreateChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ - 1 + offsetJ], realmEntity, ecs),
+    getOrCreateChunkCell(located.chunkIJ, [cellI - 1 + offsetI, cellJ + 0 + offsetJ], realmEntity, ecs),
+    getOrCreateChunkCell(located.chunkIJ, [cellI + 0 + offsetI, cellJ + 0 + offsetJ], realmEntity, ecs),
   ].map(c => c ?? located.cell);
   const [flatnessXA, flatnessXB] = (ratios[1] > 0.5 ? [cells[2], cells[3]] : [cells[0], cells[1]]).map(c => clamp(c.flatness, 0.25, 50));
   const [flatnessZA, flatnessZB] = (ratios[0] > 0.5 ? [cells[1], cells[3]] : [cells[0], cells[2]]).map(c => clamp(c.flatness, 0.25, 50));

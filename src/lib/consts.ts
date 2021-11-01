@@ -1,5 +1,7 @@
 export const CHUNK_SIZE = 8;
-export const CELL_STEPS = 5;
+
+export const CHUNK_CELL_RESOLUTION = 8;
+export const CHUNK_GEOMETRY_DELATIN_MAX_ERROR = 0.005;
 
 export const INIT_CAMERA_ANGLE = -45 * Math.PI / 180;
 export const MAX_CAMERA_ANGLE = -30 * Math.PI / 180;
@@ -20,3 +22,6 @@ export const BASE_REALM_BACKGROUND = [
   'assets/skybox/pos-z.jpg',
   'assets/skybox/neg-z.jpg',
 ] as [string, string, string, string, string, string];
+
+// deprecated;
+export const CELL_STEPS = 5;
