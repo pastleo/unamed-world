@@ -5,6 +5,7 @@ import { GameECS } from '../gameECS';
 import { Cell, getChunkCell, calcAltitudeInChunk } from './chunk';
 
 import { EntityRef } from '../utils/ecs';
+import Array2D from '../utils/array2d';
 import {
   Vec2, Vec3,
   stepVec, add, averagePresentNumbers,
@@ -45,19 +46,23 @@ export function chunkAttributeArrays(chunkEntity: EntityRef, realmEntity: Entity
   const chunk = ecs.getComponent(chunkEntity, 'chunk');
   const { chunkIJ } = chunk;
 
-  const data = Array(CHUNK_RESOLUTION).fill(null).flatMap((_, j) => (
-    Array(CHUNK_RESOLUTION).fill(null).map((_, i) => {
-      const localPos: Vec2 = [i * CHUNK_POS_MULT, j * CHUNK_POS_MULT];
-      const cellIJ = localPos.map(Math.floor) as Vec2;
-      const cell = chunk.cells.get(...cellIJ);
+  const altitudeMap = new Array2D(CHUNK_RESOLUTION, CHUNK_RESOLUTION, (i: number, j: number) => {
+    const localPos: Vec2 = [i * CHUNK_POS_MULT, j * CHUNK_POS_MULT];
+    const cellIJ = localPos.map(Math.floor) as Vec2;
+    const cell = chunk.cells.get(...cellIJ);
 
-      return calcAltitudeInChunk(localPos, {
-        cellIJ, cell, chunkIJ, chunk,
-      }, realmEntity, ecs);
-    })
-  ));
+    return calcAltitudeInChunk(localPos, {
+      cellIJ, cell, chunkIJ, chunk,
+    }, realmEntity, ecs);
+  });
 
-  const delatin = new Delatin(data, CHUNK_RESOLUTION, CHUNK_RESOLUTION);
+  chunk.altitudeMap = altitudeMap;
+
+  if (chunkIJ[0] === 0 && chunkIJ[1] === 0) {
+    console.log(chunk);
+  }
+
+  const delatin = new Delatin(altitudeMap.data, altitudeMap.width, altitudeMap.height);
   delatin.run(CHUNK_GEOMETRY_DELATIN_MAX_ERROR);
 
   const positionsData: number[] = [];
@@ -80,12 +85,12 @@ export function chunkAttributeArrays(chunkEntity: EntityRef, realmEntity: Entity
   const uvsArray = new Float32Array(uvsData);
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(
-    positionsArray, 3,
-  ));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(
-    uvsArray, 2,
-  ));
+  geometry.setAttribute('position',
+    new THREE.BufferAttribute(positionsArray, 3),
+  );
+  geometry.setAttribute('uv',
+    new THREE.BufferAttribute(uvsArray, 2),
+  );
   geometry.setIndex(delatin.triangles);
   geometry.computeVertexNormals();
 

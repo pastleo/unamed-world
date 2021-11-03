@@ -6,6 +6,7 @@ import { GameECS, GameEntityComponents } from '../gameECS';
 import { Vec2, Vec3, mod, warnIfNotPresent, add, sub, multiply, clamp, step, smooth } from '../utils/utils';
 import { EntityRef, UUID, entityEqual } from '../utils/ecs';
 import Map2D, { Map2DEntries } from '../utils/map2d';
+import Array2D from '../utils/array2d';
 
 import { CHUNK_SIZE } from '../consts';
 
@@ -18,7 +19,7 @@ export interface ChunkComponent {
   persistance: boolean;
   textureUrl: string;
 
-  //altitudeMap: Array2D;
+  altitudeMap?: Array2D;
   //diffuseMap: Array2D;
 }
 

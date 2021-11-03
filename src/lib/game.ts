@@ -75,9 +75,10 @@ export async function setup(): Promise<Game> {
     }
 
     (window as any).run = () => {
-      const d0 = new Delatin(Array(256).fill(0), 16, 16);
+      const d0Data = Array(256).fill(0);
+      const d0 = new Delatin(d0Data, 16, 16);
       d0.run(0.3);
-      console.log('d0', d0.coords, d0.triangles);
+      console.log('d0', d0Data, d0.coords, d0.triangles);
 
       const chunkIJ: Vec2 = [0, 0];
       const chunk = getChunk([0, 0], game.realm.currentObj, game.ecs);
