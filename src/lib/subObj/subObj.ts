@@ -78,7 +78,7 @@ export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
 
 export function destroySubObj(subObjEntity: EntityRef, game: Game) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
-  if (warnIfNotPresent(subObj)) return;
+  if (!subObj) return;
 
   removeFromChunk(subObjEntity, subObj, game);
 

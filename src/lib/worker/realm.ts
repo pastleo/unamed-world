@@ -5,7 +5,7 @@ import { GameECS, init as initECS } from '../gameECS';
 import { ExportedRealmJson, loadExportedRealm } from '../realm';
 import { ObjRealmComponent, createBaseRealm } from '../obj/realm';
 import { Cell, ChunkComponent, getChunk } from '../chunk/chunk';
-import { AttributeArrays, chunkAttributeArrays } from '../chunk/renderAttribute';
+import { ChunkRenderAttributeComponent, AttributeArrays, chunkAttributeArrays } from '../chunk/renderAttribute';
 
 import { EntityRef, UUID } from '../utils/ecs';
 import { Vec2, rangeVec2s, add } from '../utils/utils';
@@ -62,16 +62,13 @@ export default startWorker;
 async function loadRealm(uuid: UUID, worker: RealmWorkerGlobal) {
   const json = await localForage.getItem<ExportedRealmJson>(`realm:${uuid}`);
   if (json) {
+    const prevChunks = worker.ecs.getComponent(worker.realmEntity, 'obj/realm').chunks;
+    prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
+      worker.ecs.deallocate(chunkEntity);
+    });
+
     worker.generatingChunkQueue = [];
     worker.realmEntity = loadExportedRealm(json, worker.ecs);
-
-    const realm = worker.ecs.getComponent(worker.realmEntity, 'obj/realm');
-    realm.chunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
-      worker.ecs.setComponent(chunkEntity, 'chunk/renderAttribute', {
-        cellSent: false,
-        attributesGenerated: false,
-      });
-    });
   }
 }
 
@@ -89,7 +86,7 @@ function generateRealmChunk(centerChunkIJ: Vec2, worker: RealmWorkerGlobal) {
   rangeVec2s(centerChunkIJ, REALM_CHUNK_AUTO_GENERATION_RANGE).forEach(chunkIJ => {
     const chunkEntity = realm.chunks.get(...chunkIJ);
 
-    if (worker.ecs.getComponent(chunkEntity, 'chunk/renderAttribute').attributesGenerated) return;
+    if (getRenderAttrComponent(chunkEntity, worker).attributesGenerated) return;
 
     queueGenerateChunkAttrs(chunkEntity, worker);
     newChunkIJs.add(chunkIJ);
@@ -166,10 +163,6 @@ function generateChunkEntity(chunkIJ: Vec2, realm: ObjRealmComponent, worker: Re
     persistance: false,
     textureUrl: (upChunk || bottomChunk || leftChunk || rightChunk)?.textureUrl || '',
   });
-  worker.ecs.setComponent(chunkEntity, 'chunk/renderAttribute', {
-    cellSent: false,
-    attributesGenerated: false,
-  });
 
   realm.chunks.put(...chunkIJ, chunkEntity);
 
@@ -177,7 +170,7 @@ function generateChunkEntity(chunkIJ: Vec2, realm: ObjRealmComponent, worker: Re
 }
 
 function queueGenerateChunkAttrs(chunkEntity: EntityRef, worker: RealmWorkerGlobal) {
-  worker.ecs.getComponent(chunkEntity, 'chunk/renderAttribute').attributesGenerated = true;
+  getRenderAttrComponent(chunkEntity, worker).attributesGenerated = true;
   worker.generatingChunkQueue.push(chunkEntity);
 
   if (worker.generatingChunkQueue.length > 1) return;
@@ -204,10 +197,24 @@ function generateChunkAttrs(worker: RealmWorkerGlobal) {
 }
 
 function sendChunkCells(chunk: ChunkComponent, chunkEntity: EntityRef, worker: RealmWorkerGlobal): Partial<Pick<ChunkGenerationResult, 'cellEntries'>> {
-  const renderAttribute = worker.ecs.getComponent(chunkEntity, 'chunk/renderAttribute');
+  const renderAttribute = getRenderAttrComponent(chunkEntity, worker);
   if (renderAttribute.cellSent) return {};
   renderAttribute.cellSent = true;
+
   return {
     cellEntries: chunk.cells.entries(),
   }
+}
+
+function getRenderAttrComponent(chunkEntity: EntityRef, worker: RealmWorkerGlobal): ChunkRenderAttributeComponent {
+  let component = worker.ecs.getComponent(chunkEntity, 'chunk/renderAttribute')
+  if (component) return component;
+
+  component = {
+    cellSent: false,
+    attributesGenerated: false,
+  }
+  worker.ecs.setComponent(chunkEntity, 'chunk/renderAttribute', component);
+
+  return component;
 }

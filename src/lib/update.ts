@@ -6,7 +6,7 @@ import { update as updateInput } from './input';
 import { resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { fetchRealm, switchRealm } from './realm';
-import { jumpOnRealm } from './player';
+import { jumpOnRealm, jumpOffRealm } from './player';
 
 import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
@@ -28,9 +28,14 @@ export async function changeRealm(game: Game) {
   if (!realmUUID) return
 
   const json = await fetchRealm(realmUUID);
-  if (switchRealm(json, game)) {
-    jumpOnRealm(game);
+  const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
+  if (json.realmUUID === game.ecs.getUUID(currentRealmObjComponents.entity)) {
+    console.warn('realm UUID the same as current one');
+    return;
   }
+  jumpOffRealm(game);
+  switchRealm(json, game);
+  jumpOnRealm(game);
 }
 
 const UPDATE_CHUNK_RANGE = 2;

@@ -84,18 +84,13 @@ export async function fetchRealm(realmObjUUID: UUID): Promise<ExportedRealmJson>
   return json;
 }
 
-export function switchRealm(json: ExportedRealmJson, game: Game): boolean {
+export function switchRealm(json: ExportedRealmJson, game: Game) {
   const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
-  if (json.realmUUID === game.ecs.getUUID(currentRealmObjComponents.entity)) {
-    console.warn('realm UUID the same as current one');
-    return false;
-  }
 
   game.realm.prevChunks = currentRealmObjComponents.get('obj/realm').chunks;
   game.ecs.deallocate(game.realm.currentObj);
   game.realm.currentObj = loadExportedRealm(json, game.ecs);
   resetRealm(game);
-  return true;
 }
 
 export function loadExportedRealm(json: ExportedRealmJson, ecs: GameECS): EntityRef {
@@ -146,22 +141,30 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
   }
 
   addChunkMeshToScene(chunkEntityComponents, chunkIJ, attributeArrays, game);
-  chunkEntityComponents.get('chunk').subObjs.forEach(subObjEntity => {
+  const chunk = chunkEntityComponents.get('chunk');
+  chunk.subObjs.forEach(subObjEntity => {
     addOrRefreshSubObjToScene(subObjEntity, game);
   });
 
   if (game.realm.prevChunks) {
-    const chunkEntityComponents = game.ecs.getEntityComponents(
+    const prevChunkComponents = game.ecs.getEntityComponents(
       game.realm.prevChunks.get(...chunkIJ)
     );
-    if (chunkEntityComponents) {
-      chunkEntityComponents.get('chunk').subObjs.forEach(subObjEntity => {
-        destroySubObj(subObjEntity, game);
+    if (
+      prevChunkComponents &&
+      !entityEqual(prevChunkComponents.entity, chunkEntityComponents.entity)
+    ) {
+      prevChunkComponents.get('chunk').subObjs.forEach(subObjEntity => {
+        if (chunk.subObjs.findIndex(sObj => entityEqual(sObj, subObjEntity)) === -1) {
+          destroySubObj(subObjEntity, game);
+        }
       });
 
-      removeChunkMeshFromScene(chunkEntityComponents);
-      destroyChunk(chunkEntityComponents, game.ecs);
+      removeChunkMeshFromScene(prevChunkComponents);
+      destroyChunk(prevChunkComponents, game.ecs);
     }
+
+    game.realm.prevChunks.put(...chunkIJ, null);
   }
 }
 

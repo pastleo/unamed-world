@@ -52,11 +52,15 @@ export function mountSubObj(subObjEntity: EntityRef, game: Game) {
 }
 
 export function jumpOnRealm(game: Game) {
+  game.player.subObjEntity = game.ecs.allocate();
+  addToRealm(game, [0, 0, 0]);
+}
+
+export function jumpOffRealm(game: Game) {
   const oriSubObjComponents = game.ecs.getEntityComponents(game.player.subObjEntity);
   if (warnIfNotPresent(oriSubObjComponents)) return;
 
-  game.player.subObjEntity = game.ecs.allocate();
-  addToRealm(game, oriSubObjComponents.get('subObj').position);
+  destroySubObj(oriSubObjComponents.entity, game);
 }
 
 export function update(_tDiff: number, game: Game) {
