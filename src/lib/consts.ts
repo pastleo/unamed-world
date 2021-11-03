@@ -22,6 +22,3 @@ export const BASE_REALM_BACKGROUND = [
   'assets/skybox/pos-z.jpg',
   'assets/skybox/neg-z.jpg',
 ] as [string, string, string, string, string, string];
-
-// deprecated;
-export const CELL_STEPS = 5;

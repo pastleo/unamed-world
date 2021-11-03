@@ -17,9 +17,6 @@ export interface ChunkComponent {
   subObjs: EntityRef[];
   persistance: boolean;
   textureUrl: string;
-
-  //altitudeMap: Array2D;
-  //diffuseMap: Array2D;
 }
 
 export interface Cell {

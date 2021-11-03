@@ -1,9 +1,6 @@
 import update, { resize, changeRealm } from './lib/update';
 import { Game, setup } from './lib/game';
 
-import { getChunk } from './lib/chunk/chunk';
-import { Vec2 } from './lib/utils/utils';
-
 function startLoop(game: Game, now: number = 0) {
   const tDiff = now - game.time;
   game.time = now;
@@ -19,9 +16,6 @@ async function main() {
 
   { // for development
     (window as any).game = game;
-    (window as any).getChunk = (...ij: Vec2) => (
-      getChunk(ij, game.realm.currentObj, game.ecs)
-    );
   }
 
   document.body.appendChild(game.renderer.domElement);
