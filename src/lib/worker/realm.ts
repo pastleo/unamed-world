@@ -127,7 +127,6 @@ function generateChunkEntity(chunkIJ: Vec2, realm: ObjRealmComponent, worker: Re
   const bottomChunk = getChunk(add(chunkIJ, [0, -1]), worker.realmEntity, worker.ecs);
   const leftChunk = getChunk(add(chunkIJ, [-1, 0]), worker.realmEntity, worker.ecs);
   const rightChunk = getChunk(add(chunkIJ, [1, 0]), worker.realmEntity, worker.ecs);
-  let lastAltitude: number;
 
   const cells = new Map2D<Cell>((i, j) => {
     const upEdgeCell = upChunk?.cells.get(i, 0);
@@ -136,23 +135,27 @@ function generateChunkEntity(chunkIJ: Vec2, realm: ObjRealmComponent, worker: Re
     const rightEdgeCell = rightChunk?.cells.get(0, j);
 
     const cellCoordPercentage = [i / CHUNK_SIZE, j / CHUNK_SIZE].map(p => p + CELL_MIDDLE_PERCENTAGE_OFFSET);
-    const [zSum, zDivideFactor] = ([
+    const [altitudeSum, flatnessSum, divideFactor] = ([
       [upEdgeCell, 1 - cellCoordPercentage[1]],
       [bottomEdgeCell, cellCoordPercentage[1]],
       [leftEdgeCell, 1 - cellCoordPercentage[0]],
       [rightEdgeCell, cellCoordPercentage[0]],
     ] as [Cell, number][]).filter(
       ([cell]) => cell
-    ).reduce<[number, number]>(
-      ([zSum, zDivideFactor], [cell, p]) => {
-        return ([zSum + cell.altitude * p, zDivideFactor + p])
+    ).reduce<[number, number, number]>(
+      ([altitudeSum, flatnessSum, divideFactor], [cell, p]) => {
+        return [
+          altitudeSum + cell.altitude * p,
+          flatnessSum + cell.flatness * p,
+          divideFactor + p,
+        ]
       },
-      [0, 0],
+      [0, 0, 0],
     );
 
-    const altitude = zDivideFactor <= 0 ? 0 : zSum / zDivideFactor;
-    lastAltitude = altitude;
-    return { altitude, flatness: 0.5 };
+    const altitude = divideFactor <= 0 ? 0 : altitudeSum / divideFactor;
+    const flatness = divideFactor <= 0 ? 0 : flatnessSum / divideFactor;
+    return { altitude, flatness };
   }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
   const chunkEntity = worker.ecs.allocate();

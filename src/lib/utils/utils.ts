@@ -83,8 +83,19 @@ export function averagePresentNumbers(...ns: number[]): number {
   return presentNumbers.reduce((p, c) => p + c, 0) / presentNumbers.length;
 }
 
-export function step<T extends Vec2 | Vec3>(vecA: T, vecB: T, progress: number): T {
-  return vecA.map((va, i) => va * (1 - progress) + vecB[i] * progress) as T;
+export function step(a: number, b: number, ratio: number): number {
+  return a * (1 - ratio) + b * ratio
+}
+
+export function stepVec<T extends Vec2 | Vec3>(vecA: T, vecB: T, ratio: number): T {
+  return vecA.map((va, i) => step(va, vecB[i], ratio)) as T;
+}
+
+export function smooth(ratio: number, exponentA: number = 4, exponentB: number = 4): number {
+  if (ratio >= 1) return 1;
+  if (ratio <= 0) return 0;
+  if (ratio > 0.5) return 1 - 0.5 * Math.pow(2 * (1 - ratio), exponentB);
+  return 0.5 * Math.pow(2 * ratio, exponentA);
 }
 
 export function warnIfNotPresent(...values: any[]) {

@@ -14,6 +14,7 @@
   "dependencies": {
     "@types/three": "^0.131.0",
     "comlink": "^4.3.1",
+    "delatin": "github:mapbox/delatin#7edaefd739bab8b653296fbc026dbd43e525f09f",
     "esbuild-meta-into-html-script-src": "^1.0.3",
     "isomorphic-webcrypto": "https://github.com/pastleo/isomorphic-webcrypto/releases/download/2.3.8-without-rn/isomorphic-webcrypto-without-rn.tar.gz",
     "localforage": "^1.10.0",

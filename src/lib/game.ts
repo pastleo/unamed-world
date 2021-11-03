@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
-import { GameECS, init as initECS } from './gameECS';
+import { getChunk } from './chunk/chunk';
 
+import { GameECS, init as initECS } from './gameECS';
 import { Realm, init as initRealm, addToScene as addRealmToScene, exportRealm } from './realm';
 import { SpriteManager, init as initSpriteManager, createBaseSpriteObj, exportSprite } from './sprite';
 import { changeRealm } from './update';
@@ -9,6 +10,8 @@ import { changeRealm } from './update';
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
+
+import { Vec2 } from './utils/utils';
 
 export interface Game {
   ecs: GameECS;
@@ -55,6 +58,9 @@ export async function setup(): Promise<Game> {
   changeRealm(game);
 
   { // for development:
+    (window as any).getChunk = (...ij: Vec2) => (
+      getChunk(ij, game.realm.currentObj, game.ecs)
+    );
     (window as any).exportRealm = () => {
       exportRealm(game);
     };

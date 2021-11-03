@@ -13,7 +13,10 @@ function startLoop(game: Game, now: number = 0) {
 
 async function main() {
   const game = await setup();
-  (window as any).game = game; // for development
+
+  { // for development
+    (window as any).game = game;
+  }
 
   document.body.appendChild(game.renderer.domElement);
 
