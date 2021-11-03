@@ -1,7 +1,9 @@
+import * as T from 'typed';
+
 import { GameECS } from '../gameECS';
 
-import { EntityRef, UUID } from '../utils/ecs';
-import Map2D, { Map2DEntries } from '../utils/map2d';
+import { EntityRef, uuidType } from '../utils/ecs';
+import Map2D, { map2DEntriesType } from '../utils/map2d';
 
 import { BASE_REALM_BACKGROUND } from '../consts';
 
@@ -9,11 +11,16 @@ export interface ObjRealmComponent {
   chunks: Map2D<EntityRef>;
   backgrounds: Backgrounds;
 }
+
+const backgroundsType = T.tuple(
+  T.string, T.string, T.string,
+  T.string, T.string, T.string,
+);
 type Backgrounds = [
   urlPosX: string, urlNegX: string,
   urlPosY: string, urlNegY: string,
   urlPosZ: string, urlPosZ: string
-];
+] & T.Infer<typeof backgroundsType>;
 
 export function createBaseRealm(ecs: GameECS): EntityRef {
   const realmObjEntity = ecs.allocate();
@@ -25,10 +32,11 @@ export function createBaseRealm(ecs: GameECS): EntityRef {
   return realmObjEntity;
 }
 
-export interface PackedObjRealmComponent {
-  chunkEntries: Map2DEntries<UUID>;
-  backgrounds: Backgrounds;
-}
+export const packedObjRealmComponentType = T.object({
+  chunkEntries: map2DEntriesType(uuidType),
+  backgrounds: backgroundsType,
+});
+export type PackedObjRealmComponent = T.Infer<typeof packedObjRealmComponentType>;
 
 export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmComponent {
   const { backgrounds } = objRealm;

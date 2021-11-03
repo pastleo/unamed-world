@@ -1,3 +1,5 @@
+import * as T from 'typed';
+
 import { Game } from '../game';
 import { GameECS, GameEntityComponents } from '../gameECS';
 import { requireObjSprite } from '../sprite';
@@ -5,10 +7,11 @@ import { requireObjSprite } from '../sprite';
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { addOrRefreshSpriteToScene, updateSpritePosition, removeSprite } from './spriteRender';
 
-import { EntityRef, UUID, entityEqual } from '../utils/ecs';
-import { Vec2, Vec3, add, warnIfNotPresent } from '../utils/utils';
+import { EntityRef, uuidType, entityEqual } from '../utils/ecs';
+import { Vec2, vec2Type, Vec3, vec3Type, add, warnIfNotPresent } from '../utils/utils';
 
-export type SubObjState = 'normal' | 'walking' | string;
+export const subObjStateType = T.union(T.literal('normal'), T.literal('walking'), T.string);
+export type SubObjState = T.Infer<typeof subObjStateType>;
 
 export type SubObjEntityComponents = GameEntityComponents;
 
@@ -88,15 +91,16 @@ export function destroySubObj(subObjEntity: EntityRef, game: Game) {
   game.ecs.deallocate(subObjEntity);
 }
 
-export interface PackedSubObjComponent {
-  obj: UUID;
-  position: Vec3;
-  rotation: Vec3;
-  groundAltitude: number;
-  state: SubObjState;
-  cellIJ: Vec2;
-  chunkIJ: Vec2;
-}
+export const packedSubObjComponentType = T.object({
+  obj: uuidType,
+  position: vec3Type,
+  rotation: vec3Type,
+  groundAltitude: T.number,
+  state: subObjStateType,
+  cellIJ: vec2Type,
+  chunkIJ: vec2Type,
+});
+export type PackedSubObjComponent = T.Infer<typeof packedSubObjComponentType>;
 
 export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubObjComponent {
   const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = subObjComponent;

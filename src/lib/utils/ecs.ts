@@ -1,3 +1,5 @@
+import * as T from 'typed';
+
 import { genUUID } from './utils';
 
 class ECS<ComponentMapT extends Record<string, any>> {
@@ -119,7 +121,8 @@ interface Entity {
 }
 
 export type EntityRef = [index: number, generation: number];
-export type UUID = string;
+export const uuidType = T.string;
+export type UUID = T.Infer<typeof uuidType>;
 
 class GenerationalArray<T> {
   array: T[] = [];

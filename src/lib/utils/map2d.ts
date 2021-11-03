@@ -1,3 +1,5 @@
+import * as T from 'typed';
+
 class RowCol<T> {
   readonly array: T[] = [];
   startI: number = 0;
@@ -64,7 +66,7 @@ class Map2D<T> {
     return row.get(i);
   }
 
-  entries(): [[number, number], T][] {
+  entries(): Map2DEntries<T> {
     return this.map.array.flatMap((row, j) => {
       return !row ? [] : row.array.flatMap((data, i) => {
         return !data ? [] : [[
@@ -76,6 +78,18 @@ class Map2D<T> {
   }
 }
 
+export function map2DEntriesType<U>(u: T.Typed<U>) {
+  return T.array(
+    T.tuple(T.tuple(T.number, T.number), u)
+  );
+}
 export type Map2DEntries<T> = [[number, number], T][];
+
+const a = [
+  [[1, 2], 'a'],
+];
+
+const r = map2DEntriesType(T.string)(a);
+console.log(r);
 
 export default Map2D;

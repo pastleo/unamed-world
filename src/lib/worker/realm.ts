@@ -2,7 +2,8 @@ import * as Comlink from 'comlink';
 import localForage from 'localforage';
 
 import { GameECS, init as initECS } from '../gameECS';
-import { ExportedRealmJson, loadExportedRealm } from '../realm';
+import { ExportedRealmJson, loadExportedRealm } from '../storage';
+
 import { ObjRealmComponent, createBaseRealm } from '../obj/realm';
 import { Cell, ChunkComponent, getChunk } from '../chunk/chunk';
 import { ChunkRenderAttributeComponent, AttributeArrays, chunkAttributeArrays } from '../chunk/renderAttribute';
@@ -61,6 +62,7 @@ export default startWorker;
 
 async function loadRealm(uuid: UUID, worker: RealmWorkerGlobal) {
   const json = await localForage.getItem<ExportedRealmJson>(`realm:${uuid}`);
+  console.log(json);
   if (json) {
     const prevChunks = worker.ecs.getComponent(worker.realmEntity, 'obj/realm').chunks;
     prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
@@ -68,6 +70,7 @@ async function loadRealm(uuid: UUID, worker: RealmWorkerGlobal) {
     });
 
     worker.generatingChunkQueue = [];
+    (self as any).dbgon = true;
     worker.realmEntity = loadExportedRealm(json, worker.ecs);
   }
 }

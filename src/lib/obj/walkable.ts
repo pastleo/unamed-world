@@ -1,3 +1,4 @@
+import * as T from 'typed';
 import { GameECS } from '../gameECS';
 
 import { EntityRef } from '../utils/ecs';
@@ -7,7 +8,12 @@ export interface ObjWalkableComponent {
   maxClimbRad: number;
 }
 
-export type PackedObjWalkableComponent = ObjWalkableComponent;
+export const packedObjWalkableComponentType = T.object({
+  speed: T.number,
+  maxClimbRad: T.number,
+});
+export type PackedObjWalkableComponent = T.Infer<typeof packedObjWalkableComponentType> & ObjWalkableComponent;
+
 export function pack(objSpriteComponent: ObjWalkableComponent): PackedObjWalkableComponent {
   return objSpriteComponent;
 }

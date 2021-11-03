@@ -1,7 +1,10 @@
+import * as T from 'typed';
 import crypto from 'isomorphic-webcrypto';
 
-export type Vec2 = [number, number];
-export type Vec3 = [number, number, number];
+export const vec2Type = T.tuple(T.number, T.number);
+export type Vec2 = T.Infer<typeof vec2Type>;
+export const vec3Type = T.tuple(T.number, T.number, T.number);
+export type Vec3 = T.Infer<typeof vec3Type>;
 
 export function add<T extends Vec2 | Vec3>(v1: T, v2: T, dstVArg?: T): T {
   const dstV = dstVArg || Array(v1.length).fill(0) as T;
@@ -145,4 +148,18 @@ export function downloadJson(json: any, filename: string) {
   document.body.appendChild(aTag);
   aTag.click();
   document.body.removeChild(aTag);
+}
+
+export function recordType<U extends string, V>(u: T.Typed<U>, v: T.Typed<V>) {
+  return T.map(T.object({}), obj => {
+    const errors = Object.entries(obj).flatMap(
+      ([key, value]) => [u(key), v(value)]
+    ).filter(
+      result => !result.success
+    ).flatMap(
+      result => (result as T.Failure).errors
+    );
+    if (errors.length > 0) return T.failure(...errors);
+    return T.success(obj);
+  }) as T.Typed<Record<U, V>>;
 }

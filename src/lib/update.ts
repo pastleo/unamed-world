@@ -5,8 +5,9 @@ import { update as updatePlayer } from './player';
 import { update as updateInput } from './input';
 import { resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
-import { fetchRealm, switchRealm } from './realm';
+import { switchRealm } from './realm';
 import { jumpOnRealm, jumpOffRealm } from './player';
+import { fetchRealm } from './storage';
 
 import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
