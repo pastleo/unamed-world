@@ -13,7 +13,7 @@ import { packedObjWalkableComponentType, pack as packObjWalkable, unpack as unpa
 import { EntityRef, UUID, uuidType, entityEqual } from './utils/ecs';
 import { Vec2, warnIfNotPresent, downloadJson } from './utils/utils';
 
-import { CURRENT_STORAGE_VERSION } from './consts';
+export const LATEST_STORAGE_VERSION = 1;
 
 export function uuidEntryType<T>(t: ss.Struct<T>) {
   return ss.tuple([uuidType, t]);
@@ -125,7 +125,7 @@ export function exportRealm(game: Game) {
   ] as UUIDEntry<PackedSubObjComponent>));
   
   const objRealmJson: ExportedRealmJson = {
-    version: CURRENT_STORAGE_VERSION,
+    version: LATEST_STORAGE_VERSION,
     realmUUID,
     packedObjRealm,
     packedChunks,
@@ -185,7 +185,7 @@ export function exportSprite(game: Game) {
     const packedObjWalkable = packObjWalkable(objEntityComponents.get('obj/walkable'));
 
     const objSpriteJson: ExportedSpriteJson = {
-      version: CURRENT_STORAGE_VERSION,
+      version: LATEST_STORAGE_VERSION,
       objUUID,
       packedObjSprite,
       packedObjWalkable,
