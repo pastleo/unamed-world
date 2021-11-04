@@ -2,7 +2,8 @@ import * as Comlink from 'comlink';
 import localForage from 'localforage';
 
 import { GameECS, init as initECS } from '../gameECS';
-import { ExportedRealmJson, loadExportedRealm } from '../realm';
+import { ExportedRealmJson, loadExportedRealm } from '../storage';
+
 import { ObjRealmComponent, createBaseRealm } from '../obj/realm';
 import { Cell, ChunkComponent, getChunk } from '../chunk/chunk';
 import { ChunkRenderAttributeComponent, AttributeArrays, chunkAttributeArrays } from '../chunk/renderAttribute';

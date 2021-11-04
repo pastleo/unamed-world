@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import { getChunk } from './chunk/chunk';
 
 import { GameECS, init as initECS } from './gameECS';
-import { Realm, init as initRealm, addToScene as addRealmToScene, exportRealm } from './realm';
-import { SpriteManager, init as initSpriteManager, createBaseSpriteObj, exportSprite } from './sprite';
+import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
+import { SpriteManager, init as initSpriteManager, createBaseSpriteObj } from './sprite';
 import { changeRealm } from './update';
+import { exportRealm, exportSprite } from './storage';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
 import { Input, create as createInput, startListeners } from './input';

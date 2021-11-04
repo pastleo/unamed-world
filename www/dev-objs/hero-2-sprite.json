@@ -1,0 +1,1 @@
+{"version":1,"objUUID":"hero-2","packedObjSprite":{"spritesheet":"assets/hero.png","eightBitStyle":true,"colRow":[6,5],"stateAnimations":{"normal":{"animations":[[0,1]],"speed":500},"walking":{"animations":[[6,11]],"speed":200}},"tall":1,"radius":0.5},"packedObjWalkable":{"speed":4,"maxClimbRad":0.9424777960769379}}

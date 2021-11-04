@@ -1,3 +1,4 @@
+import * as ss from 'superstruct';
 import { genUUID } from './utils';
 
 class ECS<ComponentMapT extends Record<string, any>> {
@@ -119,7 +120,9 @@ interface Entity {
 }
 
 export type EntityRef = [index: number, generation: number];
-export type UUID = string;
+
+export const uuidType = ss.string();
+export type UUID = ss.Infer<typeof uuidType>;
 
 class GenerationalArray<T> {
   array: T[] = [];

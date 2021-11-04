@@ -1,24 +1,15 @@
-import localForage from 'localforage';
-
 import { Game } from './game';
 import { GameECS, GameEntityComponents } from './gameECS';
+import { fetchObjSprite, loadExportedSprite } from './storage';
 
-import { getObjEntity, createObjEntity } from './obj/obj';
+import { createObjEntity } from './obj/obj';
 import { addOrRefreshSubObjToScene } from './subObj/subObj';
-import { PackedObjSpriteComponent, pack as packObjSprite, unpack as unpackObjSprite } from './obj/sprite';
-import { PackedObjWalkableComponent, pack as packObjWalkable, unpack as unpackObjWalkable } from './obj/walkable';
 
 import { EntityRef, UUID, entityEqual } from './utils/ecs';
-import { warnIfNotPresent, downloadJson } from './utils/utils';
+import { warnIfNotPresent } from './utils/utils';
 
 export interface SpriteManager {
   fetchingObjs: Map<UUID, EntityRef[]>;
-}
-
-export interface ExportedSpriteJson {
-  objUUID: UUID;
-  packedObjSprite: PackedObjSpriteComponent;
-  packedObjWalkable: PackedObjWalkableComponent;
 }
 
 export function init(): SpriteManager {
@@ -56,50 +47,6 @@ export async function requireObjSprite(subObjEntityRequiring: EntityRef, objEnti
     addOrRefreshSubObjToScene(subObj, game);
   });
   game.spriteManager.fetchingObjs.delete(spriteObjUUID);
-}
-
-async function fetchObjSprite(spriteObjUUID: UUID): Promise<ExportedSpriteJson> {
-  const response = await fetch(`dev-objs/${spriteObjUUID}-sprite.json`);
-  if (warnIfNotPresent(response.ok)) return;
-  const json = await response.json() as ExportedSpriteJson; // TODO: might need to be verified
-  if (spriteObjUUID !== json.objUUID) {
-    console.warn('UUID in json not equal');
-    return;
-  }
-
-  await localForage.setItem(`sprite:${spriteObjUUID}`, json);
-  return json;
-}
-
-export function loadExportedSprite(json: ExportedSpriteJson, ecs: GameECS): EntityRef {
-  const objEntity = ecs.fromUUID(json.objUUID);
-  unpackObjSprite(objEntity, json.packedObjSprite, ecs);
-  unpackObjWalkable(objEntity, json.packedObjWalkable, ecs);
-
-  return objEntity;
-}
-
-export function exportSprite(game: Game) {
-  const objEntities: EntityRef[] = [];
-  game.ecs.getComponentEntities('subObj').forEach(([_subObjEntity, subObj]) => {
-    if (objEntities.findIndex(oEntity => entityEqual(oEntity, subObj.obj)) === -1) {
-      objEntities.push(subObj.obj);
-    }
-  });
-
-  objEntities.forEach(objEntity => {
-    const objEntityComponents = game.ecs.getEntityComponents(objEntity);
-    const objUUID = game.ecs.getUUID(objEntity);
-    const packedObjSprite = packObjSprite(objEntityComponents.get('obj/sprite'));
-    const packedObjWalkable = packObjWalkable(objEntityComponents.get('obj/walkable'));
-
-    const objSpriteJson: ExportedSpriteJson = {
-      objUUID,
-      packedObjSprite,
-      packedObjWalkable,
-    };
-    downloadJson(objSpriteJson, `${objUUID}-sprite.json`);
-  });
 }
 
 export function generateRealmSprite() {

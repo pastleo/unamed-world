@@ -1,11 +1,16 @@
+import * as ss from 'superstruct';
 import { Required } from 'utility-types';
 
 import { Game } from '../game';
 import { GameECS, GameEntityComponents } from '../gameECS';
 
-import { Vec2, Vec3, mod, warnIfNotPresent, add, sub, multiply, clamp, step, smooth } from '../utils/utils';
-import { EntityRef, UUID, entityEqual } from '../utils/ecs';
-import Map2D, { Map2DEntries } from '../utils/map2d';
+import {
+  Vec2, Vec3,
+  vec2Type, mod, warnIfNotPresent, add,
+  sub, multiply, clamp, step, smooth,
+} from '../utils/utils';
+import { EntityRef, uuidType, entityEqual } from '../utils/ecs';
+import Map2D, { map2DEntriesType } from '../utils/map2d';
 
 import { CHUNK_SIZE } from '../consts';
 
@@ -19,12 +24,11 @@ export interface ChunkComponent {
   textureUrl: string;
 }
 
-export interface Cell {
-  altitude: number;
-  flatness: number;
-  //sharpness: number;
-  //uv: [number, number];
-}
+export const cellType = ss.object({
+  altitude: ss.number(),
+  flatness: ss.number(),
+});
+export type Cell = ss.Infer<typeof cellType>;
 
 const CELL_OFFSET = (CHUNK_SIZE / 2) % 1;
 type CreateChunkFn = (chunkIJ: Vec2) => ChunkComponent;
@@ -183,12 +187,13 @@ export function destroy(chunkEntityComponents: GameEntityComponents, ecs: GameEC
   ecs.deallocate(chunkEntityComponents.entity);
 }
 
-export interface PackedChunkComponent {
-  chunkIJ: Vec2;
-  cellsEntries: Map2DEntries<Cell>;
-  subObjs: UUID[];
-  textureUrl: string;
-}
+export const packedChunkComponentType = ss.object({
+  chunkIJ: vec2Type,
+  cellsEntries: map2DEntriesType(cellType),
+  subObjs: ss.array(uuidType),
+  textureUrl: ss.string(),
+});
+export type PackedChunkComponent = ss.Infer<typeof packedChunkComponentType>;
 
 export function pack(chunk: ChunkComponent, ecs: GameECS): PackedChunkComponent {
   const { chunkIJ, cells, subObjs, textureUrl } = chunk;

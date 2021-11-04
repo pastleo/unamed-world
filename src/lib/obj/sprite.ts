@@ -1,9 +1,10 @@
+import * as ss from 'superstruct';
 import { GameECS } from '../gameECS';
 
-import { SubObjState } from '../subObj/subObj';
+import { SubObjState, subObjStateType } from '../subObj/subObj';
 
 import { EntityRef } from '../utils/ecs';
-import { Vec2 } from '../utils/utils';
+import { Vec2, vec2Type } from '../utils/utils';
 
 export interface ObjSpriteComponent {
   spritesheet: string;
@@ -14,13 +15,26 @@ export interface ObjSpriteComponent {
   radius: number
 }
 
-type SpriteAnimation = [start: number, end: number];
-export interface SpriteStateAnimation {
-  animations: SpriteAnimation[]; // WIP: for different facing directions
-  speed: number;
-}
+const spriteAnimationType = ss.tuple([ss.number(), ss.number()]);
+export type SpriteAnimation = ss.Infer<typeof spriteAnimationType> & [start: number, end: number];
 
-export type PackedObjSpriteComponent = ObjSpriteComponent;
+const spriteStateAnimationType = ss.object({
+  animations: ss.array(spriteAnimationType), // WIP: for different facing directions
+  speed: ss.number(),
+});
+type SpriteStateAnimation = ss.Infer<typeof spriteStateAnimationType>;
+
+export const packedObjSpriteComponentType = ss.object({
+  spritesheet: ss.string(),
+  eightBitStyle: ss.optional(ss.boolean()),
+  colRow: vec2Type,
+  stateAnimations: ss.record(subObjStateType, spriteStateAnimationType),
+  tall: ss.number(),
+  radius: ss.number(),
+}) as ss.Struct<ObjSpriteComponent>; // If you are not using TypeScript's strictNullChecks option, Superstruct will be unable to infer your "optional" types correctly and will mark all types as optional.
+// from https://docs.superstructjs.org/guides/06-using-typescript
+export type PackedObjSpriteComponent = ss.Infer<typeof packedObjSpriteComponentType>;
+
 export function pack(objSpriteComponent: ObjSpriteComponent): PackedObjSpriteComponent {
   return objSpriteComponent;
 }
