@@ -137,14 +137,29 @@ export function exportRealm(game: Game) {
 export async function fetchObjSprite(spriteObjUUID: UUID): Promise<ExportedSpriteJson> {
   const response = await fetch(`dev-objs/${spriteObjUUID}-sprite.json`);
   if (warnIfNotPresent(response.ok)) return;
-  const json = await response.json() as ExportedSpriteJson; // TODO: might need to be verified
-  if (spriteObjUUID !== json.objUUID) {
+  const json = await response.json();
+
+  migrateSpriteJson(json);
+  const [err, jsonValidated] = ss.validate(json, exportedSpriteJsonType);
+
+  if (err) {
+    console.warn(err);
+    return;
+  }
+  if (spriteObjUUID !== jsonValidated.objUUID) {
     console.warn('UUID in json not equal');
     return;
   }
 
-  await localForage.setItem(`sprite:${spriteObjUUID}`, json);
-  return json;
+  await localForage.setItem(`sprite:${spriteObjUUID}`, jsonValidated);
+  return jsonValidated;
+}
+
+function migrateSpriteJson(json: any) {
+  if (!json.version) { // version null
+    json.version = 1;
+    console.log('migrated SpriteJson:', json.objUUID);
+  }
 }
 
 export function loadExportedSprite(json: ExportedSpriteJson, ecs: GameECS): EntityRef {
