@@ -1,3 +1,5 @@
+import * as ss from 'superstruct';
+
 class RowCol<T> {
   readonly array: T[] = [];
   startI: number = 0;
@@ -76,6 +78,11 @@ class Map2D<T> {
   }
 }
 
-export type Map2DEntries<T> = [[number, number], T][];
+export function map2DEntriesType<T>(t: ss.Struct<T>) {
+  return ss.array(
+    ss.tuple([ss.tuple([ss.number(), ss.number()]), t])
+  );
+}
+export type Map2DEntries<T> = [[number, number], T][] & ss.Infer<ReturnType<typeof map2DEntriesType>>;
 
 export default Map2D;

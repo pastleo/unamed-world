@@ -1,7 +1,10 @@
+import * as ss from 'superstruct';
 import crypto from 'isomorphic-webcrypto';
 
-export type Vec2 = [number, number];
-export type Vec3 = [number, number, number];
+export const vec2Type = ss.tuple([ss.number(), ss.number()]);
+export type Vec2 = ss.Infer<typeof vec2Type>;
+export const vec3Type = ss.tuple([ss.number(), ss.number(), ss.number()]);
+export type Vec3 = ss.Infer<typeof vec3Type>;
 
 export function add<T extends Vec2 | Vec3>(v1: T, v2: T, dstVArg?: T): T {
   const dstV = dstVArg || Array(v1.length).fill(0) as T;
