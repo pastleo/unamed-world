@@ -1,3 +1,5 @@
+export const CURRENT_STORAGE_VERSION = 1;
+
 export const CHUNK_SIZE = 8;
 
 export const CHUNK_CELL_RESOLUTION = 8;
