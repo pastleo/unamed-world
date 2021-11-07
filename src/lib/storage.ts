@@ -1,4 +1,7 @@
 import localForage from 'localforage';
+import { create as createIpfs, IPFS } from 'ipfs-core-min';
+import * as uint8ArrUtils from 'uint8arrays';
+import { CID } from 'multiformats/cid';
 import * as ss from 'superstruct';
 
 import { Game } from './game';
@@ -42,10 +45,34 @@ export const exportedSpriteJsonType = ss.object({
 });
 export type ExportedSpriteJson = ss.Infer<typeof exportedSpriteJsonType>;
 
-export async function fetchRealm(realmObjUUID: UUID): Promise<ExportedRealmJson> {
-  const response = await fetch(`dev-objs/${realmObjUUID}-realm.json`);
-  if (warnIfNotPresent(response.ok)) return;
-  const json = await response.json();
+export interface StorageManager {
+  ipfsNode: IPFS;
+}
+
+export function init(): StorageManager {
+  return {
+    ipfsNode: createIpfs() as unknown as IPFS,
+  }
+}
+
+export async function untilStorageReady(game: Game): Promise<void> {
+  game.storage.ipfsNode = await (game.storage.ipfsNode as unknown as Promise<IPFS>);
+  console.log('ipfs ready');
+}
+
+export async function fetchRealm(realmObjUUID: UUID, game: Game): Promise<ExportedRealmJson> {
+  let json;
+  if (realmObjUUID.startsWith('k51')) {
+    // EXP
+  } else if (realmObjUUID.startsWith('Qm')) { // EXP
+    json = await fetchIpfsJson(realmObjUUID, game);
+    // cheat a bit:
+    json.realmUUID = realmObjUUID;
+  } else {
+    const response = await fetch(`dev-objs/${realmObjUUID}-realm.json`);
+    if (warnIfNotPresent(response.ok)) return;
+    json = await response.json();
+  }
 
   migrateRealmJson(json) // alter json in-place
   const [err, jsonValidated] = ss.validate(json, exportedRealmJsonType);
@@ -194,3 +221,20 @@ export function exportSprite(game: Game) {
   });
 }
 
+async function fetchIpfsJson(cidStr: string, game: Game) {
+  const cid = CID.parse(cidStr);
+
+  // result:
+  const chunks = [];
+  console.log('ipfs.cat() starts...');
+
+  for await (const chunk of game.storage.ipfsNode.cat(cid)) {
+    console.log('chunk get');
+    chunks.push(chunk);
+  }
+  const data = uint8ArrUtils.concat(chunks);
+  console.log('file cid:', cid.toString());
+  const json = JSON.parse(uint8ArrUtils.toString(data));
+  console.log('file contents:', json);
+  return json;
+}
