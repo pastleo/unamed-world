@@ -51,19 +51,22 @@ export interface StorageManager {
 
 export function init(): StorageManager {
   return {
-    ipfsNode: createIpfs() as unknown as IPFS,
+    ipfsNode: null as unknown as IPFS,
+    //ipfsNode: createIpfs() as unknown as IPFS,
   }
 }
 
 export async function untilStorageReady(game: Game): Promise<void> {
-  game.storage.ipfsNode = await (game.storage.ipfsNode as unknown as Promise<IPFS>);
-  console.log('ipfs ready');
+  //game.storage.ipfsNode = await (game.storage.ipfsNode as unknown as Promise<IPFS>);
+  //console.log('ipfs ready');
 }
 
 export async function fetchRealm(realmObjUUID: UUID, game: Game): Promise<ExportedRealmJson> {
+  return;
   let json;
   if (realmObjUUID.startsWith('k51')) {
-    // EXP
+    const path = await game.storage.ipfsNode.resolve('/ipns/' + realmObjUUID);
+    console.log({ path });
   } else if (realmObjUUID.startsWith('Qm')) { // EXP
     json = await fetchIpfsJson(realmObjUUID, game);
     // cheat a bit:
