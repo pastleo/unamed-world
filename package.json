@@ -2,20 +2,19 @@
   "name": "unamed-world",
   "version": "0.0.1",
   "description": "world for exploration of imagination",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "dev": "esbuild src/web.ts src/web-worker.ts --bundle --sourcemap --splitting --format=esm --outdir=www --servedir=www",
+    "dev": "webpack serve",
     "tc": "tsc -w -noEmit",
     "ci-tc": "tsc -noEmit",
-    "build": "rm -rf dist && cp -r www dist && esbuild src/web.ts src/web-worker.ts --splitting --format=esm --bundle --minify --outdir=dist --entry-names=[dir]/[name]-[hash] --metafile=dist/meta.json && esbuild-meta-into-html-script-src dist/meta.json www/index.html dist/index.html src/ dist/"
+    "build": "NODE_ENV=production webpack"
   },
   "author": "PastLeo",
-  "license": "ISC",
+  "license": "GPL-3.0",
   "dependencies": {
     "@types/three": "^0.131.0",
     "comlink": "^4.3.1",
     "delatin": "github:mapbox/delatin#7edaefd739bab8b653296fbc026dbd43e525f09f",
-    "esbuild-meta-into-html-script-src": "^1.0.3",
     "isomorphic-webcrypto": "https://github.com/pastleo/isomorphic-webcrypto/releases/download/2.3.8-without-rn/isomorphic-webcrypto-without-rn.tar.gz",
     "localforage": "^1.10.0",
     "multiformats": "^9.4.10",
@@ -27,7 +26,14 @@
     "ws": "^8.2.0"
   },
   "devDependencies": {
-    "esbuild": "^0.12.20",
-    "typescript": "^4.3.5"
+    "@swc/core": "^1.2.114",
+    "browserslist": "^4.18.1",
+    "copy-webpack-plugin": "^10.0.0",
+    "html-webpack-plugin": "^5.5.0",
+    "swc-loader": "^0.1.15",
+    "typescript": "^4.5.2",
+    "webpack": "^5.64.4",
+    "webpack-cli": "^4.9.1",
+    "webpack-dev-server": "^4.6.0"
   }
 }
