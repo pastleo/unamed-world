@@ -6,7 +6,10 @@ import { GameECS, init as initECS } from './gameECS';
 import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
 import { SpriteManager, init as initSpriteManager, createBaseSpriteObj } from './sprite';
 import { changeRealm } from './update';
-import { exportRealm, exportSprite } from './storage';
+import {
+  StorageManager, init as initStorageManager, untilStorageReady,
+  exportRealm, exportSprite,
+} from './storage';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
 import { Input, create as createInput, startListeners } from './input';
@@ -16,6 +19,7 @@ import { Vec2 } from './utils/utils';
 
 export interface Game {
   ecs: GameECS;
+  storage: StorageManager;
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: Camera;
@@ -37,6 +41,7 @@ export async function setup(): Promise<Game> {
 
   const game: Game = {
     ecs,
+    storage: initStorageManager(),
     renderer,
     scene: new THREE.Scene,
     camera: initCamera(),
@@ -55,6 +60,8 @@ export async function setup(): Promise<Game> {
   addCameraToScene(game);
   addPlayerToRealm(game);
   startListeners(game);
+
+  await untilStorageReady(game);
 
   changeRealm(game);
 

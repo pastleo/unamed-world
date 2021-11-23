@@ -1,4 +1,8 @@
 import localForage from 'localforage';
+import UnamedNetwork, { createIPFS, devConfig } from 'unamed-network';
+import { IPFS } from 'ipfs-core';
+import * as BufferUtils from 'uint8arrays';
+import { CID } from 'multiformats/cid';
 import * as ss from 'superstruct';
 
 import { Game } from './game';
@@ -42,7 +46,36 @@ export const exportedSpriteJsonType = ss.object({
 });
 export type ExportedSpriteJson = ss.Infer<typeof exportedSpriteJsonType>;
 
-export async function fetchRealm(realmObjUUID: UUID): Promise<ExportedRealmJson> {
+export interface StorageManager {
+  ipfsNode: IPFS;
+}
+
+export function init(): StorageManager {
+  return {
+    ipfsNode: null,
+  }
+}
+
+export async function untilStorageReady(game: Game): Promise<void> {
+  game.storage.ipfsNode = await createIPFS(devConfig);
+  console.log('ipfs started');
+
+  const unamedNetwork = new UnamedNetwork(game.storage.ipfsNode);
+  (window as any).unamedNetwork = unamedNetwork;
+  console.log('window.unamedNetwork created:', unamedNetwork);
+
+  (window as any).fetchIpfsJson = (cidStr: string) => {
+    return fetchIpfsJson(cidStr, game);
+  }
+  console.log('call window.fetchIpfsJson to test IPFS fetching');
+
+  await unamedNetwork.start([
+    '/ip4/127.0.0.1/tcp/4005/ws/p2p/12D3KooWMg1RMxFkAGGEW9RS66M4sCqz8BePeXMVwTPBjw4oBjR2',
+  ]);
+  console.log('unamedNetwork started, unamedNetwork.idInfo.id:', unamedNetwork.idInfo.id);
+}
+
+export async function fetchRealm(realmObjUUID: UUID, _game: Game): Promise<ExportedRealmJson> {
   const response = await fetch(`dev-objs/${realmObjUUID}-realm.json`);
   if (warnIfNotPresent(response.ok)) return;
   const json = await response.json();
@@ -194,3 +227,20 @@ export function exportSprite(game: Game) {
   });
 }
 
+async function fetchIpfsJson(cidStr: string, game: Game) {
+  const cid = CID.parse(cidStr);
+
+  // result:
+  const chunks = [];
+  console.log('ipfs.cat() starts...');
+
+  for await (const chunk of game.storage.ipfsNode.cat(cid)) {
+    console.log('chunk get');
+    chunks.push(chunk);
+  }
+  const data = BufferUtils.concat(chunks);
+  console.log('file cid:', cid.toString());
+  const json = JSON.parse(BufferUtils.toString(data));
+  console.log('file contents:', json);
+  return json;
+}

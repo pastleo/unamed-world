@@ -28,7 +28,7 @@ export async function changeRealm(game: Game) {
   const realmUUID = location.hash.slice(1).split('/')[1];
   if (!realmUUID) return
 
-  const json = await fetchRealm(realmUUID);
+  const json = await fetchRealm(realmUUID, game);
   const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
   if (json.realmUUID === game.ecs.getUUID(currentRealmObjComponents.entity)) {
     console.warn('realm UUID the same as current one');
