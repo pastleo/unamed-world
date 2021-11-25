@@ -1,8 +1,5 @@
 import localForage from 'localforage';
-import UnamedNetwork, { createIPFS, devConfig } from 'unamed-network';
-import { IPFS } from 'ipfs-core';
 import * as BufferUtils from 'uint8arrays';
-import { CID } from 'multiformats/cid';
 import * as ss from 'superstruct';
 
 import { Game } from './game';
@@ -15,9 +12,9 @@ import { packedObjSpriteComponentType, pack as packObjSprite, unpack as unpackOb
 import { packedObjWalkableComponentType, pack as packObjWalkable, unpack as unpackObjWalkable } from './obj/walkable';
 
 import { EntityRef, UUID, uuidType, entityEqual } from './utils/ecs';
-import { Vec2, warnIfNotPresent, downloadJson } from './utils/utils';
+import { Vec2, warnIfNotPresent, genUUID, createJsonBlob, downloadJson } from './utils/utils';
 
-export const LATEST_STORAGE_VERSION = 1;
+export const LATEST_STORAGE_VERSION = 2;
 
 export function uuidEntryType<T>(t: ss.Struct<T>) {
   return ss.tuple([uuidType, t]);
@@ -31,7 +28,6 @@ export type UUIDEntries<T> = UUIDEntry<T>[] & ss.Infer<ReturnType<typeof uuidEnt
 
 const exportedRealmJsonType = ss.object({
   version: ss.number(),
-  realmUUID: uuidType,
   packedObjRealm: packedObjRealmComponentType,
   packedChunks: uuidEntriesType(packedChunkComponentType),
   packedSubObjs: uuidEntriesType(packedSubObjComponentType),
@@ -47,52 +43,46 @@ export const exportedSpriteJsonType = ss.object({
 export type ExportedSpriteJson = ss.Infer<typeof exportedSpriteJsonType>;
 
 export interface StorageManager {
-  ipfsNode: IPFS;
 }
 
 export function init(): StorageManager {
-  return {
-    ipfsNode: null,
+  return {}
+}
+
+export async function start(game: Game): Promise<void> {
+  { // development
+    (window as any).fetchIpfsJson = (cidStr: string) => {
+      return fetchIpfsJson(cidStr, game);
+    }
+    console.log('call window.fetchIpfsJson to test IPFS fetching');
+
+    (window as any).exportRealm = async () => {
+      const exportedIpfsPath = await exportRealm(game);
+      console.log({ exportedIpfsPath });
+    };
+    (window as any).exportSprite = () => {
+      exportSprite(game);
+    }
   }
 }
 
-export async function untilStorageReady(game: Game): Promise<void> {
-  game.storage.ipfsNode = await createIPFS(devConfig);
-  console.log('ipfs started');
-
-  const unamedNetwork = new UnamedNetwork(game.storage.ipfsNode);
-  (window as any).unamedNetwork = unamedNetwork;
-  console.log('window.unamedNetwork created:', unamedNetwork);
-
-  (window as any).fetchIpfsJson = (cidStr: string) => {
-    return fetchIpfsJson(cidStr, game);
+export async function fetchRealm(realmObjPath: UUID, game: Game): Promise<ExportedRealmJson> {
+  let json;
+  if (realmObjPath.startsWith('/ipfs/')) {
+    json = await fetchIpfsJson(`${realmObjPath}/realm.json`, game);
+  } else {
+    const devPath = `dev-objs/${realmObjPath.replace(/^\//, '')}-realm.json`;
+    const response = await fetch(devPath);
+    if (warnIfNotPresent(response.ok)) return;
+    json = await response.json();
   }
-  console.log('call window.fetchIpfsJson to test IPFS fetching');
-
-  await unamedNetwork.start([
-    '/ip4/127.0.0.1/tcp/4005/ws/p2p/12D3KooWMg1RMxFkAGGEW9RS66M4sCqz8BePeXMVwTPBjw4oBjR2',
-  ]);
-  console.log('unamedNetwork started, unamedNetwork.idInfo.id:', unamedNetwork.idInfo.id);
-}
-
-export async function fetchRealm(realmObjUUID: UUID, _game: Game): Promise<ExportedRealmJson> {
-  const response = await fetch(`dev-objs/${realmObjUUID}-realm.json`);
-  if (warnIfNotPresent(response.ok)) return;
-  const json = await response.json();
 
   migrateRealmJson(json) // alter json in-place
   const [err, jsonValidated] = ss.validate(json, exportedRealmJsonType);
 
-  if (err) {
-    console.warn(err);
-    return;
-  }
-  if (realmObjUUID !== jsonValidated.realmUUID) {
-    console.warn('UUID in json not equal');
-    return;
-  }
+  if (err) throw err;
 
-  await localForage.setItem(`realm:${realmObjUUID}`, jsonValidated);
+  await localForage.setItem(`realm:${realmObjPath}`, jsonValidated);
   return jsonValidated;
 }
 
@@ -104,12 +94,18 @@ function migrateRealmJson(json: any) {
       });
     });
     json.version = 1;
-    console.log('migrated realmJson:', json.realmUUID);
+    console.log('migrated realmJson to v1:', json);
+  }
+
+  if (json.version === 1) {
+    delete json.realmUUID;
+    json.version = 2;
+    console.log('migrated realmJson to v2:', json);
   }
 }
 
-export function loadExportedRealm(json: ExportedRealmJson, ecs: GameECS): EntityRef {
-  const newRealmEntity = ecs.fromUUID(json.realmUUID);
+export function loadExportedRealm(objUUID: string, json: ExportedRealmJson, ecs: GameECS): EntityRef {
+  const newRealmEntity = ecs.fromUUID(objUUID);
   unpackObjRealm(newRealmEntity, json.packedObjRealm, ecs);
   json.packedChunks.forEach(([UUID, packedChunk]) => {
     unpackChunk(
@@ -129,10 +125,14 @@ export function loadExportedRealm(json: ExportedRealmJson, ecs: GameECS): Entity
   return newRealmEntity;
 }
 
-export function exportRealm(game: Game) {
+export async function exportRealm(game: Game): Promise<string> {
   const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
-  const realmUUID = game.ecs.getUUID(game.realm.currentObj);
+  const tmpUUID = genUUID();
+  const objTmpPath = `/tmp/${tmpUUID}`;
+  await game.ipfs.files.mkdir(objTmpPath, { parents: true });
+
+  //const realmUUID = game.ecs.getUUID(game.realm.currentObj, true);
   const subObjUUIDs: UUID[] = [];
 
   const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), game.ecs);
@@ -159,12 +159,27 @@ export function exportRealm(game: Game) {
   
   const objRealmJson: ExportedRealmJson = {
     version: LATEST_STORAGE_VERSION,
-    realmUUID,
     packedObjRealm,
     packedChunks,
     packedSubObjs,
   };
-  downloadJson(objRealmJson, `${realmUUID}-realm.json`);
+
+  //downloadJson(objRealmJson, `${realmUUID}-realm.json`);
+
+  await game.ipfs.files.write(`${objTmpPath}/realm.json`, createJsonBlob(objRealmJson), { create: true });
+
+  // TODO: generate ExportedSpriteJson on `${objTmpPath}/sprite.json`
+
+  const objPath = `/ipfs/${(await game.ipfs.files.stat(objTmpPath)).cid}`;
+  //const addOptions = {
+    //pin: true,
+    //wrapWithDirectory: true,
+    //timeout: 10000
+  //};
+  //for await (const uploadedFile of game.ipfs.addAll(globSource(objPath, '**/*'), addOptions)) {
+    //console.log({ uploadedFile })
+  //}
+  return objPath;
 }
 
 export async function fetchObjSprite(spriteObjUUID: UUID): Promise<ExportedSpriteJson> {
@@ -203,6 +218,7 @@ export function loadExportedSprite(json: ExportedSpriteJson, ecs: GameECS): Enti
   return objEntity;
 }
 
+// just for dev obj
 export function exportSprite(game: Game) {
   const objEntities: EntityRef[] = [];
   game.ecs.getComponentEntities('subObj').forEach(([_subObjEntity, subObj]) => {
@@ -227,20 +243,15 @@ export function exportSprite(game: Game) {
   });
 }
 
-async function fetchIpfsJson(cidStr: string, game: Game) {
-  const cid = CID.parse(cidStr);
-
-  // result:
+async function fetchIpfsJson(ipfsPath: string, game: Game) {
   const chunks = [];
-  console.log('ipfs.cat() starts...');
+  console.log(`ipfs.files.read('${ipfsPath}') starts...`);
 
-  for await (const chunk of game.storage.ipfsNode.cat(cid)) {
-    console.log('chunk get');
+  for await (const chunk of game.ipfs.files.read(ipfsPath)) {
     chunks.push(chunk);
   }
   const data = BufferUtils.concat(chunks);
-  console.log('file cid:', cid.toString());
   const json = JSON.parse(BufferUtils.toString(data));
-  console.log('file contents:', json);
+  console.log('fetchIpfsJson done', { ipfsPath, json });
   return json;
 }

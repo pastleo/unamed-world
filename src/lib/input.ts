@@ -1,4 +1,5 @@
 import { Game } from './game';
+import { exportAndSwitch } from './update';
 import { movePlayer } from './player';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 import { Vec2, multiply, add, lengthSq } from './utils/utils';
@@ -44,6 +45,18 @@ export function create(): Input {
 export function startListeners(game: Game) {
   const { input } = game;
   window.addEventListener('keydown', event => {
+    if (event.ctrlKey) {
+      switch (event.key) {
+        case 's':
+          event.preventDefault();
+          return exportAndSwitch(game);
+        case 'q':
+          event.preventDefault();
+          window.location.href = window.location.origin; // reset room for development
+          return;
+      }
+    }
+
     input.keyPressed.add(event.key);
   }, false);
   window.addEventListener('keyup', event => {

@@ -7,7 +7,8 @@ import { resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { switchRealm } from './realm';
 import { jumpOnRealm, jumpOffRealm } from './player';
-import { fetchRealm } from './storage';
+import { fetchRealm, exportRealm } from './storage';
+import { join } from './network';
 
 import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
@@ -25,18 +26,20 @@ export function resize(game: Game, width: number, height: number) {
 }
 
 export async function changeRealm(game: Game) {
-  const realmUUID = location.hash.slice(1).split('/')[1];
-  if (!realmUUID) return
+  const realmObjPath = location.hash.slice(1).split('&')[0];
+  if (!realmObjPath) return
 
-  const json = await fetchRealm(realmUUID, game);
-  const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
-  if (json.realmUUID === game.ecs.getUUID(currentRealmObjComponents.entity)) {
-    console.warn('realm UUID the same as current one');
-    return;
-  }
+  const json = await fetchRealm(realmObjPath, game);
   jumpOffRealm(game);
-  switchRealm(json, game);
+  switchRealm(realmObjPath, json, game);
   jumpOnRealm(game);
+
+  await join(realmObjPath, game);
+}
+
+export async function exportAndSwitch(game: Game) {
+  const exportedIpfsPath = await exportRealm(game);
+  window.location.hash = `#${exportedIpfsPath}`;
 }
 
 const UPDATE_CHUNK_RANGE = 2;

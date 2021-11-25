@@ -2,3 +2,5 @@ www/dist
 node_modules
 dist/
 .parcel-cache
+
+src/env.ts

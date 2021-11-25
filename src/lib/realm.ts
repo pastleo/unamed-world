@@ -69,12 +69,12 @@ export function resetRealm(game: Game) {
   })();
 }
 
-export function switchRealm(json: ExportedRealmJson, game: Game) {
+export function switchRealm(objUUID: string, json: ExportedRealmJson, game: Game) {
   const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
   game.realm.prevChunks = currentRealmObjComponents.get('obj/realm').chunks;
   game.ecs.deallocate(game.realm.currentObj);
-  game.realm.currentObj = loadExportedRealm(json, game.ecs);
+  game.realm.currentObj = loadExportedRealm(objUUID, json, game.ecs);
   resetRealm(game);
 }
 

@@ -6,8 +6,9 @@ import { getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
 import { locateOrCreateChunkCell } from './chunk/chunk';
 import { setCameraPosition, setCameraPositionY } from './camera';
-import { initSubObjWalking, setMoveTarget } from './subObj/walking';
+import { initSubObjWalking, addMoveTarget } from './subObj/walking';
 import { triggerRealmGeneration } from './realm';
+import { broadcastMyself } from './network';
 
 import { Vec2, Vec3, warnIfNotPresent } from './utils/utils';
 
@@ -88,6 +89,7 @@ export function update(_tDiff: number, game: Game) {
 }
 
 export function movePlayer(dvec: Vec2, game: Game) {
-  const moveTargetDiff = setMoveTarget(game.player.subObjEntity, dvec, game);
+  const moveTargetDiff = addMoveTarget(game.player.subObjEntity, dvec, game);
   moveCameraPosition(moveTargetDiff, game.camera);
+  broadcastMyself(game);
 }
