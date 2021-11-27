@@ -75,6 +75,9 @@ export async function join(roomName: string, game: Game): Promise<boolean> {
   game.network.unamedNetwork.on('new-member', () => {
     broadcastMyself(game);
   });
+  game.network.unamedNetwork.on('member-left', ({ memberPeer, room }) => {
+    console.log('got [member-left]', memberPeer, room);
+  });
   game.network.unamedNetwork.on('room-message', ({ room, fromMember, message }) => {
     if (room.name !== roomName) return;
     switch (message.type) {
@@ -89,7 +92,7 @@ export async function join(roomName: string, game: Game): Promise<boolean> {
 }
 
 export function broadcastMyself(game: Game) {
-  if (game.network.pingThrottle) return;
+  if (game.network.pingThrottle || !game.network.roomName) return;
   game.network.pingThrottle = true;
   setTimeout(() => {
     game.network.pingThrottle = false;

@@ -25,7 +25,7 @@ jobs:
         path: node_modules
         key: node-modules-${{ hashFiles('**/package-lock.json') }}
     - run: npm install
-    - run: cp src/env.ts.dev src/env.ts
+    - run: cp src/env.js.dev src/env.js
     - run: npm run ci-tc
 
   build_export:
@@ -46,7 +46,7 @@ jobs:
         path: node_modules
         key: node-modules-${{ hashFiles('**/package-lock.json') }}
     - run: npm install
-    - run: cp src/env.ts.dev src/env.ts # TODO: add prod
+    - run: cp src/env.js.prod src/env.js
     - run: npm run build
     - name: upload exported build
       uses: actions/upload-artifact@v2
