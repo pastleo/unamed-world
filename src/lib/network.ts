@@ -47,8 +47,8 @@ export async function start(game: Game): Promise<void> {
     console.log('window.unamedNetwork created:', unamedNetwork);
     console.log('unamedNetwork started, unamedNetwork.idInfo.id:', unamedNetwork.idInfo.id);
 
-    unamedNetwork.on('new-member', ({ member, room }) => {
-      console.log('new-member', { member, room });
+    unamedNetwork.on('new-member', ({ memberPeer, room }) => {
+      console.log('new-member', { memberPeer, room });
     });
     unamedNetwork.on('room-message', ({ room, fromMember, message }) => {
       console.log('room-message', { room, fromMember, message });
