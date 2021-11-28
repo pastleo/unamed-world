@@ -3,7 +3,7 @@ import UnamedNetwork, { debug } from 'unamed-network';
 import { Game } from './game';
 
 import { getObjEntity } from './obj/obj';
-import { createSubObj } from './subObj/subObj';
+import { createSubObj, destroySubObj } from './subObj/subObj';
 import { locateOrCreateChunkCell } from './chunk/chunk';
 import { initSubObjWalking, setMoveTarget } from './subObj/walking';
 
@@ -60,6 +60,7 @@ interface PingMessage {
   type: 'world-ping';
   position: Vec3;
   moveTargetAbs?: Vec2;
+  playerObj: string;
 }
 
 export async function join(roomName: string, game: Game): Promise<boolean> {
@@ -75,8 +76,8 @@ export async function join(roomName: string, game: Game): Promise<boolean> {
   game.network.unamedNetwork.on('new-member', () => {
     broadcastMyself(game);
   });
-  game.network.unamedNetwork.on('member-left', ({ memberPeer, room }) => {
-    console.log('got [member-left]', memberPeer, room);
+  game.network.unamedNetwork.on('member-left', ({ memberPeer }) => {
+    memberLeft(memberPeer.peerId, game);
   });
   game.network.unamedNetwork.on('room-message', ({ room, fromMember, message }) => {
     if (room.name !== roomName) return;
@@ -103,6 +104,7 @@ export function broadcastMyself(game: Game) {
   const message: PingMessage = {
     type: 'world-ping',
     position: playerSubObj.position,
+    playerObj: game.ecs.getUUID(game.player.objEntity),
     ...(playerWalking.moveTarget ? {
       moveTargetAbs: add(playerWalking.moveTarget, vec3To2(playerSubObj.position))
     } : {}),
@@ -110,17 +112,26 @@ export function broadcastMyself(game: Game) {
   game.network.unamedNetwork.broadcast(game.network.roomName, message);
 }
 
+function addMemberSprite(peerId: string, playerObj: string, position: Vec3, game: Game): EntityRef {
+  const baseObj = getObjEntity(playerObj || 'base', game.ecs);
+  const located = locateOrCreateChunkCell(position, game);
+  const member = createSubObj(baseObj, position, game, located);
+  game.network.members.set(peerId, member);
+  initSubObjWalking(member, game);
+  return member;
+}
+
 function handlePing(from: string, message: PingMessage, game: Game) {
   let member = game.network.members.get(from);
   if (!member) {
-    const baseObj = getObjEntity('base', game.ecs);
-    const located = locateOrCreateChunkCell(message.position, game);
-    member = createSubObj(baseObj, message.position, game, located);
-    game.network.members.set(from, member);
-    initSubObjWalking(member, game);
+    member = addMemberSprite(from, message.playerObj || 'base', message.position, game);
   }
 
   const subObj = game.ecs.getComponent(member, 'subObj');
+  if (game.ecs.getUUID(subObj.obj) !== message.playerObj) {
+    destroySubObj(member, game);
+    addMemberSprite(from, message.playerObj, message.position, game);
+  }
   if (message.moveTargetAbs) {
     setMoveTarget(
       member, 
@@ -131,4 +142,9 @@ function handlePing(from: string, message: PingMessage, game: Game) {
       game,
     );
   }
+}
+
+function memberLeft(from: string, game: Game) {
+  let member = game.network.members.get(from);
+  destroySubObj(member, game);
 }

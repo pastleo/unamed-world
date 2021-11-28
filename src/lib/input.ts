@@ -1,6 +1,6 @@
 import { Game } from './game';
 import { exportAndSwitch } from './update';
-import { movePlayer } from './player';
+import { movePlayer, castMainTool } from './player';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 import { Vec2, multiply, add, lengthSq } from './utils/utils';
 
@@ -50,7 +50,7 @@ export function startListeners(game: Game) {
         case 's':
           event.preventDefault();
           return exportAndSwitch(game);
-        case 'q':
+        case 'x':
           event.preventDefault();
           window.location.href = window.location.origin; // reset room for development
           return;
@@ -80,6 +80,7 @@ export function startListeners(game: Game) {
     if (!input.mouseMoved) {
       switch (input.mousedown) {
         case 'left':
+          castMainTool(game);
           break;
         case 'middle':
           // use tool accordingly
@@ -145,7 +146,7 @@ export function startListeners(game: Game) {
     event.preventDefault(); // prevent simulating mouse click
 
     if (input.touched && !input.touchmove) {
-      // use tool
+      castMainTool(game);
     }
     input.touched = false;
     input.touchmove = false;
