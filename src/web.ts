@@ -14,10 +14,6 @@ function startLoop(game: Game, now: number = 0) {
 async function main() {
   const game = await setup();
 
-  { // for development
-    (window as any).game = game;
-  }
-
   document.body.appendChild(game.renderer.domElement);
 
   window.addEventListener('resize', () => {
@@ -29,6 +25,10 @@ async function main() {
   });
 
   startLoop(game);
+
+  { // for development
+    (window as any).game = game;
+  }
 }
 
 main();

@@ -6,6 +6,7 @@
 git clone https://github.com/pastleo/unamed-world.git
 cd unamed-world
 npm install
+cp src/env.js.dev src/env.js
 npm run dev
 ```
 

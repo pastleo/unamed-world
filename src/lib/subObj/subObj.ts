@@ -2,13 +2,13 @@ import * as ss from 'superstruct';
 
 import { Game } from '../game';
 import { GameECS, GameEntityComponents } from '../gameECS';
-import { requireObjSprite } from '../sprite';
+import { requireObjSprite, getObjOrBaseComponents } from '../sprite';
 
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { addOrRefreshSpriteToScene, updateSpritePosition, removeSprite } from './spriteRender';
 
 import { EntityRef, uuidType, entityEqual } from '../utils/ecs';
-import { Vec2, Vec3, vec2Type, vec3Type, add, warnIfNotPresent } from '../utils/utils';
+import { Vec2, Vec3, vec2Type, vec3Type, length, add, sub, warnIfNotPresent } from '../utils/utils';
 
 export const subObjStateType = ss.union([ss.literal('normal'), ss.literal('walking'), ss.string()]);
 export type SubObjState = ss.Infer<typeof subObjStateType>;
@@ -89,6 +89,32 @@ export function destroySubObj(subObjEntity: EntityRef, game: Game) {
   removeSprite(subObjEntity, game);
 
   game.ecs.deallocate(subObjEntity);
+}
+
+export function detectCollision(subObjEntity: EntityRef, chunkIJ: Vec2, game: Game, newPosition?: Vec3) {
+  const subObj = game.ecs.getEntityComponents(subObjEntity);
+  const subObjComponent = subObj.get('subObj');
+  const objSprite = game.ecs.getComponent(subObjComponent.obj, 'obj/sprite');
+  const position: Vec3 = newPosition || subObjComponent.position;
+  const [chunkI, chunkJ] = chunkIJ;
+
+  return [chunkI - 1, chunkI, chunkI + 1].flatMap(ci => (
+    [chunkJ - 1, chunkJ, chunkJ + 1].flatMap(cj => (
+      getOrCreateChunk([ci, cj], game.realm.currentObj, game.ecs).subObjs
+    ))
+  )).filter(
+    sObjEntity => {
+      //const sObjSprite = getObjOrBaseComponents(sObjEntity, game.ecs).get('obj/sprite');
+      //return sObjSprite.collision && !entityEqual(sObjEntity, subObj.entity)
+      return !entityEqual(sObjEntity, subObj.entity)
+    }
+  ).filter(
+    sObjEntity => {
+      const sObj = game.ecs.getComponent(sObjEntity, 'subObj');
+      const sObjSprite = getObjOrBaseComponents(sObj.obj, game.ecs).get('obj/sprite');
+      return (sObjSprite.radius + objSprite.radius) > length(sub(sObj.position, position))
+    }
+  );
 }
 
 export const packedSubObjComponentType = ss.object({

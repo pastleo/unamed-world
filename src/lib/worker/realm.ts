@@ -69,7 +69,7 @@ async function loadRealm(uuid: UUID, worker: RealmWorkerGlobal) {
     });
 
     worker.generatingChunkQueue = [];
-    worker.realmEntity = loadExportedRealm(json, worker.ecs);
+    worker.realmEntity = loadExportedRealm(uuid, json, worker.ecs);
   }
 }
 

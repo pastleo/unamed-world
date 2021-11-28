@@ -1,0 +1,3 @@
+[submodule "modules/network"]
+	path = modules/network
+	url = https://github.com/pastleo/unamed-network.git

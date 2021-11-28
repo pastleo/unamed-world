@@ -13,6 +13,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
     - name: Setup Node.js
       uses: actions/setup-node@v2
       with:
@@ -23,6 +25,7 @@ jobs:
         path: node_modules
         key: node-modules-${{ hashFiles('**/package-lock.json') }}
     - run: npm install
+    - run: cp src/env.js.dev src/env.js
     - run: npm run ci-tc
 
   build_export:
@@ -31,6 +34,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
     - name: Setup Node.js
       uses: actions/setup-node@v2
       with:
@@ -41,6 +46,7 @@ jobs:
         path: node_modules
         key: node-modules-${{ hashFiles('**/package-lock.json') }}
     - run: npm install
+    - run: cp src/env.js.prod src/env.js
     - run: npm run build
     - name: upload exported build
       uses: actions/upload-artifact@v2

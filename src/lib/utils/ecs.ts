@@ -71,10 +71,10 @@ class ECS<ComponentMapT extends Record<string, any>> {
     return new EntityComponents(ref, this);
   }
 
-  getUUID(ref: EntityRef): UUID | null {
+  getUUID(ref: EntityRef, regenerate: boolean = false): UUID | null {
     const entity = this.getEntity(ref);
     if (!entity) return null;
-    if (entity.UUID) return entity.UUID;
+    if (entity.UUID && !regenerate) return entity.UUID;
     entity.UUID = genUUID();
     this.UUIDs.set(entity.UUID, ref);
     return entity.UUID;

@@ -36,6 +36,9 @@ export function multiply<T extends Vec2 | Vec3>(v: T, scalar: number, dstVArg?: 
   return dstV;
 }
 
+export function vec3To2(a: Vec3): Vec2 {
+  return [a[0], a[2]];
+}
 export function cross(a: Vec3, b: Vec3): Vec3 {
   return [
     a[1] * b[2] - a[2] * b[1],
@@ -136,11 +139,14 @@ export function genUUID() {
   });
 }
 
-export function downloadJson(json: any, filename: string) {
-  const blob = new Blob(
+export function createJsonBlob(json: any): Blob {
+  return new Blob(
     [JSON.stringify(json)],
     { type: 'application/json' },
   );
+}
+export function downloadJson(json: any, filename: string) {
+  const blob = createJsonBlob(json);
 
   const aTag = document.createElement('a');
   aTag.href = URL.createObjectURL(blob);

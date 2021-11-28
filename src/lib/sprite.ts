@@ -80,6 +80,7 @@ export function createBaseSpriteObj(ecs: GameECS) {
     },
     tall: 1,
     radius: 0.5,
+    collision: false,
   });
   ecs.setComponent(objEntity, 'obj/walkable', {
     speed: 4,

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { IPFS } from 'ipfs-core';
 
 import { getChunk } from './chunk/chunk';
 
@@ -6,7 +7,12 @@ import { GameECS, init as initECS } from './gameECS';
 import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
 import { SpriteManager, init as initSpriteManager, createBaseSpriteObj } from './sprite';
 import { changeRealm } from './update';
-import { exportRealm, exportSprite } from './storage';
+
+import { start as startIPFS } from './ipfs';
+import { Networking, init as initNetworking, start as startNetworking } from './network';
+import {
+  StorageManager, init as initStorageManager, start as startStorageManager,
+} from './storage';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
 import { Input, create as createInput, startListeners } from './input';
@@ -22,7 +28,9 @@ export interface Game {
   realm: Realm;
   spriteManager: SpriteManager;
   player: Player;
-  // networkAgent: Agent;
+  ipfs: IPFS;
+  storage: StorageManager;
+  network: Networking;
   input: Input,
   time: number;
 
@@ -43,7 +51,9 @@ export async function setup(): Promise<Game> {
     realm: initRealm(ecs),
     spriteManager: initSpriteManager(),
     player: createPlayer(ecs),
-    // networkAgent,
+    ipfs: null,
+    storage: initStorageManager(),
+    network: initNetworking(),
     input: createInput(),
     time: 0,
     loader: new THREE.TextureLoader(),
@@ -56,18 +66,16 @@ export async function setup(): Promise<Game> {
   addPlayerToRealm(game);
   startListeners(game);
 
+  game.ipfs = await startIPFS(game);
+  await startStorageManager(game);
+  await startNetworking(game);
+
   changeRealm(game);
 
   { // for development:
     (window as any).getChunk = (...ij: Vec2) => (
       getChunk(ij, game.realm.currentObj, game.ecs)
     );
-    (window as any).exportRealm = () => {
-      exportRealm(game);
-    };
-    (window as any).exportSprite = () => {
-      exportSprite(game);
-    }
   }
 
   return game;

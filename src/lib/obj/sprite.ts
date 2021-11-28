@@ -12,7 +12,8 @@ export interface ObjSpriteComponent {
   colRow: Vec2;
   stateAnimations: Record<SubObjState, SpriteStateAnimation>;
   tall: number;
-  radius: number
+  radius: number;
+  collision: boolean;
 }
 
 const spriteAnimationType = ss.tuple([ss.number(), ss.number()]);

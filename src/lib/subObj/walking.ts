@@ -4,7 +4,7 @@ import { getObjOrBaseComponents } from '../sprite';
 import { ObjEntityComponents } from '../obj/obj';
 import { SubObjEntityComponents } from '../subObj/subObj';
 import { locateOrCreateChunkCell, getOrCreateChunkCell, calcAltitudeAt, getOrCreateChunk } from '../chunk/chunk';
-import { moveSubObj } from './subObj';
+import { moveSubObj, detectCollision } from './subObj';
 
 import { EntityRef, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, sub, add, length, multiply, clamp, warnIfNotPresent } from '../utils/utils';
@@ -53,7 +53,7 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
   }
 }
 
-export function setMoveTarget(subObjEntity: EntityRef, dVec: Vec2, game: Game): Vec3 {
+export function addMoveTarget(subObjEntity: EntityRef, dVec: Vec2, game: Game): Vec3 {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   const subObjWalking = game.ecs.getComponent(subObjEntity, 'subObj/walking');
   if (!subObjWalking.moveTarget) {
@@ -63,8 +63,19 @@ export function setMoveTarget(subObjEntity: EntityRef, dVec: Vec2, game: Game): 
     );
   }
   const oriMoveTarget: Vec2 = [...subObjWalking.moveTarget];
+  const vec = add(subObjWalking.moveTarget, [dVec[0], -dVec[1]]);
 
-  add(subObjWalking.moveTarget, [dVec[0], -dVec[1]], subObjWalking.moveTarget);
+  setMoveTarget(subObjEntity, vec, game);
+
+  const dMoveTarget = sub(subObjWalking.moveTarget, oriMoveTarget);
+  return [dMoveTarget[0], 0, dMoveTarget[1]];
+}
+
+export function setMoveTarget(subObjEntity: EntityRef, vec: Vec2, game: Game) {
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  const subObjWalking = game.ecs.getComponent(subObjEntity, 'subObj/walking');
+
+  subObjWalking.moveTarget = [...vec];
 
   const targetDistance = length(subObjWalking.moveTarget);
   if (targetDistance > MAX_TARGET_DISTANCE) {
@@ -76,10 +87,6 @@ export function setMoveTarget(subObjEntity: EntityRef, dVec: Vec2, game: Game): 
   }
   clearTimeout(subObjWalking.afterMovingTimeout);
   subObj.state = 'walking';
-
-  const dMoveTarget = sub(subObjWalking.moveTarget, oriMoveTarget);
-
-  return [dMoveTarget[0], 0, dMoveTarget[1]];
 }
 
 function movableRange(
@@ -91,35 +98,24 @@ function movableRange(
   const subObjWalking = subObj.get('subObj/walking');
   if (warnIfNotPresent(subObjComponent, subObjWalking)) return;
   const objWalkable = obj.get('obj/walkable');
-  const objSprite = obj.get('obj/sprite');
+  //const objSprite = obj.get('obj/sprite');
 
   const objRange = objWalkable.speed * tDiff * 0.001;
   const sloppedRange = sloppedMovableRange(objRange, subObj, obj, game);
 
   if (sloppedRange <= 0) return 0;
 
-  const movingVec = multiply(subObjWalking.moveTarget, sloppedRange / subObjWalking.moveTargetDistance);
+  //const movingVec = multiply(subObjWalking.moveTarget, sloppedRange / subObjWalking.moveTargetDistance);
 
-  const newPosition = add(subObjComponent.position, [movingVec[0], 0, movingVec[1]]);
-  const located = locateOrCreateChunkCell(newPosition, game);
-  const [chunkI, chunkJ] = located.chunkIJ;
+  //const newPosition = add(subObjComponent.position, [movingVec[0], 0, movingVec[1]]);
+  //const located = locateOrCreateChunkCell(newPosition, game);
 
-  const collidedSubObjs = [chunkI - 1, chunkI, chunkI + 1].flatMap(ci => (
-    [chunkJ - 1, chunkJ, chunkJ + 1].flatMap(cj => (
-      getOrCreateChunk([ci, cj], game.realm.currentObj, game.ecs).subObjs
-    ))
-  )).filter(
-    sObjEntity => !entityEqual(sObjEntity, subObj.entity)
-  ).filter(
-    sObjEntity => {
-      const sObj = game.ecs.getComponent(sObjEntity, 'subObj');
-      const sObjSprite = getObjOrBaseComponents(sObj.obj, game.ecs).get('obj/sprite');
-      return (sObjSprite.radius + objSprite.radius) > length(sub(sObj.position, newPosition))
-    }
-  );
-  subObjWalking.collidedSubObjs = collidedSubObjs;
+  //if (objSprite.collision) {
+    //const collidedSubObjs = detectCollision(subObj.entity, located.chunkIJ, game, newPosition);
+    //subObjWalking.collidedSubObjs = collidedSubObjs;
 
-  if (collidedSubObjs.length) return 0;
+    //if (collidedSubObjs.length) return 0;
+  //}
 
   return sloppedRange;
 }
