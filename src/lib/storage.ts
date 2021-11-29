@@ -4,6 +4,7 @@ import * as ss from 'superstruct';
 
 import { Game } from './game';
 import { GameECS } from './gameECS';
+import { ensureIpfsUNetworkStarted } from './ipfs-unamed-network';
 
 import { packedObjRealmComponentType, pack as packObjRealm, unpack as unpackObjRealm } from './obj/realm';
 import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk } from './chunk/chunk';
@@ -49,13 +50,13 @@ export function init(): StorageManager {
   return {}
 }
 
+export async function ensureIpfsStarted() {
+  const dy = await import('./ipfs-unamed-network.js');
+  console.log(dy);
+}
+
 export async function start(game: Game): Promise<void> {
   { // development
-    (window as any).fetchIpfsJson = (cidStr: string) => {
-      return fetchIpfsJson(cidStr, game);
-    }
-    console.log('call window.fetchIpfsJson to test IPFS fetching');
-
     (window as any).exportRealm = async () => {
       const exportedIpfsPath = await exportRealm(game);
       console.log({ exportedIpfsPath });
@@ -69,6 +70,7 @@ export async function start(game: Game): Promise<void> {
 export async function fetchRealm(realmObjPath: UUID, game: Game): Promise<ExportedRealmJson> {
   let json;
   if (realmObjPath.startsWith('/ipfs/')) {
+    await ensureIpfsUNetworkStarted(game);
     json = await fetchIpfsJson(`${realmObjPath}/realm.json`, game);
   } else {
     const devPath = `dev-objs/${realmObjPath.replace(/^\//, '')}-realm.json`;
@@ -126,6 +128,8 @@ export function loadExportedRealm(objUUID: string, json: ExportedRealmJson, ecs:
 }
 
 export async function exportRealm(game: Game): Promise<string> {
+  await ensureIpfsUNetworkStarted(game);
+
   const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
   const tmpUUID = genUUID();

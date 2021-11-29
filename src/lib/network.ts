@@ -1,6 +1,7 @@
-import UnamedNetwork, { debug } from 'unamed-network';
+import type UnamedNetwork from 'unamed-network';
 
 import { Game } from './game';
+import { ensureIpfsUNetworkStarted } from './ipfs-unamed-network';
 
 import { getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
@@ -10,7 +11,6 @@ import { initSubObjWalking, setMoveTarget } from './subObj/walking';
 import { EntityRef } from './utils/ecs';
 import { Vec3, Vec2, add, sub, vec3To2 } from './utils/utils';
 
-import { UNAMED_NETWORK_CONFIG, UNAMED_NETWORK_KNOWN_ADDRS } from '../env';
 
 export interface Networking {
   unamedNetwork: UnamedNetwork;
@@ -28,34 +28,6 @@ export function init(): Networking {
   }
 }
 
-debug.enable([
-  'unamedNetwork:*',
-  '-unamedNetwork:start',
-  '-unamedNetwork:packet:*',
-].join(',')); // for development
-
-export async function start(game: Game): Promise<void> {
-  const network = game.network;
-
-  const unamedNetwork = new UnamedNetwork(game.ipfs, UNAMED_NETWORK_CONFIG);
-  await unamedNetwork.start(UNAMED_NETWORK_KNOWN_ADDRS);
-
-  network.unamedNetwork = unamedNetwork;
-
-  { // development
-    (window as any).unamedNetwork = unamedNetwork;
-    console.log('window.unamedNetwork created:', unamedNetwork);
-    console.log('unamedNetwork started, unamedNetwork.idInfo.id:', unamedNetwork.idInfo.id);
-
-    unamedNetwork.on('new-member', ({ memberPeer, room }) => {
-      console.log('new-member', { memberPeer, room });
-    });
-    unamedNetwork.on('room-message', ({ room, fromMember, message }) => {
-      console.log('room-message', { room, fromMember, message });
-    });
-  }
-}
-
 interface PingMessage {
   type: 'world-ping';
   position: Vec3;
@@ -64,6 +36,10 @@ interface PingMessage {
 }
 
 export async function join(roomName: string, game: Game): Promise<boolean> {
+  if (!roomName.startsWith('/ipfs/')) return;
+
+  await ensureIpfsUNetworkStarted(game);
+
   if (game.network.roomName) {
     throw new Error('WIP: change realm room not implemented');
   }
