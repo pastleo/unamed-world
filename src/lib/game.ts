@@ -8,8 +8,7 @@ import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm
 import { SpriteManager, init as initSpriteManager, createBaseSpriteObj } from './sprite';
 import { changeRealm } from './update';
 
-import { start as startIPFS } from './ipfs';
-import { Networking, init as initNetworking, start as startNetworking } from './network';
+import { Networking, init as initNetworking } from './network';
 import {
   StorageManager, init as initStorageManager, start as startStorageManager,
 } from './storage';
@@ -66,9 +65,7 @@ export async function setup(): Promise<Game> {
   addPlayerToRealm(game);
   startListeners(game);
 
-  game.ipfs = await startIPFS(game);
   await startStorageManager(game);
-  await startNetworking(game);
 
   changeRealm(game);
 

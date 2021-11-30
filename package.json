@@ -4,10 +4,10 @@
   "description": "world for exploration of imagination",
   "main": "index.js",
   "scripts": {
-    "dev": "esbuild src/web.ts src/web-worker.ts --bundle --sourcemap --outdir=www --servedir=www",
+    "dev": "esbuild src/web.ts src/web-worker.ts --bundle --sourcemap --splitting --format=esm --outdir=www --servedir=www",
     "tc": "tsc -w -noEmit",
     "ci-tc": "tsc -noEmit",
-    "build": "rm -rf dist && cp -r www dist && esbuild src/web.ts src/web-worker.ts --bundle --minify --outdir=dist --entry-names=[dir]/[name]-[hash] --metafile=dist/meta.json && esbuild-meta-into-html-script-src dist/meta.json www/index.html dist/index.html src/ dist/"
+    "build": "rm -rf dist && cp -r www dist && esbuild src/web.ts src/web-worker.ts --splitting --format=esm --bundle --minify --outdir=dist --entry-names=[dir]/[name]-[hash] --metafile=dist/meta.json && esbuild-meta-into-html-script-src dist/meta.json www/index.html dist/index.html src/ dist/"
   },
   "author": "PastLeo",
   "license": "ISC",

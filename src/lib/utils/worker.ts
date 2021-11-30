@@ -6,7 +6,7 @@ import { getBuiltOutPath } from './utils';
 export function spawnWorker<T>(workerName: string): Comlink.Remote<T> {
   if (typeof window !== 'undefined') {
     const worker = new Worker(getBuiltOutPath('web-worker.js'), {
-      // type: 'module' // firefox 93 and old iOS safari does not support ESM worker
+      type: 'module' // firefox 93 and old iOS safari does not support ESM worker
     });
     worker.postMessage({ workerName });
     return Comlink.wrap<T>(worker);

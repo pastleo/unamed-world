@@ -5,7 +5,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "module": "es6",
+    "module": "es2020",
     "target": "es2019",
     "lib": ["DOM", "es2019"],
     "allowJs": true,
