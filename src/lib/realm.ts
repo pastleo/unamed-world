@@ -3,7 +3,7 @@ import * as Comlink from 'comlink';
 
 import { Game } from './game';
 import { GameECS } from './gameECS';
-import { RealmWorker, ChunkGenerationResult } from './worker/realm';
+import { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
 import { ExportedRealmJson, loadExportedRealm } from './storage';
 
 import { createBaseRealm } from './obj/realm';
@@ -15,7 +15,7 @@ import { addOrRefreshSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { Vec2, warnIfNotPresent } from './utils/utils';
-import { spawnWorker, listenToWorkerNextValue } from './utils/worker';
+import { listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
 
 import { CHUNK_SIZE } from './consts';
@@ -24,7 +24,7 @@ export interface Realm {
   currentObj: EntityRef;
   prevChunks?: Map2D<EntityRef>;
   light: THREE.DirectionalLight;
-  worker: Comlink.Remote<RealmWorker>;
+  worker: Comlink.Remote<RealmRPCs>;
   baseMaterial: THREE.Material;
 }
 
@@ -35,7 +35,9 @@ export function init(ecs: GameECS): Realm {
   light.position.set(0, 1, 0);
   light.target.position.set(0, 0, 0);
 
-  const worker = spawnWorker<RealmWorker>('realm');
+  const worker = Comlink.wrap<RealmRPCs>(
+    new Worker(new URL('../workers/realm', import.meta.url))
+  );
 
   return {
     currentObj,

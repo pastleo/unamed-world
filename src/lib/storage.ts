@@ -50,11 +50,6 @@ export function init(): StorageManager {
   return {}
 }
 
-export async function ensureIpfsStarted() {
-  const dy = await import('./ipfs-unamed-network.js');
-  console.log(dy);
-}
-
 export async function start(game: Game): Promise<void> {
   { // development
     (window as any).exportRealm = async () => {

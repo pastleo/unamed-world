@@ -1,5 +1,29 @@
-import UnamedNetwork, { createIPFS, WEB_DEV_IPFS_OPTIONS, debug } from 'unamed-network';
+// @ts-ignore
+window.global = window; // for IPFS to work
+import { create as createIPFS } from 'ipfs-core';
+import UnamedNetwork from 'unamed-network';
 import { Game } from './lib/game';
+
+import debug from 'debug';
+
+// @ts-ignore
+import WS from 'libp2p-websockets';
+// @ts-ignore
+import filters from 'libp2p-websockets/src/filters';
+
+const WEB_DEV_IPFS_OPTIONS = {
+  // @ts-ignore
+  config: { Bootstrap: [] }, preload: { addresses: [] },
+  libp2p: {
+    config: {
+      transport: {
+        // In a production environment the default filter should be used
+        // where only DNS + WSS addresses will be dialed by websockets in the browser.
+        [WS.prototype[Symbol.toStringTag]]: { filter: filters.all }
+      }
+    }
+  }
+}
 
 import {
   USE_DEV_IPFS_OPTIONS, IPFS_CONFIG,
