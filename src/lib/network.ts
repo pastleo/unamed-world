@@ -1,7 +1,7 @@
-import type UnamedNetwork from 'unamed-network';
+import UnamedNetwork from 'unamed-network';
+import debug from 'debug';
 
 import { Game } from './game';
-import { ensureIpfsUNetworkStarted } from './ipfs-unamed-network';
 
 import { getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
@@ -11,6 +11,13 @@ import { initSubObjWalking, setMoveTarget } from './subObj/walking';
 import { EntityRef } from './utils/ecs';
 import { Vec3, Vec2, add, sub, vec3To2 } from './utils/utils';
 
+import { UNAMED_NETWORK_CONFIG, UNAMED_NETWORK_KNOWN_SERVICE_ADDRS } from '../env';
+
+debug.enable([
+  'unamedNetwork:*',
+  '-unamedNetwork:start',
+  '-unamedNetwork:packet:*',
+].join(',')); // for development
 
 export interface Networking {
   unamedNetwork: UnamedNetwork;
@@ -21,10 +28,30 @@ export interface Networking {
 
 export function init(): Networking {
   return {
-    unamedNetwork: null,
+    unamedNetwork: new UnamedNetwork(UNAMED_NETWORK_CONFIG),
     roomName: null,
     members: new Map(),
     pingThrottle: false,
+  }
+}
+
+export async function ensureStarted(game: Game) {
+  const unamedNetwork = game.network.unamedNetwork;
+  if (unamedNetwork.started) return;
+
+  await unamedNetwork.start(UNAMED_NETWORK_KNOWN_SERVICE_ADDRS);
+
+  { // development
+    (window as any).unamedNetwork = unamedNetwork;
+    console.log('window.unamedNetwork created:', unamedNetwork);
+    console.log('unamedNetwork started, unamedNetwork.id:', unamedNetwork.id);
+
+    unamedNetwork.on('new-member', ({ memberPeer, room }) => {
+      console.log('new-member', { memberPeer, room });
+    });
+    unamedNetwork.on('room-message', ({ room, fromMember, message }) => {
+      console.log('room-message', { room, fromMember, message });
+    });
   }
 }
 
@@ -36,9 +63,7 @@ interface PingMessage {
 }
 
 export async function join(roomName: string, game: Game): Promise<boolean> {
-  if (!roomName.startsWith('/ipfs/')) return;
-
-  await ensureIpfsUNetworkStarted(game);
+  await ensureStarted(game);
 
   if (game.network.roomName) {
     throw new Error('WIP: change realm room not implemented');

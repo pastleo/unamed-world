@@ -64,6 +64,11 @@ export default () => {
         Buffer: ['buffer', 'Buffer'],
         process: 'process/browser',
       }),
+
+      ...(productionMode ? [
+      ] : [
+        new webpack.ProgressPlugin(),
+      ]),
     ],
     optimization: {
       splitChunks: {
@@ -71,11 +76,11 @@ export default () => {
       },
     },
 
-    ...(!productionMode && {
+    ...(productionMode ? {
+    } : {
       devtool: 'inline-source-map',
       devServer: {
-        hot: false,
-        liveReload: false,
+        webSocketServer: false,
         static: {
           directory: path.join(projectRoot, 'www'),
         }

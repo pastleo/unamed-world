@@ -4,7 +4,7 @@ import * as ss from 'superstruct';
 
 import { Game } from './game';
 import { GameECS } from './gameECS';
-import { ensureIpfsUNetworkStarted } from './ipfs-unamed-network';
+import { ensureIpfsStarted } from './ipfs';
 
 import { packedObjRealmComponentType, pack as packObjRealm, unpack as unpackObjRealm } from './obj/realm';
 import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk } from './chunk/chunk';
@@ -65,7 +65,7 @@ export async function start(game: Game): Promise<void> {
 export async function fetchRealm(realmObjPath: UUID, game: Game): Promise<ExportedRealmJson> {
   let json;
   if (realmObjPath.startsWith('/ipfs/')) {
-    await ensureIpfsUNetworkStarted(game);
+    await ensureIpfsStarted(game);
     json = await fetchIpfsJson(`${realmObjPath}/realm.json`, game);
   } else {
     const devPath = `dev-objs/${realmObjPath.replace(/^\//, '')}-realm.json`;
@@ -123,7 +123,7 @@ export function loadExportedRealm(objUUID: string, json: ExportedRealmJson, ecs:
 }
 
 export async function exportRealm(game: Game): Promise<string> {
-  await ensureIpfsUNetworkStarted(game);
+  await ensureIpfsStarted(game);
 
   const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
