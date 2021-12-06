@@ -6,10 +6,10 @@ import { Game } from './game';
 import { getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
 import { locateOrCreateChunkCell } from './chunk/chunk';
-import { initSubObjWalking, setMoveTarget } from './subObj/walking';
+import { initSubObjWalking, getMoveTarget, setMoveTo } from './subObj/walking';
 
 import { EntityRef } from './utils/ecs';
-import { Vec3, Vec2, add, sub, vec3To2 } from './utils/utils';
+import { Vec3, Vec2 } from './utils/utils';
 
 import { UNAMED_NETWORK_CONFIG, UNAMED_NETWORK_KNOWN_SERVICE_ADDRS } from '../env';
 
@@ -58,7 +58,7 @@ export async function ensureStarted(game: Game) {
 interface PingMessage {
   type: 'world-ping';
   position: Vec3;
-  moveTargetAbs?: Vec2;
+  moveTarget?: Vec2;
   playerObj: string;
 }
 
@@ -106,8 +106,8 @@ export function broadcastMyself(game: Game) {
     type: 'world-ping',
     position: playerSubObj.position,
     playerObj: game.ecs.getUUID(game.player.objEntity),
-    ...(playerWalking.moveTarget ? {
-      moveTargetAbs: add(playerWalking.moveTarget, vec3To2(playerSubObj.position))
+    ...(playerWalking.moveRelative ? {
+      moveTarget: getMoveTarget(player),
     } : {}),
   }
   game.network.unamedNetwork.broadcast(game.network.roomName, message);
@@ -133,15 +133,8 @@ function handlePing(from: string, message: PingMessage, game: Game) {
     destroySubObj(member, game);
     addMemberSprite(from, message.playerObj, message.position, game);
   }
-  if (message.moveTargetAbs) {
-    setMoveTarget(
-      member, 
-      sub(
-        message.moveTargetAbs, 
-        vec3To2(subObj.position),
-      ),
-      game,
-    );
+  if (message.moveTarget) {
+    setMoveTo(member, message.moveTarget, game);
   }
 }
 

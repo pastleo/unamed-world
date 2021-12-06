@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { IPFS } from 'ipfs-core';
+import type { IPFS } from 'ipfs-core';
 
 import { getChunk } from './chunk/chunk';
 
@@ -14,10 +14,13 @@ import {
 } from './storage';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
+import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
 
 import { Vec2 } from './utils/utils';
+
+import '../styles/body.css';
 
 export interface Game {
   ecs: GameECS;
@@ -27,6 +30,7 @@ export interface Game {
   realm: Realm;
   spriteManager: SpriteManager;
   player: Player;
+  tools: Tools;
   ipfs: IPFS;
   storage: StorageManager;
   network: Networking;
@@ -50,6 +54,7 @@ export async function setup(): Promise<Game> {
     realm: initRealm(ecs),
     spriteManager: initSpriteManager(),
     player: createPlayer(ecs),
+    tools: createTools(),
     ipfs: null,
     storage: initStorageManager(),
     network: initNetworking(),
@@ -59,10 +64,12 @@ export async function setup(): Promise<Game> {
   }
 
   createBaseSpriteObj(game.ecs);
+  document.body.appendChild(renderer.domElement);
 
   addRealmToScene(game);
   addCameraToScene(game);
   addPlayerToRealm(game);
+  startTools(game);
   startListeners(game);
 
   await startStorageManager(game);

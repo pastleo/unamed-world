@@ -11,7 +11,7 @@ export const MAX_CAMERA_DISTANCE = 24;
 
 export const REALM_CHUNK_AUTO_GENERATION_RANGE = 12;
 
-export const MAX_TARGET_DISTANCE = 2;
+export const MAX_DISTANCE_BETWEEN_PLAYER = 2;
 export const STOP_TARGET_DISTANCE = 0.5;
 
 export const BASE_REALM_BACKGROUND = [

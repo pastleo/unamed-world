@@ -1,0 +1,27 @@
+#tools-box {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  height: 10rem;
+}
+
+#tools-swiper {
+  height: 100%;
+  max-width: 100vw;
+}
+
+#tools-swiper .swiper-slide {
+  width: 10rem;
+  user-select: none;
+
+  text-align: center;
+  font-size: 3rem;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#tools-swiper .swiper-slide.swiper-slide-active {
+  text-shadow: 0 0 10px white;
+}

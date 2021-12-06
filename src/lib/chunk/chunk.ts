@@ -54,6 +54,10 @@ export function locateOrCreateChunkCell(
   position: Vec3, game: Game,
   createChunkFn: CreateChunkFn = createTmpChunkComponent,
 ): Located {
+  if (Number.isNaN(position[0]) || Number.isNaN(position[2])) {
+    console.warn('locateOrCreateChunkCell: position has NaN:', position);
+    return null;
+  }
   const chunkIJ = [
     Math.floor((position[0] + CHUNK_SIZE / 2) / CHUNK_SIZE),
     Math.floor((position[2] + CHUNK_SIZE / 2) / CHUNK_SIZE),
