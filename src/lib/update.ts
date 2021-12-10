@@ -3,7 +3,7 @@ import { ChunkComponent, getChunk } from './chunk/chunk';
 import { updateSpriteTexture } from './subObj/spriteRender';
 import { update as updatePlayer } from './player';
 import { update as updateInput } from './input';
-import { resize as resizeCamera } from './camera';
+import { update as updateCamera, resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { switchRealm } from './realm';
 import { jumpOnRealm, jumpOffRealm } from './player';
@@ -18,6 +18,7 @@ export default function update(game: Game, tDiff: number) {
 
   updateChunks(game.player.chunkIJ, tDiff, game);
   updatePlayer(tDiff, game);
+  updateCamera(tDiff, game);
 }
 
 export function resize(game: Game, width: number, height: number) {

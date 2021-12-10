@@ -3,16 +3,17 @@ import { GameECS } from './gameECS';
 import { EntityRef } from './utils/ecs';
 
 import { getObjEntity } from './obj/obj';
-import { createSubObj, destroySubObj, detectCollision } from './subObj/subObj';
+import { createSubObj, destroySubObj } from './subObj/subObj';
 import { locateOrCreateChunkCell } from './chunk/chunk';
-import { setCameraPosition, setCameraPositionY } from './camera';
-import { initSubObjWalking, addMoveTarget } from './subObj/walking';
+import { initSubObjWalking, setMoveTo, setMoveRelative } from './subObj/walking';
+
+import { setCameraPosition, setCameraLocation, setCameraY } from './camera';
 import { triggerRealmGeneration } from './realm';
 import { broadcastMyself } from './network';
 
-import { Vec2, Vec3, warnIfNotPresent } from './utils/utils';
+import { Vec2, Vec3, add, multiply, length, vec3To2, warnIfNotPresent } from './utils/utils';
 
-import { moveCameraPosition } from './camera';
+import { MAX_DISTANCE_BETWEEN_PLAYER } from './consts';
 
 export interface Player {
   objEntity: EntityRef;
@@ -47,7 +48,7 @@ export function mountSubObj(subObjEntity: EntityRef, game: Game) {
   const subObjRender = game.ecs.getComponent(game.player.subObjEntity, 'subObj/spriteRender');
   setCameraPosition(
     [subObj.position[0], subObjRender.sprite.position.y, subObj.position[2]],
-    game.camera,
+    game
   );
   initSubObjWalking(game.player.subObjEntity, game);
 }
@@ -70,44 +71,52 @@ export function update(_tDiff: number, game: Game) {
   const subObjSpriteRender = game.ecs.getComponent(player.subObjEntity, 'subObj/spriteRender');
   const subObjWalking = game.ecs.getComponent(player.subObjEntity, 'subObj/walking');
 
-  if (subObjWalking.moveTarget) {
-    setCameraPositionY(subObjSpriteRender.sprite.position.y, game.camera);
+  if (subObjWalking.moving) {
+    updateCameraLocation(game);
+    setCameraY(subObjSpriteRender.sprite.position.y, game);
   }
   if (subObj.chunkIJ[0] !== player.chunkIJ[0] || subObj.chunkIJ[1] !== player.chunkIJ[1]) {
     player.chunkIJ = subObj.chunkIJ;
     triggerRealmGeneration(player.chunkIJ, game);
   }
-
-  // TODO: other ways to trigger mountable mounting
-  if (
-    subObjWalking.collidedSubObjs.length >= 1 &&
-    game.ecs.getUUID(player.objEntity) === 'base'
-  ) {
-    destroySubObj(player.subObjEntity, game);
-    mountSubObj(subObjWalking.collidedSubObjs[0], game);
-  }
 }
 
-export function movePlayer(dvec: Vec2, game: Game) {
-  const moveTargetDiff = addMoveTarget(game.player.subObjEntity, dvec, game);
-  moveCameraPosition(moveTargetDiff, game.camera);
+export function movePlayerTo(target: Vec2, game: Game) {
+  setMoveTo(game.player.subObjEntity, target, game);
+  updateCameraLocation(game);
   broadcastMyself(game);
 }
 
-export function castMainTool(game: Game) {
-  const subObj = game.ecs.getEntityComponents(game.player.subObjEntity);
-  const subObjComponent = subObj.get('subObj');
+export function movePlayerAddRelative(dVec: Vec2, game: Game) {
+  const subObjEntity = game.player.subObjEntity;
+  const subObjWalking = game.ecs.getComponent(subObjEntity, 'subObj/walking');
 
-  const located = locateOrCreateChunkCell(subObjComponent.position, game);
-  const nearBySubObjs = detectCollision(subObj.entity, located.chunkIJ, game);
-  if (nearBySubObjs.length > 0) {
-    const targetObj = game.ecs.getComponent(nearBySubObjs[0], 'subObj').obj;
-    console.log('changing to', game.ecs.getUUID(targetObj));
+  const vec = maxDistanceBetweenPlayer(
+    add(subObjWalking.moveRelative || [0, 0], dVec)
+  );
+  setMoveRelative(subObjEntity, vec, game);
+  updateCameraLocation(game);
+  broadcastMyself(game);
+}
 
-    game.player.objEntity = targetObj;
-    destroySubObj(game.player.subObjEntity, game);
-    const subObj = createSubObj(game.player.objEntity, subObjComponent.position, game, located);
-    mountSubObj(subObj, game);
-    broadcastMyself(game);
+function maxDistanceBetweenPlayer(vec: Vec2 | null): Vec2 {
+  const distance = length(vec || [0, 0]);
+  if (distance > MAX_DISTANCE_BETWEEN_PLAYER) {
+    return multiply(vec, MAX_DISTANCE_BETWEEN_PLAYER / distance);
   }
+  return vec
+}
+
+function updateCameraLocation(game: Game) {
+  const subObjEntity = game.player.subObjEntity;
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  const subObjWalking = game.ecs.getComponent(subObjEntity, 'subObj/walking');
+
+  setCameraLocation(
+    add(
+      vec3To2(subObj.position),
+      maxDistanceBetweenPlayer(subObjWalking.moveRelative),
+    ),
+    game,
+  );
 }

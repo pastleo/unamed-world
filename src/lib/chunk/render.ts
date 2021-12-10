@@ -10,6 +10,7 @@ import { CHUNK_SIZE } from '../consts';
 
 export interface ChunkRenderComponent {
   mesh: THREE.Mesh;
+  canvas?: HTMLCanvasElement;
 }
 
 const textureCache = new Map<string, THREE.Texture>();

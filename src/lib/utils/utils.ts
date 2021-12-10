@@ -39,6 +39,37 @@ export function multiply<T extends Vec2 | Vec3>(v: T, scalar: number, dstVArg?: 
 export function vec3To2(a: Vec3): Vec2 {
   return [a[0], a[2]];
 }
+export function threeToVec3(threeVec: THREE.Vector3): Vec3 {
+  return [threeVec.x, threeVec.y, threeVec.z];
+}
+export function vecCopyTo<T extends Vec2 | Vec3>(v: T, dst: T) {
+  for (let i = 0; i < v.length; i++) dst[i] = v[i];
+}
+export function vec2CopyTo3(v: Vec2, dst: Vec3) {
+  dst[0] = v[0];
+  dst[2] = v[1];
+}
+export function vecCopyToThree(v: Vec2 | Vec3, dst: THREE.Vector3) {
+  if (v.length === 2) {
+    dst.x = v[0];
+    dst.z = v[1];
+  } else {
+    dst.x = v[0];
+    dst.y = v[1];
+    dst.z = v[2];
+  }
+}
+export function vecAddToThree(v: Vec2 | Vec3, dst: THREE.Vector3) {
+  if (v.length === 2) {
+    dst.x += v[0];
+    dst.z += v[1];
+  } else {
+    dst.x += v[0];
+    dst.y += v[1];
+    dst.z += v[2];
+  }
+}
+
 export function cross(a: Vec3, b: Vec3): Vec3 {
   return [
     a[1] * b[2] - a[2] * b[1],
@@ -127,7 +158,7 @@ export function genUUID() {
   crypto.getRandomValues(rndArr);
 
   let i = 0;
-	return UUID_TEMPLATE.replace(UUID_TEMPLATE_REGEX, s => {
+  return UUID_TEMPLATE.replace(UUID_TEMPLATE_REGEX, s => {
     if (s === 'y') {
       return UUID_Y_SYMBOLS[Math.floor(Math.random() * UUID_Y_SYMBOLS.length)];
     }

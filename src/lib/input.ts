@@ -1,6 +1,7 @@
 import { Game } from './game';
 import { exportAndSwitch } from './update';
-import { movePlayer, castMainTool } from './player';
+import { movePlayerAddRelative } from './player';
+import { setActiveTool, castMainTool } from './tools';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 import { Vec2, multiply, add, lengthSq } from './utils/utils';
 
@@ -13,6 +14,7 @@ export interface Input {
   touched: boolean | 'multi';
   touchmove: boolean;
   touchCoord: Vec2;
+  penDown: boolean;
   pitchSq?: number;
   macTouchpadDetected: boolean;
   wheelMinDeltaY?: number;
@@ -36,6 +38,7 @@ export function create(): Input {
     touched: false,
     touchmove: false,
     touchCoord: [0, 0],
+    penDown: false,
     macTouchpadDetected: false,
     gestureRotation: 0,
     gestureScale: 0,
@@ -55,6 +58,11 @@ export function startListeners(game: Game) {
           window.location.href = window.location.origin; // reset room for development
           return;
       }
+    }
+
+    const numberKey = parseInt(event.key, 10);
+    if (!Number.isNaN(numberKey)) {
+      return setActiveTool(numberKey - 1, game);
     }
 
     input.keyPressed.add(event.key);
@@ -80,7 +88,7 @@ export function startListeners(game: Game) {
     if (!input.mouseMoved) {
       switch (input.mousedown) {
         case 'left':
-          castMainTool(game);
+          castMainTool(input.lastMouseCoord, 'up', game);
           break;
         case 'middle':
           // use tool accordingly
@@ -94,6 +102,20 @@ export function startListeners(game: Game) {
     input.mousedown = null;
     input.mouseMoved = false;
     document.exitPointerLock();
+  });
+  game.renderer.domElement.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'pen') return;
+    input.penDown = true;
+    castMainTool([event.offsetX, event.offsetY], 'down', game);
+  });
+  game.renderer.domElement.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'pen') return;
+    castMainTool([event.offsetX, event.offsetY], 'down', game);
+  });
+  game.renderer.domElement.addEventListener('pointerup', event => {
+    if (event.pointerType !== 'pen') return;
+    input.penDown = false;
+    castMainTool([event.offsetX, event.offsetY], 'up', game);
   });
 
   game.renderer.domElement.addEventListener('mousemove', event => {
@@ -113,7 +135,7 @@ export function startListeners(game: Game) {
       ) {
         input.mouseMoved = true;
         if (input.mousedown === 'left') {
-          // tool aiming
+          castMainTool(input.lastMouseCoord, 'move', game);
         } else if (input.mousedown.startsWith('right')) {
           moveCameraAngle(
             multiply(input.mouseTotalMovement, 0.01),
@@ -139,22 +161,27 @@ export function startListeners(game: Game) {
   document.addEventListener('pointerlockerror', exitPointerLock, false);
 
   game.renderer.domElement.addEventListener('touchstart', event => {
+    if (input.penDown) return;
     input.touched = true;
     input.touchCoord = touchOffset(event.touches[0], game.renderer.domElement);
-  });
+  }, { passive: true });
   game.renderer.domElement.addEventListener('touchend', event => {
     event.preventDefault(); // prevent simulating mouse click
 
-    if (input.touched && !input.touchmove) {
-      castMainTool(game);
+    if (input.touched && !input.touchmove && !input.penDown) {
+      castMainTool(input.touchCoord, 'up', game);
     }
     input.touched = false;
     input.touchmove = false;
     delete input.pitchSq;
   });
+  game.renderer.domElement.addEventListener('touchcancel', _event => {
+    input.touched = false;
+    input.touchmove = false;
+    delete input.pitchSq;
+  });
   game.renderer.domElement.addEventListener('touchmove', event => {
-    event.preventDefault();
-    if (!input.touched) return;
+    if (!input.touched || input.penDown) return;
 
     const [offsetX, offsetY] = multiTouchOffset(event.touches, game.renderer.domElement);
     const [preOffsetX, preOffsetY] = input.touchCoord;
@@ -186,24 +213,26 @@ export function startListeners(game: Game) {
     ) {
       input.touchmove = true;
 
-      movePlayer(
-        multiply(
-          vecAfterCameraRotation(
-            [preOffsetX - offsetX, offsetY - preOffsetY],
-            game.camera
-          ),
-          0.01,
-        ),
-        game,
-      );
+      if (game.tools.activeTool === 'walk') {
+        movePlayerAddRelative(
+          reverseY(multiply(
+            vecAfterCameraRotation(
+              [preOffsetX - offsetX, offsetY - preOffsetY],
+              game.camera
+            ),
+            0.01,
+          )),
+          game,
+        );
+      } else {
+        castMainTool(input.touchCoord, 'move', game);
+      }
     }
-  });
+  }, { passive: true });
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
   game.renderer.domElement.addEventListener('wheel', event => {
-    event.preventDefault();
-
     if (isMac) {
       const absDeltaY = Math.abs(event.deltaY);
       if (!input.macTouchpadDetected) {
@@ -235,7 +264,7 @@ export function startListeners(game: Game) {
 
     adjCameraDistance(distanceDelta, game.camera);
     moveCameraAngle(angleDelta, game.camera);
-  });
+  }, { passive: true });
 
   // non-standard gesture events, only supported in Safari
   // https://kenneth.io/post/detecting-multi-touch-trackpad-gestures-in-javascript
@@ -264,23 +293,28 @@ export function startListeners(game: Game) {
 
 export function update(input: Input, tDiff: number, game: Game) {
   const inputVec: Vec2 = [0, 0];
-  if (input.keyPressed.has('a')) {
+  if (input.keyPressed.has('a') || input.keyPressed.has('ArrowLeft')) {
     inputVec[0] -= tDiff;
-  } else if (input.keyPressed.has('d')) {
+  } else if (input.keyPressed.has('d') || input.keyPressed.has('ArrowRight')) {
     inputVec[0] += tDiff;
   }
 
-  if (game.input.keyPressed.has('s')) {
+  if (game.input.keyPressed.has('s') || input.keyPressed.has('ArrowDown')) {
     inputVec[1] -= tDiff;
-  } else if (game.input.keyPressed.has('w')) {
+  } else if (game.input.keyPressed.has('w') || input.keyPressed.has('ArrowUp')) {
     inputVec[1] += tDiff;
   }
 
   if (inputVec[0] !== 0 || inputVec[1] !== 0) {
-    movePlayer(multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01), game);
+    movePlayerAddRelative(reverseY(
+      multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01)
+    ), game);
   }
 }
 
+function reverseY(vec: Vec2): Vec2 {
+  return [vec[0], -vec[1]];
+}
 function touchOffset(touch: Touch, canvas: HTMLCanvasElement): Vec2 {
   return [touch.pageX - canvas.offsetLeft, touch.pageY - canvas.offsetTop];
 }

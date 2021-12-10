@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Game } from './game';
-import { Vec2, Vec3 } from './utils/utils';
+import { Vec2, Vec3, length, sub, multiply, threeToVec3, vecCopyTo, vec2CopyTo3, vecAddToThree } from './utils/utils';
 
 import {
   INIT_CAMERA_ANGLE,
@@ -9,6 +9,8 @@ import {
 } from './consts';
 
 export interface Camera {
+  moving: boolean;
+  position: Vec3;
   camera: THREE.PerspectiveCamera;
   cameraBase: THREE.Object3D;
   cameraAngleBase: THREE.Object3D;
@@ -25,12 +27,42 @@ export function init(): Camera {
   cameraAngleBase.rotateX(INIT_CAMERA_ANGLE);
 
   return {
+    moving: false,
+    position: [0, 0, 0],
     camera, cameraBase, cameraAngleBase
   }
 }
 
 export function addToScene(game: Game) {
   game.scene.add(game.camera.cameraBase);
+}
+
+export function update(tDiff: number, game: Game) {
+  if (!game.camera.moving) return;
+
+  const delta = sub(
+    game.camera.position,
+    threeToVec3(
+      game.camera.cameraBase.position
+    )
+  );
+  const deltaLength = length(delta);
+
+  if (deltaLength <= 0.0001) {
+    game.camera.moving = false;
+    return;
+  }
+  const frameMoveLength = calcMoveSpeed(deltaLength) * tDiff * 0.01;
+
+  const moving = multiply(delta, frameMoveLength / deltaLength);
+  vecAddToThree(moving, game.camera.cameraBase.position);
+}
+
+function calcMoveSpeed(deltaLength: number): number {
+  if (deltaLength < 1) return deltaLength;
+  if (deltaLength > 1.5) return 1.25;
+
+  return 1.25 - Math.pow(deltaLength - 1.5, 2);
 }
 
 export function resize(width: number, height: number, camera: Camera) {
@@ -48,20 +80,17 @@ export function moveCameraAngle(xzRotations: Vec2, camera: Camera): void {
   camera.cameraBase.rotation.y += xzRotations[0];
 }
 
-export function setCameraPosition(position: Vec3, camera: Camera): void {
-  camera.cameraBase.position.x = position[0];
-  camera.cameraBase.position.y = position[1];
-  camera.cameraBase.position.z = position[2];
+export function setCameraPosition(position: Vec3, game: Game): void {
+  vecCopyTo(position, game.camera.position);
+  game.camera.moving = true;
 }
-
-export function setCameraPositionY(y: number, camera: Camera): void {
-  camera.cameraBase.position.y = y;
+export function setCameraLocation(location: Vec2, game: Game): void {
+  vec2CopyTo3(location, game.camera.position);
+  game.camera.moving = true;
 }
-
-export function moveCameraPosition(movedVec: Vec3, camera: Camera): void {
-  camera.cameraBase.position.x += movedVec[0];
-  camera.cameraBase.position.y += movedVec[1];
-  camera.cameraBase.position.z += movedVec[2];
+export function setCameraY(y: number, game: Game): void {
+  game.camera.position[1] = y;
+  game.camera.moving = true;
 }
 
 export function adjCameraDistance(distanceDelta: number, camera: Camera): void {
