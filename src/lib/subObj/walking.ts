@@ -10,7 +10,7 @@ import { moveSubObj, detectCollision } from './subObj';
 import { EntityRef } from '../utils/ecs';
 import { Vec2, sub, add, length, multiply, vec3To2, clamp, warnIfNotPresent } from '../utils/utils';
 
-import { STOP_TARGET_DISTANCE } from '../consts';
+import { START_MOVING_DISTANCE, STOP_MOVING_DISTANCE } from '../consts';
 
 export interface SubObjWalkingComponent {
   moving: boolean;
@@ -47,7 +47,7 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
       subObjComponent.rotation[1] = Math.PI - Math.atan2(movingVec[0], movingVec[1]);
     }
 
-    if (movingRange <= 0 || subObjWalking.moveRelativeDistance < STOP_TARGET_DISTANCE) {
+    if (movingRange <= 0 || subObjWalking.moveRelativeDistance < STOP_MOVING_DISTANCE) {
       subObjWalking.moving = false;
       subObjWalking.afterMovingTimeout = setTimeout(() => {
         subObjComponent.state = 'normal';
@@ -76,12 +76,14 @@ export function setMoveRelative(subObjEntity: EntityRef, vec: Vec2, game: Game) 
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   const subObjWalking = game.ecs.getComponent(subObjEntity, 'subObj/walking');
 
-  subObjWalking.moving = true;
   subObjWalking.moveRelative = [...vec];
   subObjWalking.moveRelativeDistance = length(subObjWalking.moveRelative);
+  subObjWalking.moving ||= subObjWalking.moveRelativeDistance > START_MOVING_DISTANCE;
 
-  clearTimeout(subObjWalking.afterMovingTimeout);
-  subObj.state = 'walking';
+  if (subObjWalking.moving) {
+    clearTimeout(subObjWalking.afterMovingTimeout);
+    subObj.state = 'walking';
+  }
 }
 
 function movableRange(
