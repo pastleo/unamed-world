@@ -143,12 +143,6 @@ export function warnIfNotPresent(...values: any[]) {
   return false;
 }
 
-export function getBuiltOutPath(entryPoint: string) {
-  return (typeof window !== 'undefined' ? JSON.parse(
-    (document.querySelector('meta[name=entry-points-mapping]') as HTMLMetaElement)?.content || '{}'
-  ) : {})[entryPoint] || entryPoint;
-}
-
 const UUID_TEMPLATE = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
 const UUID_TEMPLATE_REGEX = /[xy]/g;
 const UUID_Y_SYMBOLS = ['8', '9', 'a', 'b'];
@@ -170,6 +164,16 @@ export function genUUID() {
   });
 }
 
+export function parseUrlHash(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+
+  const paramPairs = window.location.hash.substring(1).split('&').map((p: string) => {
+    const pairs = p.match(/([^=]+)?=(.*)/);
+    return pairs ? pairs.slice(1, 3) : ['', p];
+  });
+
+  return Object.fromEntries(paramPairs);
+}
 export function createJsonBlob(json: any): Blob {
   return new Blob(
     [JSON.stringify(json)],

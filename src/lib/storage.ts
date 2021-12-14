@@ -15,6 +15,8 @@ import { packedObjWalkableComponentType, pack as packObjWalkable, unpack as unpa
 import { EntityRef, UUID, uuidType, entityEqual } from './utils/ecs';
 import { Vec2, warnIfNotPresent, genUUID, createJsonBlob, downloadJson } from './utils/utils';
 
+import { DBG_MODE } from './dbg';
+
 export const LATEST_STORAGE_VERSION = 2;
 
 export function uuidEntryType<T>(t: ss.Struct<T>) {
@@ -51,7 +53,7 @@ export function init(): StorageManager {
 }
 
 export async function start(game: Game): Promise<void> {
-  { // development
+  if (DBG_MODE) {
     (window as any).exportRealm = async () => {
       const exportedIpfsPath = await exportRealm(game);
       console.log({ exportedIpfsPath });

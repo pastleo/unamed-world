@@ -55,7 +55,7 @@ export function startListeners(game: Game) {
           return exportAndSwitch(game);
         case 'x':
           event.preventDefault();
-          window.location.href = window.location.origin; // reset room for development
+          window.location.href = window.location.origin; // reset room
           return;
       }
     }

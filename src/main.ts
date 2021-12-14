@@ -1,11 +1,19 @@
 import update, { resize, changeRealm } from './lib/update';
 import { Game, setup } from './lib/game';
 
+import { DBG_MODE } from './lib/dbg';
+
 function startLoop(game: Game, now: number = 0) {
   const tDiff = now - game.time;
   game.time = now;
 
-  update(game, tDiff);
+  try {
+    update(game, tDiff);
+  } catch (error) {
+    console.error(`main: error during game update @ ${game.time}`);
+    if (DBG_MODE) throw error;
+    console.error(error);
+  }
 
   requestAnimationFrame(nextNow => startLoop(game, nextNow));
   game.renderer.render(game.scene, game.camera.camera);
@@ -24,7 +32,7 @@ async function main() {
 
   startLoop(game);
 
-  { // for development
+  if (DBG_MODE) {
     (window as any).game = game;
   }
 }

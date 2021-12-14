@@ -11,7 +11,7 @@ import { fetchRealm, exportRealm } from './storage';
 import { join } from './network';
 
 import { EntityRef } from './utils/ecs';
-import { Vec2, rangeVec2s } from './utils/utils';
+import { Vec2, rangeVec2s, parseUrlHash } from './utils/utils';
 
 export default function update(game: Game, tDiff: number) {
   updateInput(game.input, tDiff, game);
@@ -27,7 +27,7 @@ export function resize(game: Game, width: number, height: number) {
 }
 
 export async function changeRealm(game: Game) {
-  const realmObjPath = location.hash.slice(1).split('&')[0];
+  const realmObjPath = parseUrlHash()[''];
   if (!realmObjPath) return
 
   const json = await fetchRealm(realmObjPath, game);

@@ -1,5 +1,4 @@
 import UnamedNetwork from 'unamed-network';
-import debug from 'debug';
 
 import { Game } from './game';
 
@@ -12,12 +11,7 @@ import { EntityRef } from './utils/ecs';
 import { Vec3, Vec2 } from './utils/utils';
 
 import { UNAMED_NETWORK_CONFIG, UNAMED_NETWORK_KNOWN_SERVICE_ADDRS } from '../env';
-
-debug.enable([
-  'unamedNetwork:*',
-  '-unamedNetwork:start',
-  '-unamedNetwork:packet:*',
-].join(',')); // for development
+import { DBG_MODE } from './dbg';
 
 export interface Networking {
   unamedNetwork: UnamedNetwork;
@@ -41,7 +35,7 @@ export async function ensureStarted(game: Game) {
 
   await unamedNetwork.start(UNAMED_NETWORK_KNOWN_SERVICE_ADDRS);
 
-  { // development
+  if (DBG_MODE) {
     (window as any).unamedNetwork = unamedNetwork;
     console.log('window.unamedNetwork created:', unamedNetwork);
     console.log('unamedNetwork started, unamedNetwork.id:', unamedNetwork.id);

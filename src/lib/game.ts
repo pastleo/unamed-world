@@ -20,6 +20,8 @@ import { Camera, init as initCamera, addToScene as addCameraToScene } from './ca
 
 import { Vec2 } from './utils/utils';
 
+import { DBG_MODE } from './dbg';
+
 import '../styles/body.css';
 
 export interface Game {
@@ -76,7 +78,7 @@ export async function setup(): Promise<Game> {
 
   changeRealm(game);
 
-  { // for development:
+  if (DBG_MODE) {
     (window as any).getChunk = (...ij: Vec2) => (
       getChunk(ij, game.realm.currentObj, game.ecs)
     );

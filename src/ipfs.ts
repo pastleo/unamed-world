@@ -3,12 +3,13 @@ import { create as createIPFS } from 'ipfs-core';
 import { Game } from './lib/game';
 
 import { IPFS_OPTIONS } from './env';
+import { DBG_MODE } from './lib/dbg';
 
 export async function startIpfs(game: Game): Promise<void> {
   const ipfs = await createIPFS(IPFS_OPTIONS);
   game.ipfs = ipfs;
 
-  { // development
+  if (DBG_MODE) {
     (window as any).ipfs = ipfs;
     console.log('window.ipfs created:', ipfs);
   }
