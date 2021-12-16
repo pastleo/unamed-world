@@ -11,7 +11,7 @@ import { fetchRealm, exportRealm } from './storage';
 import { join } from './network';
 
 import { EntityRef } from './utils/ecs';
-import { Vec2, rangeVec2s, parseUrlHash } from './utils/utils';
+import { Vec2, rangeVec2s, parseUrlHash, setUrlHash } from './utils/utils';
 
 export default function update(game: Game, tDiff: number) {
   updateInput(game.input, tDiff, game);
@@ -40,7 +40,7 @@ export async function changeRealm(game: Game) {
 
 export async function exportAndSwitch(game: Game) {
   const exportedIpfsPath = await exportRealm(game);
-  window.location.hash = `#${exportedIpfsPath}`;
+  setUrlHash({ '': exportedIpfsPath });
 }
 
 const UPDATE_CHUNK_RANGE = 2;

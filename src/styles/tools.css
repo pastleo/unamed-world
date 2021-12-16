@@ -3,14 +3,21 @@
   left: 50%;
   bottom: 0;
   height: 10rem;
+
+  transition: transform 0.33s;
+  transform-origin: bottom;
+  transform: scale(0.5);
+}
+#tools-box.zoom {
+  transform: scale(1);
 }
 
-#tools-swiper {
+.swiper {
   height: 100%;
   max-width: 100vw;
 }
 
-#tools-swiper .swiper-slide {
+.swiper .swiper-slide {
   width: 10rem;
   user-select: none;
 
@@ -22,6 +29,31 @@
   align-items: center;
 }
 
-#tools-swiper .swiper-slide.swiper-slide-active {
+.swiper .swiper-slide.swiper-slide-active {
   text-shadow: 0 0 10px white;
+}
+
+.top-toolbox {
+  position: fixed;
+  top: -10rem;
+  height: 10rem;
+  transition: top 0.5s;
+}
+.top-toolbox.active {
+  top: 0;
+}
+
+#draw-box {
+  left: 50%;
+  margin-left: -15rem;
+  width: 30rem;
+  height: 8rem;
+}
+
+#draw-box .misc-panel {
+  text-align: center;
+}
+#draw-box #draw-size {
+  width: 100%;
+  max-width: 80vw;
 }

@@ -23,3 +23,5 @@ export const BASE_REALM_BACKGROUND = [
   'assets/skybox/pos-z.jpg',
   'assets/skybox/neg-z.jpg',
 ] as [string, string, string, string, string, string];
+
+export const DRAW_CANVAS_SIZE = 512;

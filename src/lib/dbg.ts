@@ -10,6 +10,7 @@ export const DBG_MODE = DEV_MODE || parseUrlHash().dbg;
 
 if (DBG_MODE) {
   debug.enable([
+    'ipfs-start',
     'unamedNetwork:*',
     '-unamedNetwork:start',
     '-unamedNetwork:packet:*',
