@@ -174,6 +174,14 @@ export function parseUrlHash(): Record<string, string> {
 
   return Object.fromEntries(paramPairs);
 }
+export function setUrlHash(values: Record<string, string>) {
+  const currentParams = parseUrlHash();
+  const paramStr = Object.entries({
+    ...currentParams,
+    ...values,
+  }).map(([k, v]) => (k ? [k, v].join('=') : v)).join('&');
+  window.location.hash = `#${paramStr}`;
+}
 export function createJsonBlob(json: any): Blob {
   return new Blob(
     [JSON.stringify(json)],

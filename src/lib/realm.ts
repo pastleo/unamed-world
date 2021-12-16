@@ -25,7 +25,7 @@ export interface Realm {
   prevChunks?: Map2D<EntityRef>;
   light: THREE.DirectionalLight;
   worker: Comlink.Remote<RealmRPCs>;
-  baseMaterial: THREE.Material;
+  gridMaterial: THREE.Material;
 }
 
 export function init(ecs: GameECS): Realm {
@@ -43,7 +43,7 @@ export function init(ecs: GameECS): Realm {
     currentObj,
     light,
     worker,
-    baseMaterial: createBaseMaterial(),
+    gridMaterial: createGridMaterial(),
   };
 }
 
@@ -138,26 +138,32 @@ export function triggerRealmGeneration(centerChunkIJ: Vec2, game: Game) {
   game.realm.worker.triggerRealmGeneration(centerChunkIJ);
 }
 
-function createBaseMaterial(): THREE.Material {
+function createGridMaterial(): THREE.Material {
+  return createMaterial(ctx => {
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+    const cellSize = ctx.canvas.width / CHUNK_SIZE;
+    for(let i = 0; i <= CHUNK_SIZE; i++) {
+      const pos = cellSize * i;
+      ctx.moveTo(pos, 0);
+      ctx.lineTo(pos, ctx.canvas.height);
+      ctx.moveTo(0, pos);
+      ctx.lineTo(ctx.canvas.width, pos);
+    }
+    ctx.stroke();
+  });
+}
+
+function createMaterial(callback: (ctx: CanvasRenderingContext2D) => void): THREE.Material {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 1;
-
-  ctx.beginPath();
-  const cellSize = canvas.width / CHUNK_SIZE;
-  for(let i = 0; i <= CHUNK_SIZE; i++) {
-    const pos = cellSize * i;
-    ctx.moveTo(pos, 0);
-    ctx.lineTo(pos, canvas.height);
-    ctx.moveTo(0, pos);
-    ctx.lineTo(canvas.width, pos);
-  }
-  ctx.stroke();
+  callback(ctx);
 
   const texture = new THREE.CanvasTexture(ctx.canvas);
   texture.wrapS = THREE.RepeatWrapping;

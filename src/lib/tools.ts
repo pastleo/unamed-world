@@ -11,7 +11,9 @@ import { broadcastMyself } from './network';
 import { getChunkEntityComponents, locateOrCreateChunkCell } from './chunk/chunk';
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
-import { Vec2, Vec3, sub, rangeVec2s, length, vec3To2 } from './utils/utils';
+import { Vec2, sub, rangeVec2s, length, vec3To2 } from './utils/utils';
+
+import { DRAW_CANVAS_SIZE } from './consts';
 
 import '../styles/tools.css';
 
@@ -21,6 +23,16 @@ export interface Tools {
   swiper: Swiper;
   toolsBox: Tool[];
   raycaster: THREE.Raycaster;
+
+  draw?: Draw;
+}
+
+interface Draw {
+  swiper: Swiper;
+  activeIndex: number;
+  fillStyle: string;
+  fillSize: number;
+  eraser: boolean;
 }
 
 export function create(): Tools {
@@ -53,6 +65,12 @@ export function start(game: Game) {
   game.tools.swiper.on('activeIndexChange', () => {
     updateActiveTool(game);
   });
+  game.tools.swiper.on('touchMove', () => {
+    document.getElementById('tools-box').classList.add('zoom');
+  });
+  game.tools.swiper.on('touchEnd', () => {
+    document.getElementById('tools-box').classList.remove('zoom');
+  });
 
   const toolItemTemplate = document.getElementById('tools-item-template') as HTMLTemplateElement;
 
@@ -78,11 +96,85 @@ export function start(game: Game) {
 
 function updateActiveTool(game: Game) {
   game.tools.activeTool = game.tools.toolsBox[game.tools.swiper.realIndex];
+
+  document.querySelectorAll('.top-toolbox.active').forEach(element => {
+    element.classList.remove('active');
+  });
+
+  switch(game.tools.activeTool) {
+    case 'draw':
+      ensureDrawActivated(game);
+      document.getElementById('draw-box').classList.add('active');
+      break;
+  }
 }
 
 export function setActiveTool(index: number, game: Game) {
   game.tools.swiper.slideToLoop(index);
   updateActiveTool(game);
+}
+
+function ensureDrawActivated(game: Game) {
+  if (game.tools.draw) return;
+
+  const topToolBoxesTemplate = document.getElementById('top-tools-boxes') as HTMLTemplateElement;
+
+  const drawBoxDOM = topToolBoxesTemplate.content.querySelector('#draw-box').cloneNode(true) as HTMLElement;
+  document.body.appendChild(drawBoxDOM);
+
+  const initialSlide = 1;
+  const draw: Draw = {
+    swiper: new Swiper(drawBoxDOM.querySelector('.swiper') as HTMLElement, {
+      modules: [Manipulation],
+      slidesPerView: "auto",
+      centeredSlides: true,
+      slideToClickedSlide: true,
+      initialSlide,
+    }),
+    activeIndex: initialSlide,
+    fillStyle: 'black',
+    fillSize: 3,
+    eraser: false,
+  }
+
+  drawBoxDOM.querySelectorAll('input[type=color]').forEach((element: HTMLInputElement) => {
+    element.addEventListener('click', event => {
+      if (draw.activeIndex !== parseInt(element.dataset.slide)) {
+        event.preventDefault();
+      }
+    });
+    element.addEventListener('change', () => {
+      updateDrawActiveBrush(game);
+    });
+  });
+
+  draw.swiper.on('activeIndexChange', () => {
+    setTimeout(() => {
+      updateDrawActiveBrush(game);
+    }, 100);
+  });
+
+  const drawSizeInput = drawBoxDOM.querySelector('#draw-size') as HTMLInputElement;
+  drawSizeInput.addEventListener('change', () => {
+    draw.fillSize = parseInt(drawSizeInput.value);
+  });
+
+  game.tools.draw = draw;
+}
+
+function updateDrawActiveBrush(game: Game) {
+  const draw = game.tools.draw;
+  draw.activeIndex = draw.swiper.activeIndex;
+
+  const activeDOM = document.getElementById('draw-box')
+    .querySelector('.swiper-wrapper')
+    .children[draw.swiper.activeIndex] as HTMLElement;
+
+  draw.eraser = !!activeDOM.dataset.eraser;
+  if (draw.eraser) return;
+
+  const colorInput = activeDOM.querySelector('input[type=color]') as HTMLInputElement;
+  draw.fillStyle = colorInput.value;
 }
 
 type InputType = 'down' | 'up' | 'move';
@@ -147,32 +239,57 @@ function castDraw(coordsPixel: Vec2, _inputType: InputType, game: Game) {
   const mesh = intersect.object as THREE.Mesh;
   const chunkRender = chunkEntityComponents.get('chunk/render');
 
-  if (!chunkRender.canvas) {
+  if (!chunkRender.editing && !Array.isArray(mesh.material)) {
     const canvas = document.createElement('canvas');
-    chunkRender.canvas = canvas;
 
-    canvas.width = 512;
-    canvas.height = 512;
+    canvas.width = DRAW_CANVAS_SIZE;
+    canvas.height = DRAW_CANVAS_SIZE;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = 'black';
+    if (mesh.material !== game.realm.gridMaterial) {
+      ctx.drawImage(
+        (mesh.material as THREE.MeshPhongMaterial).map.image,
+        0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE,
+      );
+    }
 
     const texture = new THREE.CanvasTexture(ctx.canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
 
-    mesh.material = new THREE.MeshPhongMaterial({
+    const material = new THREE.MeshPhongMaterial({
       map: texture,
       transparent: true,
     });
+
+    mesh.material = [game.realm.gridMaterial, material];
+    mesh.geometry.clearGroups();
+    mesh.geometry.addGroup(0, mesh.geometry.index.count, 0);
+    mesh.geometry.addGroup(0, mesh.geometry.index.count, 1);
+
+    chunkRender.editing = {
+      canvas, material
+    }
   }
 
-  const ctx = chunkRender.canvas.getContext('2d');
+  const ctx = chunkRender.editing.canvas.getContext('2d');
+
+  if (game.tools.draw.eraser) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    ctx.globalCompositeOperation = 'destination-out';
+  } else {
+    ctx.fillStyle = game.tools.draw.fillStyle;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
   ctx.beginPath();
-  ctx.arc(512 * uv[0], 512 * (1 - uv[1]), 1, 0, 2 * Math.PI);
+  ctx.arc(
+    DRAW_CANVAS_SIZE * uv[0], DRAW_CANVAS_SIZE * (1 - uv[1]),
+    game.tools.draw.fillSize,
+    0, 2 * Math.PI);
   ctx.fill();
-  (mesh.material as THREE.MeshPhongMaterial).map.needsUpdate = true;
+  chunkRender.editing.material.map.needsUpdate = true;
 }
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {

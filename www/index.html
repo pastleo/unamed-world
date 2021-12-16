@@ -22,6 +22,27 @@
     <div class='swiper-slide'></div>
   </template>
 
+  <template id='top-tools-boxes'>
+    <div id='draw-box' class='top-toolbox'>
+      <div class='swiper'>
+        <div class='swiper-wrapper'>
+          <div class='swiper-slide'>
+            <input type='color' value='#FFFFFF' data-slide="0"></input>
+          </div>
+          <div class='swiper-slide'>
+            <input type='color' value='#000000' data-slide="1"></input>
+          </div>
+          <div class='swiper-slide' data-eraser='true'>
+            🧽
+          </div>
+        </div>
+      </div>
+      <div class="misc-panel">
+        <input id='draw-size' type='range' value='3' min='1' max='20'></input>
+      </div>
+    </div>
+  </template>
+
   <!-- script will be added by webpack -->
 </body>
 </html>

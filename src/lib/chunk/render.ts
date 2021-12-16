@@ -8,9 +8,14 @@ import { Vec2, warnIfNotPresent } from '../utils/utils';
 
 import { CHUNK_SIZE } from '../consts';
 
+export interface Editing {
+  canvas: HTMLCanvasElement;
+  material: THREE.MeshPhongMaterial;
+}
+
 export interface ChunkRenderComponent {
   mesh: THREE.Mesh;
-  canvas?: HTMLCanvasElement;
+  editing?: Editing;
 }
 
 const textureCache = new Map<string, THREE.Texture>();
@@ -34,7 +39,7 @@ export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents,
       transparent: true,
     });
   } else {
-    material = game.realm.baseMaterial;
+    material = game.realm.gridMaterial;
   }
 
   geometry.setAttribute('position',
