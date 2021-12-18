@@ -13,7 +13,8 @@ import { packedObjSpriteComponentType, pack as packObjSprite, unpack as unpackOb
 import { packedObjWalkableComponentType, pack as packObjWalkable, unpack as unpackObjWalkable } from './obj/walkable';
 
 import { EntityRef, UUID, uuidType, entityEqual } from './utils/ecs';
-import { Vec2, warnIfNotPresent, genUUID, createJsonBlob, downloadJson } from './utils/utils';
+import { Vec2, warnIfNotPresent, genUUID } from './utils/utils';
+import { createJsonBlob, downloadJson } from './utils/web';
 
 import { DBG_MODE } from './dbg';
 

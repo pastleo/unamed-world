@@ -2,7 +2,7 @@ import debug from 'debug';
 import isMobile from 'is-mobile';
 import consolePanel from './utils/console-panel/console-panel.js'
 
-import { parseUrlHash } from './utils/utils';
+import { parseUrlHash } from './utils/web';
 
 // @ts-ignore
 export const DEV_MODE = process.env.NODE_ENV !== 'production';

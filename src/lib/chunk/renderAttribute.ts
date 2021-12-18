@@ -23,7 +23,7 @@ export interface AttributeArrays {
 
 const CHUNK_RESOLUTION = CHUNK_CELL_RESOLUTION * CHUNK_SIZE + 1;
 const CHUNK_POS_MULT = 1 / CHUNK_CELL_RESOLUTION;
-const CHUNK_UV_MULT = 1 / CHUNK_RESOLUTION;
+const CHUNK_UV_MULT = 1 / (CHUNK_CELL_RESOLUTION * CHUNK_SIZE);
 const CHUNK_XZ_POSITION_OFFSET = CHUNK_SIZE * -0.5;
 
 export function chunkAttributeArrays(chunkEntity: EntityRef, realmEntity: EntityRef, ecs: GameECS): AttributeArrays {
@@ -45,6 +45,10 @@ export function chunkAttributeArrays(chunkEntity: EntityRef, realmEntity: Entity
   const delatin = new Delatin(data, CHUNK_RESOLUTION, CHUNK_RESOLUTION);
   delatin.run(CHUNK_GEOMETRY_DELATIN_MAX_ERROR);
 
+  return delatinAttributeArrays(delatin);
+}
+
+function delatinAttributeArrays(delatin: Delatin): AttributeArrays {
   const positionsData: number[] = [];
   const uvsData: number[] = [];
   Array(delatin.coords.length >> 1).fill(null).forEach((_, index) => {
