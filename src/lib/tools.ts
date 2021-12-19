@@ -8,16 +8,18 @@ import { GameEntityComponents } from './gameECS';
 import { mountSubObj, movePlayerTo } from './player';
 import { broadcastMyself } from './network';
 
-import { getChunkEntityComponents, locateOrCreateChunkCell } from './chunk/chunk';
+import { Cell, Located, getChunkEntityComponents, locateOrCreateChunkCell, getChunkCell, calcCellLocation } from './chunk/chunk';
+import { editChunkCanvas2d } from './chunk/render';
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
-import { Vec2, sub, rangeVec2s, length, vec3To2 } from './utils/utils';
+import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree } from './utils/utils';
+import Map2D from './utils/map2d';
 
 import { DRAW_CANVAS_SIZE } from './consts';
 
 import '../styles/tools.css';
 
-export type Tool = 'walk' | 'draw' | 'terrainHeight' | string;
+export type Tool = 'walk' | 'draw' | 'terrainAltitude' | string;
 export interface Tools {
   activeTool: Tool;
   swiper: Swiper;
@@ -25,6 +27,7 @@ export interface Tools {
   raycaster: THREE.Raycaster;
 
   draw?: Draw;
+  terrainAltitude?: TerrainAltitude;
 }
 
 interface Draw {
@@ -33,6 +36,13 @@ interface Draw {
   fillStyle: string;
   fillSize: number;
   eraser: boolean;
+}
+
+interface TerrainAltitude {
+  upCone: THREE.Mesh;
+  downCone: THREE.Mesh;
+  coneGroup: THREE.Object3D;
+  selectedChunkCell?: Located;
 }
 
 export function create(): Tools {
@@ -56,8 +66,7 @@ export function create(): Tools {
 const TOOL_ICONS: Record<Tool, string> = {
   walk: '🚶',
   draw: '✍️',
-  //terrainHeight: '↕️',
-  terrainHeight: '🚧', // WIP
+  terrainAltitude: '↕️',
 }
 const RAYCAST_CHUNK_RANGE = 4;
 
@@ -74,7 +83,7 @@ export function start(game: Game) {
 
   const toolItemTemplate = document.getElementById('tools-item-template') as HTMLTemplateElement;
 
-  const initTools = ['walk', 'draw', 'terrainHeight'];
+  const initTools = ['walk', 'draw', 'terrainAltitude'];
   const toolCount = initTools.length;
   
   document.getElementById('tools-box').style.width = `${toolCount * 10}rem`;
@@ -95,6 +104,7 @@ export function start(game: Game) {
 }
 
 function updateActiveTool(game: Game) {
+  const prevTool = game.tools.activeTool;
   game.tools.activeTool = game.tools.toolsBox[game.tools.swiper.realIndex];
 
   document.querySelectorAll('.top-toolbox.active').forEach(element => {
@@ -104,7 +114,20 @@ function updateActiveTool(game: Game) {
   switch(game.tools.activeTool) {
     case 'draw':
       ensureDrawActivated(game);
-      document.getElementById('draw-box').classList.add('active');
+      showDrawTool(game);
+      break;
+    case 'terrainAltitude':
+      ensureTerrainAltitudeActivated(game);
+      showTerrainAltitudeTool(game);
+      break;
+  }
+
+  switch(prevTool) {
+    case 'draw':
+      hideDrawTool(game);
+      break;
+    case 'terrainAltitude':
+      hideTerrainAltitudeTool(game);
       break;
   }
 }
@@ -162,6 +185,14 @@ function ensureDrawActivated(game: Game) {
   game.tools.draw = draw;
 }
 
+function showDrawTool(_game: Game) {
+  document.getElementById('draw-box').classList.add('active');
+}
+
+function hideDrawTool(_game: Game) {
+  document.getElementById('draw-box').classList.remove('active');
+}
+
 function updateDrawActiveBrush(game: Game) {
   const draw = game.tools.draw;
   draw.activeIndex = draw.swiper.activeIndex;
@@ -177,6 +208,39 @@ function updateDrawActiveBrush(game: Game) {
   draw.fillStyle = colorInput.value;
 }
 
+function ensureTerrainAltitudeActivated(game: Game) {
+  if (game.tools.terrainAltitude) return;
+
+  const coneGroup = new THREE.Object3D();
+
+  const upGeometry = new THREE.ConeGeometry(0.25, 0.5, 16);
+  const upMaterial = new THREE.MeshPhongMaterial({ color: '#50ff76', emissive: '#90d39e' });
+  const upCone = new THREE.Mesh(upGeometry, upMaterial);
+  upCone.position.y = 1;
+  coneGroup.add(upCone);
+
+  const downGeometry = new THREE.ConeGeometry(0.25, 0.5, 16);
+  const downMaterial = new THREE.MeshPhongMaterial({ color: '#ff6a6a', emissive: '#6e2f2f' });
+  const downCone = new THREE.Mesh(downGeometry, downMaterial);
+  downCone.position.y = 0.25;
+  downCone.rotation.x = Math.PI;
+  coneGroup.add(downCone);
+
+  coneGroup.visible = false;
+  game.scene.add(coneGroup);
+
+  game.tools.terrainAltitude = {
+    upCone, downCone, coneGroup
+  }
+}
+
+function showTerrainAltitudeTool(_game: Game) {
+}
+
+function hideTerrainAltitudeTool(game: Game) {
+  game.tools.terrainAltitude.coneGroup.visible = false;
+}
+
 type InputType = 'down' | 'up' | 'move';
 export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
@@ -185,8 +249,8 @@ export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game
       return castWalkTo(coordsPixel, inputType, game);
     case 'draw':
       return castDraw(coordsPixel, inputType, game);
-    case 'terrainHeight':
-      return console.log('castMainTool: terrainHeight not implemented');
+    case 'terrainAltitude':
+      return castTerrainAltitude(coordsPixel, inputType, game);
   }
 }
 
@@ -197,7 +261,6 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
   if (!intersect) return;
 
   const location: Vec2 = [intersect.point.x, intersect.point.z];
-
 
   const subObjComps = game.ecs.getEntityComponents(game.player.subObjEntity);
   const subObj = subObjComps.get('subObj');
@@ -236,71 +299,70 @@ function castDraw(coordsPixel: Vec2, _inputType: InputType, game: Game) {
   if (!intersect) return;
 
   const uv: Vec2 = [intersect.uv.x, intersect.uv.y];
-  const mesh = intersect.object as THREE.Mesh;
-  const chunkRender = chunkEntityComponents.get('chunk/render');
 
-  if (!chunkRender.editing && !Array.isArray(mesh.material)) {
-    const canvas = document.createElement('canvas');
-
-    canvas.width = DRAW_CANVAS_SIZE;
-    canvas.height = DRAW_CANVAS_SIZE;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (mesh.material !== game.realm.gridMaterial) {
-      ctx.drawImage(
-        (mesh.material as THREE.MeshPhongMaterial).map.image,
-        0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE,
-      );
+  editChunkCanvas2d(canvas2d => {
+    if (game.tools.draw.eraser) {
+      canvas2d.fillStyle = 'rgba(255, 255, 255, 1)';
+      canvas2d.globalCompositeOperation = 'destination-out';
+    } else {
+      canvas2d.fillStyle = game.tools.draw.fillStyle;
+      canvas2d.globalCompositeOperation = 'source-over';
     }
 
-    const texture = new THREE.CanvasTexture(ctx.canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
+    canvas2d.beginPath();
+    canvas2d.arc(
+      DRAW_CANVAS_SIZE * uv[0], DRAW_CANVAS_SIZE * (1 - uv[1]),
+      game.tools.draw.fillSize,
+      0, 2 * Math.PI);
+    canvas2d.fill();
+  }, chunkEntityComponents, game);
+}
 
-    const material = new THREE.MeshPhongMaterial({
-      map: texture,
-      transparent: true,
-    });
+function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game) {
+  if (inputType !== 'up') return;
+  const terrainAltitude = game.tools.terrainAltitude;
 
-    mesh.material = [game.realm.gridMaterial, material];
-    mesh.geometry.clearGroups();
-    mesh.geometry.addGroup(0, mesh.geometry.index.count, 0);
-    mesh.geometry.addGroup(0, mesh.geometry.index.count, 1);
+  if (terrainAltitude.selectedChunkCell) {
+    const coneIntersect = rayCast(
+      coordsPixel,
+      [terrainAltitude.upCone, terrainAltitude.downCone],
+      game,
+    );
 
-    chunkRender.editing = {
-      canvas, material
+    if (coneIntersect) {
+      const upClicked = coneIntersect.object.id === terrainAltitude.upCone.id;
+
+      const { chunkIJ, cellIJ, cell } = terrainAltitude.selectedChunkCell;
+      cell.altitude += upClicked ? 0.2 : -0.2;
+      terrainAltitude.coneGroup.position.y = cell.altitude;
+
+      const updatedCells = new Map2D<Cell>();
+
+      rangeVec2s(cellIJ, 1).map(cellIJ => {
+        const cell = getChunkCell(chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
+        cell.flatness = 4;
+        updatedCells.put(...cellIJ, cell);
+      })
+
+      game.realm.worker.updateCells(chunkIJ, updatedCells.entries());
+      return;
     }
   }
 
-  const ctx = chunkRender.editing.canvas.getContext('2d');
+  const [realmIntersect] = rayCastRealm(coordsPixel, game);
+  if (!realmIntersect) return;
+  
+  const located = locateOrCreateChunkCell(threeToVec3(realmIntersect.point), game);
 
-  if (game.tools.draw.eraser) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 1)';
-    ctx.globalCompositeOperation = 'destination-out';
-  } else {
-    ctx.fillStyle = game.tools.draw.fillStyle;
-    ctx.globalCompositeOperation = 'source-over';
-  }
+  const conePosition = calcCellLocation(located);
 
-  ctx.beginPath();
-  ctx.arc(
-    DRAW_CANVAS_SIZE * uv[0], DRAW_CANVAS_SIZE * (1 - uv[1]),
-    game.tools.draw.fillSize,
-    0, 2 * Math.PI);
-  ctx.fill();
-  chunkRender.editing.material.map.needsUpdate = true;
+  vecCopyToThree(conePosition, terrainAltitude.coneGroup.position);
+  terrainAltitude.coneGroup.position.y = located.cell.altitude;
+  terrainAltitude.coneGroup.visible = true;
+  terrainAltitude.selectedChunkCell = located;
 }
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {
-  const coords: Vec2 = [
-    (coordsPixel[0] / game.renderer.domElement.width) * 2 - 1,
-    (coordsPixel[1] / game.renderer.domElement.height) * -2 + 1,
-  ];
-
-  const raycaster = game.tools.raycaster;
-  raycaster.setFromCamera({ x: coords[0], y: coords[1] }, game.camera.camera);
-  
   const chunkMeshes = rangeVec2s(game.player.chunkIJ, RAYCAST_CHUNK_RANGE).map(chunkIJ => (
     getChunkEntityComponents(chunkIJ, game.realm.currentObj, game.ecs)
   )).map(chunkEntityComponents => ([
@@ -310,9 +372,21 @@ function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersec
     chunkEntityComponents,
   ] as [THREE.Mesh, GameEntityComponents])).filter(([m, _]) => m);
 
-  const intersects = raycaster.intersectObjects(chunkMeshes.map(([m, _]) => m));
-  if (intersects.length <= 0) return [null, null];
+  const intersect = rayCast(coordsPixel, chunkMeshes.map(([m, _]) => m), game);
+  if (!intersect) return [null, null];
 
-  const [_, chunkEntityComponents] = chunkMeshes.find(([m, _]) => m.id === intersects[0].object.id);
-  return [intersects[0], chunkEntityComponents]
+  const [_, chunkEntityComponents] = chunkMeshes.find(([m, _]) => m.id === intersect.object.id);
+  return [intersect, chunkEntityComponents]
+}
+
+function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.Intersection {
+  const coords: Vec2 = [
+    (coordsPixel[0] / game.renderer.domElement.width) * 2 - 1,
+    (coordsPixel[1] / game.renderer.domElement.height) * -2 + 1,
+  ];
+
+  const raycaster = game.tools.raycaster;
+  raycaster.setFromCamera({ x: coords[0], y: coords[1] }, game.camera.camera);
+  const intersects = raycaster.intersectObjects(objs);
+  return intersects[0];
 }

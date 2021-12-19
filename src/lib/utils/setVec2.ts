@@ -29,6 +29,10 @@ class SetVec2 {
       ([j, is]) => [...is.values()].map(i => ([i, j] as Vec2))
     );
   }
+
+  isEmpty() {
+    return this.sets.size <= 0;
+  }
 }
 
 export default SetVec2;

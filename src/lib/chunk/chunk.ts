@@ -168,6 +168,13 @@ export function calcAltitudeInChunk(localPos: Vec2, located: Located, realmEntit
   );
 }
 
+export function calcCellLocation(located: Located): Vec2 {
+  return [
+    (located.chunkIJ[0] - 0.5) * CHUNK_SIZE + located.cellIJ[0] + 0.5,
+    (located.chunkIJ[1] - 0.5) * CHUNK_SIZE + located.cellIJ[1] + 0.5,
+  ]
+}
+
 export function mergeChunk(chunkSrc: Required<Partial<ChunkComponent>, 'chunkIJ'>, game: Game) {
   const chunkEntityComponents = getChunkEntityComponents(chunkSrc.chunkIJ, game.realm.currentObj, game.ecs);
   if (warnIfNotPresent(chunkEntityComponents)) return;

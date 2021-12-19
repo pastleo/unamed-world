@@ -14,6 +14,7 @@ import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
 import { addOrRefreshSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
+import { createCanvas2d } from './utils/web';
 import { Vec2, warnIfNotPresent } from './utils/utils';
 import { listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
@@ -33,7 +34,7 @@ export function init(ecs: GameECS): Realm {
 
   const light = new THREE.DirectionalLight(0xFFFFFF, 1);
   light.position.set(0, 1, 0);
-  light.target.position.set(0, 0, 0);
+  light.target.position.set(0.25, 0, 0);
 
   const worker = Comlink.wrap<RealmRPCs>(
     new Worker(new URL('../workers/realm', import.meta.url))
@@ -153,22 +154,15 @@ function createGridMaterial(): THREE.Material {
       ctx.lineTo(ctx.canvas.width, pos);
     }
     ctx.stroke();
-  });
+  }, 256, 256);
 }
 
-function createMaterial(callback: (ctx: CanvasRenderingContext2D) => void): THREE.Material {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+export function createMaterial(callback: (ctx: CanvasRenderingContext2D) => void, width: number, height: number): THREE.Material {
+  const ctx = createCanvas2d(width, height);
 
   callback(ctx);
 
   const texture = new THREE.CanvasTexture(ctx.canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-
   return new THREE.MeshPhongMaterial({
     map: texture,
     transparent: true,

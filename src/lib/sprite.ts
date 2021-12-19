@@ -7,6 +7,7 @@ import { addOrRefreshSubObjToScene } from './subObj/subObj';
 
 import { EntityRef, UUID, entityEqual } from './utils/ecs';
 import { warnIfNotPresent } from './utils/utils';
+import { createCanvas2d } from './utils/web';
 
 export interface SpriteManager {
   fetchingObjs: Map<UUID, EntityRef[]>;
@@ -54,11 +55,7 @@ export function generateRealmSprite() {
 }
 
 export function createBaseSpriteObj(ecs: GameECS) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const ctx = createCanvas2d(256, 256);
 
   const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
   gradient.addColorStop(0, '#FFFFFFFF')
@@ -69,7 +66,7 @@ export function createBaseSpriteObj(ecs: GameECS) {
 
   const objEntity = createObjEntity(ecs, 'base');
   ecs.setComponent(objEntity, 'obj/sprite', {
-    spritesheet: canvas.toDataURL('image/png'), // use 'image/webp' when Safari finally support webp
+    spritesheet: ctx.canvas.toDataURL('image/png'), // use 'image/webp' when Safari finally support webp
     eightBitStyle: true,
     colRow: [1, 1],
     stateAnimations: {
