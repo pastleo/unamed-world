@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 export function parseUrlHash(): Record<string, string> {
   if (typeof window === 'undefined') return {};
 

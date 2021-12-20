@@ -109,11 +109,11 @@ export function startListeners(game: Game) {
     castMainTool([event.offsetX, event.offsetY], 'down', game);
   });
   game.renderer.domElement.addEventListener('pointermove', event => {
-    if (event.pointerType !== 'pen') return;
+    if (event.pointerType !== 'pen' && !input.penDown) return;
     castMainTool([event.offsetX, event.offsetY], 'down', game);
   });
   game.renderer.domElement.addEventListener('pointerup', event => {
-    if (event.pointerType !== 'pen') return;
+    if (event.pointerType !== 'pen' && !input.penDown) return;
     input.penDown = false;
     castMainTool([event.offsetX, event.offsetY], 'up', game);
   });
