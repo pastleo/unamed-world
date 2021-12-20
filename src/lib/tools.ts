@@ -7,12 +7,14 @@ import { Game } from './game';
 import { GameEntityComponents } from './gameECS';
 import { mountSubObj, movePlayerTo } from './player';
 import { broadcastMyself } from './network';
+import { exportRealm } from './storage';
 
 import { Cell, Located, getChunkEntityComponents, locateOrCreateChunkCell, getChunkCell, calcCellLocation } from './chunk/chunk';
 import { editChunkCanvas2d } from './chunk/render';
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
 import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree } from './utils/utils';
+import { setUrlHash } from './utils/web';
 import Map2D from './utils/map2d';
 
 import { DRAW_CANVAS_SIZE } from './consts';
@@ -270,10 +272,13 @@ function ensureOptionsActivated(game: Game) {
   }
 
   const saveActionDOM = optionsBoxDOM.querySelector('#save-action');
-  saveActionDOM.addEventListener('click', () => {
+  saveActionDOM.addEventListener('click', async () => {
     if (options.swiper.activeIndex !== 0) return;
 
-    console.log('saving!');
+    const realmObjPath = await exportRealm('local', game);
+    if (realmObjPath) {
+      setUrlHash({ '': realmObjPath });
+    }
   });
 
   game.tools.options = options;
@@ -332,7 +337,7 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
   if (distanceBetweenSubObj > targetObjSprite.radius) return;
 
-  console.log('changing to', game.ecs.getUUID(nearBySubObj.obj));
+  console.log('changing to', game.ecs.getSid(nearBySubObj.obj));
 
   game.player.objEntity = nearBySubObj.obj;
   destroySubObj(game.player.subObjEntity, game);
@@ -384,9 +389,10 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
     if (coneIntersect) {
       const upClicked = coneIntersect.object.id === terrainAltitude.upCone.id;
 
-      const { chunkIJ, cellIJ, cell } = terrainAltitude.selectedChunkCell;
+      const { chunkIJ, cellIJ, cell, chunk } = terrainAltitude.selectedChunkCell;
       cell.altitude += upClicked ? 0.2 : -0.2;
       terrainAltitude.coneGroup.position.y = cell.altitude;
+      chunk.persistance = true;
 
       const updatedCells = new Map2D<Cell>();
 

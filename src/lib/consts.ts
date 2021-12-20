@@ -25,3 +25,5 @@ export const BASE_REALM_BACKGROUND = [
 ] as [string, string, string, string, string, string];
 
 export const DRAW_CANVAS_SIZE = 512;
+
+export const LATEST_STORAGE_VERSION = 2;

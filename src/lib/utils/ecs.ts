@@ -1,9 +1,9 @@
 import * as ss from 'superstruct';
-import { genUUID } from './utils';
+import { randomStr } from './utils';
 
 class ECS<ComponentMapT extends Record<string, any>> {
   private entities: Entity[] = [];
-  private UUIDs: Map<string, EntityRef> = new Map();
+  private sids: Map<string, EntityRef> = new Map();
   private freeIndices: number[] = [];
   private entityComponents: Record<string, GenerationalArray<ComponentMapT[keyof ComponentMapT]>> = {};
 
@@ -28,9 +28,9 @@ class ECS<ComponentMapT extends Record<string, any>> {
     if (!entity) return false;
 
     entity.alive = false;
-    if (entity.UUID) {
-      this.UUIDs.delete(entity.UUID);
-      delete entity.UUID;
+    if (entity.sid) {
+      this.sids.delete(entity.sid);
+      delete entity.sid;
     }
     this.freeIndices.push(index);
 
@@ -71,21 +71,21 @@ class ECS<ComponentMapT extends Record<string, any>> {
     return new EntityComponents(ref, this);
   }
 
-  getUUID(ref: EntityRef, regenerate: boolean = false): UUID | null {
+  getSid(ref: EntityRef): Sid | null {
     const entity = this.getEntity(ref);
     if (!entity) return null;
-    if (entity.UUID && !regenerate) return entity.UUID;
-    entity.UUID = genUUID();
-    this.UUIDs.set(entity.UUID, ref);
-    return entity.UUID;
+    if (entity.sid) return entity.sid;
+    entity.sid = randomStr();
+    this.sids.set(entity.sid, ref);
+    return entity.sid;
   }
 
-  fromUUID(uuid: UUID): EntityRef {
-    let ref = this.UUIDs.get(uuid);
+  fromSid(sid: Sid): EntityRef {
+    let ref = this.sids.get(sid);
     if (!this.getEntity(ref)) {
       ref = this.allocate();
-      this.entities[ref[0]].UUID = uuid; // just allocated, directly access should be fine
-      this.UUIDs.set(uuid, ref);
+      this.entities[ref[0]].sid = sid; // just allocated, directly access should be fine
+      this.sids.set(sid, ref);
     }
     return ref;
   }
@@ -116,13 +116,13 @@ export default ECS;
 interface Entity {
   generation: number;
   alive: boolean;
-  UUID?: string;
+  sid?: string;
 }
 
 export type EntityRef = [index: number, generation: number];
 
-export const uuidType = ss.string();
-export type UUID = ss.Infer<typeof uuidType>;
+export const sidType = ss.string(); // serializable id
+export type Sid = ss.Infer<typeof sidType>; // serializable id
 
 class GenerationalArray<T> {
   array: T[] = [];

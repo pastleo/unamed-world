@@ -1,7 +1,7 @@
 import * as ss from 'superstruct';
 import { GameECS } from '../gameECS';
 
-import { EntityRef, uuidType } from '../utils/ecs';
+import { EntityRef, sidType } from '../utils/ecs';
 import Map2D, { map2DEntriesType } from '../utils/map2d';
 
 import { BASE_REALM_BACKGROUND } from '../consts';
@@ -32,7 +32,7 @@ export function createBaseRealm(ecs: GameECS): EntityRef {
 }
 
 export const packedObjRealmComponentType = ss.object({
-  chunkEntries: map2DEntriesType(uuidType),
+  chunkEntries: map2DEntriesType(sidType),
   backgrounds: backgroundsType,
 });
 export type PackedObjRealmComponent = ss.Infer<typeof packedObjRealmComponentType>;
@@ -44,7 +44,7 @@ export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmC
       const chunk = ecs.getComponent(chunkEntity, 'chunk');
       return chunk.persistance || chunk.subObjs.length > 0
     }).map(([chunkIJ, chunkEntity]) => ([
-      chunkIJ, ecs.getUUID(chunkEntity),
+      chunkIJ, ecs.getSid(chunkEntity),
     ])),
     backgrounds,
   }
@@ -52,8 +52,8 @@ export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmC
 
 export function unpack(objRealmEntity: EntityRef, packedObjRealm: PackedObjRealmComponent, ecs: GameECS) {
   ecs.setComponent(objRealmEntity, 'obj/realm', {
-    chunks: Map2D.fromEntries(packedObjRealm.chunkEntries.map(([chunkIJ, UUID]) => (
-      [chunkIJ, ecs.fromUUID(UUID)]
+    chunks: Map2D.fromEntries(packedObjRealm.chunkEntries.map(([chunkIJ, sid]) => (
+      [chunkIJ, ecs.fromSid(sid)]
     ))),
     backgrounds: packedObjRealm.backgrounds,
   });

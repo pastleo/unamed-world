@@ -5,12 +5,12 @@ import { fetchObjSprite, loadExportedSprite } from './storage';
 import { createObjEntity } from './obj/obj';
 import { addOrRefreshSubObjToScene } from './subObj/subObj';
 
-import { EntityRef, UUID, entityEqual } from './utils/ecs';
+import { EntityRef, Sid, entityEqual } from './utils/ecs';
 import { warnIfNotPresent } from './utils/utils';
 import { createCanvas2d } from './utils/web';
 
 export interface SpriteManager {
-  fetchingObjs: Map<UUID, EntityRef[]>;
+  fetchingObjs: Map<Sid, EntityRef[]>;
 }
 
 export function init(): SpriteManager {
@@ -23,31 +23,31 @@ export function getObjOrBaseComponents(objEntity: EntityRef, ecs: GameECS): Game
   const objSprite = ecs.getComponent(objEntity, 'obj/sprite');
   if (objSprite) return ecs.getEntityComponents(objEntity);
 
-  return ecs.getEntityComponents(ecs.fromUUID('base'));
+  return ecs.getEntityComponents(ecs.fromSid('base'));
 }
 
 export async function requireObjSprite(subObjEntityRequiring: EntityRef, objEntity: EntityRef, game: Game) {
   const objSprite = game.ecs.getComponent(objEntity, 'obj/sprite');
   if (objSprite) return; // already required
 
-  const spriteObjUUID = game.ecs.getUUID(objEntity);
-  let waitingSubObjs = game.spriteManager.fetchingObjs.get(spriteObjUUID);
+  const objCid = game.ecs.getSid(objEntity); // TODO
+  let waitingSubObjs = game.spriteManager.fetchingObjs.get(objCid);
   if (!waitingSubObjs) {
     waitingSubObjs = []
-    game.spriteManager.fetchingObjs.set(spriteObjUUID, waitingSubObjs);
+    game.spriteManager.fetchingObjs.set(objCid, waitingSubObjs);
   }
   if (waitingSubObjs.findIndex(subObj => entityEqual(subObj, subObjEntityRequiring)) === -1) {
     waitingSubObjs.push(subObjEntityRequiring);
   }
 
-  const json = await fetchObjSprite(spriteObjUUID);
+  const json = await fetchObjSprite(objCid);
   if (warnIfNotPresent(json)) return;
 
-  loadExportedSprite(json, game.ecs);
+  loadExportedSprite(objCid, json, game.ecs);
   waitingSubObjs.forEach(subObj => {
     addOrRefreshSubObjToScene(subObj, game);
   });
-  game.spriteManager.fetchingObjs.delete(spriteObjUUID);
+  game.spriteManager.fetchingObjs.delete(objCid);
 }
 
 export function generateRealmSprite() {

@@ -99,7 +99,7 @@ export function broadcastMyself(game: Game) {
   const message: PingMessage = {
     type: 'world-ping',
     position: playerSubObj.position,
-    playerObj: game.ecs.getUUID(game.player.objEntity),
+    playerObj: game.ecs.getSid(game.player.objEntity),
     ...(playerWalking.moveRelative ? {
       moveTarget: getMoveTarget(player),
     } : {}),
@@ -123,7 +123,7 @@ function handlePing(from: string, message: PingMessage, game: Game) {
   }
 
   const subObj = game.ecs.getComponent(member, 'subObj');
-  if (game.ecs.getUUID(subObj.obj) !== message.playerObj) {
+  if (game.ecs.getSid(subObj.obj) !== message.playerObj) {
     destroySubObj(member, game);
     addMemberSprite(from, message.playerObj, message.position, game);
   }

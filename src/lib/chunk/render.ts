@@ -105,6 +105,7 @@ export function editChunkCanvas2d(
     chunkRender.editing = {
       canvas2d, material
     }
+    chunkEntityComponents.get('chunk').persistance = true;
   }
 
   const canvas2d = chunkRender.editing.canvas2d;
@@ -112,6 +113,14 @@ export function editChunkCanvas2d(
   callback(canvas2d);
 
   chunkRender.editing.material.map.needsUpdate = true;
+}
+
+export function updateChunkTextureUrl(chunkEntityComponents: GameEntityComponents) {
+  const chunk = chunkEntityComponents.get('chunk');
+  const chunkRender = chunkEntityComponents.get('chunk/render');
+  if (chunkRender.editing) {
+    chunk.textureUrl = chunkRender.editing.canvas2d.canvas.toDataURL('image/png');
+  }
 }
 
 function addGroupForMultiMaterial(geometry: THREE.BufferGeometry) {

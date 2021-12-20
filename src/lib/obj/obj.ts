@@ -6,12 +6,12 @@ export type ObjEntityComponents = GameEntityComponents;
 
 export interface ObjComponent {}
 
-export function createObjEntity(ecs: GameECS, uuid?: string): EntityRef {
-  const objEntity = ecs.fromUUID(uuid);
+export function createObjEntity(ecs: GameECS, sid?: string): EntityRef {
+  const objEntity = ecs.fromSid(sid);
   ecs.setComponent(objEntity, 'obj', {});
   return objEntity;
 }
 
-export function getObjEntity(uuid: string, ecs: GameECS): EntityRef {
-  return ecs.fromUUID(uuid);
+export function getObjEntity(sid: string, ecs: GameECS): EntityRef {
+  return ecs.fromSid(sid);
 }

@@ -14,7 +14,7 @@ import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
 import { addOrRefreshSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
-import { createCanvas2d } from './utils/web';
+import { createCanvas2d, parseUrlHash } from './utils/web';
 import { Vec2, warnIfNotPresent } from './utils/utils';
 import { listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
@@ -67,17 +67,18 @@ export function resetRealm(game: Game) {
   game.scene.background = texture;
 
   (async () => {
-    await game.realm.worker.load(game.ecs.getUUID(game.realm.currentObj));
+    const realmObjPath = parseUrlHash()[''];
+    await game.realm.worker.load(realmObjPath);
     await game.realm.worker.triggerRealmGeneration([0, 0]);
   })();
 }
 
-export function switchRealm(objUUID: string, json: ExportedRealmJson, game: Game) {
+export function switchRealm(json: ExportedRealmJson, game: Game) {
   const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
   game.realm.prevChunks = currentRealmObjComponents.get('obj/realm').chunks;
   game.ecs.deallocate(game.realm.currentObj);
-  game.realm.currentObj = loadExportedRealm(objUUID, json, game.ecs);
+  game.realm.currentObj = loadExportedRealm(json, game.ecs);
   resetRealm(game);
 }
 
@@ -102,6 +103,7 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
       textureUrl,
       subObjs: [],
       persistance: false,
+      repeatable: false,
       cells: Map2D.fromEntries<Cell>(cellEntries),
     }, game.realm.currentObj, game.ecs);
     chunkEntityComponents = game.ecs.getEntityComponents(chunkEntity);

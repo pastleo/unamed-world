@@ -1,9 +1,12 @@
 import { Game } from './game';
-import { exportAndSwitch } from './update';
 import { movePlayerAddRelative } from './player';
 import { setActiveTool, castMainTool } from './tools';
+import { exportRealm, importRealm } from './storage';
+import { calcJsonCid } from './ipfs';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
+
 import { Vec2, multiply, add, lengthSq } from './utils/utils';
+import { openJson, setUrlHash } from './utils/web';
 
 export interface Input {
   keyPressed: Set<string>;
@@ -47,12 +50,29 @@ export function create(): Input {
 
 export function startListeners(game: Game) {
   const { input } = game;
-  window.addEventListener('keydown', event => {
+  window.addEventListener('keydown', async event => {
     if (event.ctrlKey) {
+      let realmObjPath;
       switch (event.key) {
         case 's':
           event.preventDefault();
-          return exportAndSwitch(game);
+          return await exportRealm('download', game);
+        case 'o':
+          event.preventDefault();
+          const json = await openJson();
+          if (json) {
+            realmObjPath = `/local/${await calcJsonCid(json)}`;
+            await importRealm(realmObjPath, json);
+            setUrlHash({ '': realmObjPath });
+          }
+          return;
+        case 'S':
+          event.preventDefault();
+          realmObjPath = await exportRealm('ipfs', game);
+          if (realmObjPath) {
+            setUrlHash({ '': realmObjPath });
+          }
+          return;
         case 'x':
           event.preventDefault();
           window.location.href = window.location.origin; // reset room

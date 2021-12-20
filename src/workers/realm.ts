@@ -9,7 +9,7 @@ import { ObjRealmComponent, createBaseRealm } from '../lib/obj/realm';
 import { Cell, ChunkComponent, getChunk, getChunkCell } from '../lib/chunk/chunk';
 import { ChunkRenderAttributeComponent, AttributeArrays, chunkAttributeArrays } from '../lib/chunk/renderAttribute';
 
-import { EntityRef, UUID } from '../lib/utils/ecs';
+import { EntityRef, Sid } from '../lib/utils/ecs';
 import { Vec2, rangeVec2s, add } from '../lib/utils/utils';
 import SetVec2 from '../lib/utils/setVec2';
 import Map2D from '../lib/utils/map2d';
@@ -52,8 +52,8 @@ function startWorker() {
   };
 
   const realmRPCs: RealmRPCs = {
-    load: async (uuid) => {
-      await loadRealm(uuid, worker);
+    load: async (objRealmPath) => {
+      await loadRealm(objRealmPath, worker);
     },
     nextGeneratedChunk,
     triggerRealmGeneration: (centerChunkIJ) => {
@@ -68,8 +68,10 @@ function startWorker() {
 
 startWorker();
 
-async function loadRealm(uuid: UUID, worker: RealmWorker) {
-  const json = await localForage.getItem<ExportedRealmJson>(`realm:${uuid}`);
+async function loadRealm(objRealmPath: string, worker: RealmWorker) {
+  if (!objRealmPath) return;
+
+  const json = await localForage.getItem<ExportedRealmJson>(objRealmPath);
   if (json) {
     const prevChunks = worker.ecs.getComponent(worker.realmEntity, 'obj/realm').chunks;
     prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
@@ -77,7 +79,7 @@ async function loadRealm(uuid: UUID, worker: RealmWorker) {
     });
 
     worker.generatingChunkQueue = [];
-    worker.realmEntity = loadExportedRealm(uuid, json, worker.ecs);
+    worker.realmEntity = loadExportedRealm(json, worker.ecs);
   }
 }
 
@@ -141,13 +143,22 @@ function generateChunkEntity(chunkIJ: Vec2, realm: ObjRealmComponent, worker: Re
     return { altitude, flatness };
   }, 0, CHUNK_SIZE - 1, 0, CHUNK_SIZE - 1);
 
+  let textureUrl = '';
+  let repeatable = false;
+  const repeatableChunk = [upChunk, bottomChunk, leftChunk, rightChunk].find(chunk => chunk?.repeatable);
+  if (repeatableChunk) {
+    textureUrl = repeatableChunk.textureUrl;
+    repeatable = true;
+  }
+
   const chunkEntity = worker.ecs.allocate();
   worker.ecs.setComponent(chunkEntity, 'chunk', {
     cells,
     chunkIJ,
     subObjs: [], // not used
     persistance: false,
-    textureUrl: (upChunk || bottomChunk || leftChunk || rightChunk)?.textureUrl || '',
+    repeatable,
+    textureUrl,
   });
 
   realm.chunks.put(...chunkIJ, chunkEntity);

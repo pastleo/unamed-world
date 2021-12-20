@@ -7,12 +7,12 @@ import { update as updateCamera, resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { switchRealm } from './realm';
 import { jumpOnRealm, jumpOffRealm } from './player';
-import { fetchRealm, exportRealm } from './storage';
+import { fetchRealm } from './storage';
 import { join } from './network';
 
 import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
-import { parseUrlHash, setUrlHash } from './utils/web';
+import { parseUrlHash } from './utils/web';
 
 export default function update(game: Game, tDiff: number) {
   updateInput(game.input, tDiff, game);
@@ -31,17 +31,20 @@ export async function changeRealm(game: Game) {
   const realmObjPath = parseUrlHash()[''];
   if (!realmObjPath) return
 
+  const memberFound = await join(realmObjPath, game);
+  console.log(`changeRealm: memberFound: ${memberFound}`);
+
+  // TODO: if realmObjPath is local, and did not found on localstorage, ask from members
+
   const json = await fetchRealm(realmObjPath, game);
+  if (!json) {
+    console.warn(`changeRealm: fetchRealm '${realmObjPath}' failed`);
+    return;
+  };
+
   jumpOffRealm(game);
-  switchRealm(realmObjPath, json, game);
+  switchRealm(json, game);
   jumpOnRealm(game);
-
-  await join(realmObjPath, game);
-}
-
-export async function exportAndSwitch(game: Game) {
-  const exportedIpfsPath = await exportRealm(game);
-  setUrlHash({ '': exportedIpfsPath });
 }
 
 const UPDATE_CHUNK_RANGE = 2;
