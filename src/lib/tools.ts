@@ -107,10 +107,6 @@ function updateActiveTool(game: Game) {
   const prevTool = game.tools.activeTool;
   game.tools.activeTool = game.tools.toolsBox[game.tools.swiper.realIndex];
 
-  document.querySelectorAll('.top-toolbox.active').forEach(element => {
-    element.classList.remove('active');
-  });
-
   switch(game.tools.activeTool) {
     case 'draw':
       ensureDrawActivated(game);
