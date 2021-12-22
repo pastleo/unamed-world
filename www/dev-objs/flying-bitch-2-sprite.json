@@ -1,1 +1,0 @@
-{"version":1,"objUUID":"flying-bitch-2","packedObjSprite":{"spritesheet":"assets/flying-bitch.png","eightBitStyle":true,"colRow":[7,1],"stateAnimations":{"normal":{"animations":[[0,6]],"speed":500},"walking":{"animations":[[0,6]],"speed":200}},"tall":1.4390243902439024,"radius":0.5},"packedObjWalkable":{"speed":4,"maxClimbRad":0.9424777960769379}}

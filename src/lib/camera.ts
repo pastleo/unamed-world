@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Game } from './game';
-import { Vec2, Vec3, length, sub, multiply, threeToVec3, vecCopyTo, vec2CopyTo3, vecAddToThree } from './utils/utils';
+import { Vec2, Vec3, length, sub, multiply, threeToVec3, vecCopyTo, vec2To3, vecAddToThree } from './utils/utils';
 
 import {
   INIT_CAMERA_ANGLE,
@@ -85,7 +85,7 @@ export function setCameraPosition(position: Vec3, game: Game): void {
   game.camera.moving = true;
 }
 export function setCameraLocation(location: Vec2, game: Game): void {
-  vec2CopyTo3(location, game.camera.position);
+  vec2To3(location, game.camera.position);
   game.camera.moving = true;
 }
 export function setCameraY(y: number, game: Game): void {

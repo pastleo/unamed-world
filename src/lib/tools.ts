@@ -337,8 +337,6 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
   if (distanceBetweenSubObj > targetObjSprite.radius) return;
 
-  console.log('changing to', game.ecs.getSid(nearBySubObj.obj));
-
   game.player.objEntity = nearBySubObj.obj;
   destroySubObj(game.player.subObjEntity, game);
   const newSubObj = createSubObj(game.player.objEntity, subObj.position, game, located);

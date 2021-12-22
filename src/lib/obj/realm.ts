@@ -2,6 +2,7 @@ import * as ss from 'superstruct';
 import { GameECS } from '../gameECS';
 
 import { EntityRef, sidType } from '../utils/ecs';
+import { Vec2, vec2Type, InferSSOptional } from '../utils/utils';
 import Map2D, { map2DEntriesType } from '../utils/map2d';
 
 import { BASE_REALM_BACKGROUND } from '../consts';
@@ -9,6 +10,7 @@ import { BASE_REALM_BACKGROUND } from '../consts';
 export interface ObjRealmComponent {
   chunks: Map2D<EntityRef>;
   backgrounds: Backgrounds;
+  spawnLocation?: Vec2;
 }
 
 const backgroundsType = ss.tuple([
@@ -31,13 +33,15 @@ export function createBaseRealm(ecs: GameECS): EntityRef {
   return realmObjEntity;
 }
 
-export const packedObjRealmComponentType = ss.object({
+const packedObjRealmComponentTypeDef = ss.object({
   chunkEntries: map2DEntriesType(sidType),
   backgrounds: backgroundsType,
+  spawnLocation: ss.optional(vec2Type),
 });
-export type PackedObjRealmComponent = ss.Infer<typeof packedObjRealmComponentType>;
+export type PackedObjRealmComponent = InferSSOptional<typeof packedObjRealmComponentTypeDef, 'spawnLocation'>
+export const packedObjRealmComponentType = packedObjRealmComponentTypeDef as ss.Struct<PackedObjRealmComponent>;
 
-export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmComponent {
+export function pack(objRealm: ObjRealmComponent, spawnLocation: Vec2, ecs: GameECS): PackedObjRealmComponent {
   const { backgrounds } = objRealm;
   return {
     chunkEntries: objRealm.chunks.entries().filter(([_, chunkEntity]) => {
@@ -47,6 +51,7 @@ export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmC
       chunkIJ, ecs.getSid(chunkEntity),
     ])),
     backgrounds,
+    spawnLocation,
   }
 }
 
@@ -56,5 +61,6 @@ export function unpack(objRealmEntity: EntityRef, packedObjRealm: PackedObjRealm
       [chunkIJ, ecs.fromSid(sid)]
     ))),
     backgrounds: packedObjRealm.backgrounds,
+    spawnLocation: packedObjRealm.spawnLocation || [0, 0],
   });
 }

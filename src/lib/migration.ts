@@ -1,8 +1,12 @@
+import debug from 'debug';
+
 import { SidEntries } from './storage';
 import { ChunkComponent } from './chunk/chunk';
 
 import { Vec2 } from './utils/utils';
 import { LATEST_STORAGE_VERSION } from './consts';
+
+const log = debug('migration');
 
 export function migrateRealmJson(json: any) {
   if (!json.version) { // version null
@@ -12,7 +16,7 @@ export function migrateRealmJson(json: any) {
       });
     });
     json.version = 1;
-    console.log('migrated realmJson to v1:', json);
+    log('migrated realmJson to v1:', json);
   }
 
   if (json.version === 1) {
@@ -23,7 +27,7 @@ export function migrateRealmJson(json: any) {
         chunk.repeatable = true;
       }
     );
-    console.log('migrated realmJson to v2:', json);
+    log('migrated realmJson to v2:', json);
   }
 
   checkLatest(json);
@@ -32,13 +36,13 @@ export function migrateRealmJson(json: any) {
 export function migrateSpriteJson(json: any) {
   if (!json.version) { // version null
     json.version = 1;
-    console.log('migrated spriteJson:', json.objUUID);
+    log('migrated spriteJson:', json.objUUID);
   }
 
   if (json.version === 1) {
     delete json.objUUID;
     json.version = 2;
-    console.log('migrated spriteJson to v2:', json);
+    log('migrated spriteJson to v2:', json);
   }
 
   checkLatest(json);

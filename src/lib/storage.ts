@@ -6,7 +6,9 @@ import { Game } from './game';
 import { GameECS } from './gameECS';
 import { ensureIpfsStarted, calcJsonCid, fetchIpfsJson } from './ipfs';
 import { migrateRealmJson, migrateSpriteJson } from './migration';
+import { getPlayerLocation } from './player';
 
+import { ObjPath } from './obj/obj';
 import { packedObjRealmComponentType, pack as packObjRealm, unpack as unpackObjRealm } from './obj/realm';
 import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk } from './chunk/chunk';
 import { updateChunkTextureUrl } from './chunk/render';
@@ -49,6 +51,7 @@ export const exportedSpriteJsonType = ss.object({
 export type ExportedSpriteJson = ss.Infer<typeof exportedSpriteJsonType>;
 
 export interface StorageManager {
+  savedRealmObjPath?: ObjPath;
 }
 
 export function init(): StorageManager {
@@ -57,17 +60,13 @@ export function init(): StorageManager {
 
 export async function start(game: Game): Promise<void> {
   if (DBG_MODE) {
-    (window as any).exportRealm = async (method: ExportRealmMethod) => {
-      const exportedIpfsPath = await exportRealm(method, game);
-      console.log({ exportedIpfsPath });
-    };
     (window as any).exportSprite = () => {
       exportSprite(game);
     }
   }
 }
 
-export async function fetchRealm(realmObjPath: string, game: Game): Promise<ExportedRealmJson> {
+export async function fetchRealm(realmObjPath: ObjPath, game: Game): Promise<ExportedRealmJson> {
   let json;
   if (realmObjPath.startsWith('/local/')) {
     json = await localForage.getItem(realmObjPath);
@@ -86,7 +85,7 @@ export async function fetchRealm(realmObjPath: string, game: Game): Promise<Expo
   }
 }
 
-export async function importRealm(realmObjPath: string, json: any): Promise<ExportedRealmJson> {
+export async function importRealm(realmObjPath: ObjPath, json: any): Promise<ExportedRealmJson> {
   migrateRealmJson(json) // alter json in-place
   const [err, jsonValidated] = ss.validate(json, exportedRealmJsonType);
 
@@ -99,8 +98,8 @@ export async function importRealm(realmObjPath: string, json: any): Promise<Expo
   return jsonValidated;
 }
 
-export function loadExportedRealm(json: ExportedRealmJson, ecs: GameECS): EntityRef {
-  const newRealmEntity = ecs.allocate();
+export function loadExportedRealm(realmObjPath: ObjPath, json: ExportedRealmJson, ecs: GameECS): EntityRef {
+  const newRealmEntity = ecs.fromSid(realmObjPath);
   unpackObjRealm(newRealmEntity, json.packedObjRealm, ecs);
   json.packedChunks.forEach(([sid, packedChunk]) => {
     unpackChunk(
@@ -121,15 +120,13 @@ export function loadExportedRealm(json: ExportedRealmJson, ecs: GameECS): Entity
 }
 
 type ExportRealmMethod = 'local' | 'download' | 'ipfs';
-/**
- * @returns Promise<realmObjPath>
- */
-export async function exportRealm(method: ExportRealmMethod, game: Game): Promise<string> {
+export async function exportRealm(method: ExportRealmMethod, game: Game): Promise<ObjPath> {
   const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
   const subObjSids: Sid[] = [];
 
-  const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), game.ecs);
+  const spawnLocation = getPlayerLocation(game);
+  const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), spawnLocation, game.ecs);
   const packedChunks = packedObjRealm.chunkEntries.map(([_chunkIJ, sid]) => {
     const chunkEntityComponents = game.ecs.getEntityComponents(game.ecs.fromSid(sid));
     const chunk = chunkEntityComponents.get('chunk');
@@ -161,7 +158,7 @@ export async function exportRealm(method: ExportRealmMethod, game: Game): Promis
     packedChunks,
     packedSubObjs,
   };
-  let realmObjPath;
+  let realmObjPath: ObjPath;
 
   switch (method) {
     case 'local':
@@ -178,6 +175,7 @@ export async function exportRealm(method: ExportRealmMethod, game: Game): Promis
       downloadJson(objRealmJson, `realm-${await calcJsonCid(objRealmJson)}.json`);
       break;
   }
+  game.storage.savedRealmObjPath = realmObjPath;
 
   return realmObjPath;
 }

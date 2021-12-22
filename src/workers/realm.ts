@@ -9,7 +9,7 @@ import { ObjRealmComponent, createBaseRealm } from '../lib/obj/realm';
 import { Cell, ChunkComponent, getChunk, getChunkCell } from '../lib/chunk/chunk';
 import { ChunkRenderAttributeComponent, AttributeArrays, chunkAttributeArrays } from '../lib/chunk/renderAttribute';
 
-import { EntityRef, Sid } from '../lib/utils/ecs';
+import { EntityRef } from '../lib/utils/ecs';
 import { Vec2, rangeVec2s, add } from '../lib/utils/utils';
 import SetVec2 from '../lib/utils/setVec2';
 import Map2D from '../lib/utils/map2d';
@@ -21,6 +21,7 @@ const log = debug('worker/realm');
 
 export interface ChunkGenerationResult {
   chunkIJ: Vec2;
+  repeatable: boolean;
   cellEntries?: [[number, number], Cell][];
   textureUrl: string;
   attributeArrays: AttributeArrays;
@@ -79,7 +80,7 @@ async function loadRealm(objRealmPath: string, worker: RealmWorker) {
     });
 
     worker.generatingChunkQueue = [];
-    worker.realmEntity = loadExportedRealm(json, worker.ecs);
+    worker.realmEntity = loadExportedRealm(objRealmPath, json, worker.ecs);
   }
 }
 
@@ -225,6 +226,7 @@ function generateChunksAttrs(queue: EntityRef[], worker: RealmWorker) {
 
     worker.notifyNewChunk(Comlink.transfer({
       chunkIJ: chunk.chunkIJ,
+      repeatable: chunk.repeatable,
       textureUrl: chunk.textureUrl,
       attributeArrays,
       ...sendChunkCells(chunk, chunkEntity, worker),

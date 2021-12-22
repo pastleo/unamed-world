@@ -57,7 +57,7 @@ export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents,
       transparent: true,
     });
   } else {
-    material = game.realm.gridMaterial;
+    material = game.realm.loadedExternal ? game.realm.emptyMaterial : game.realm.gridMaterial;
   }
 
   if (chunkRender) {

@@ -11,7 +11,7 @@ import { setCameraPosition, setCameraLocation, setCameraY } from './camera';
 import { triggerRealmGeneration } from './realm';
 import { broadcastMyself } from './network';
 
-import { Vec2, Vec3, add, multiply, length, vec3To2, warnIfNotPresent } from './utils/utils';
+import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, warnIfNotPresent } from './utils/utils';
 
 import { MAX_DISTANCE_BETWEEN_PLAYER } from './consts';
 
@@ -39,6 +39,11 @@ export function addToRealm(game: Game, initPosition: Vec3 = [0, 0, 0]) {
   mountSubObj(subObj, game);
 }
 
+export function getPlayerLocation(game: Game) {
+  const subObj = game.ecs.getComponent(game.player.subObjEntity, 'subObj');
+  return vec3To2(subObj.position);
+}
+
 export function mountSubObj(subObjEntity: EntityRef, game: Game) {
   game.player.subObjEntity = subObjEntity;
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
@@ -55,7 +60,8 @@ export function mountSubObj(subObjEntity: EntityRef, game: Game) {
 
 export function jumpOnRealm(game: Game) {
   game.player.subObjEntity = game.ecs.allocate();
-  addToRealm(game, [0, 0, 0]);
+  const realmObj = game.ecs.getComponent(game.realm.currentObj, 'obj/realm');
+  addToRealm(game, vec2To3(realmObj.spawnLocation || [0, 0]));
 }
 
 export function jumpOffRealm(game: Game) {

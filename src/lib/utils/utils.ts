@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import * as ss from 'superstruct';
 
+import { Optional } from 'utility-types';
+
 export const vec2Type = ss.tuple([ss.number(), ss.number()]);
 export type Vec2 = ss.Infer<typeof vec2Type>;
 export const vec3Type = ss.tuple([ss.number(), ss.number(), ss.number()]);
@@ -36,18 +38,21 @@ export function multiply<T extends Vec2 | Vec3>(v: T, scalar: number, dstVArg?: 
   return dstV;
 }
 
-export function vec3To2(a: Vec3): Vec2 {
-  return [a[0], a[2]];
+export function vec3To2(v: Vec3, dst: Vec2 = [0, 0]): Vec2 {
+  dst[0] = v[0];
+  dst[1] = v[2];
+  return dst;
 }
-export function threeToVec3(threeVec: THREE.Vector3): Vec3 {
-  return [threeVec.x, threeVec.y, threeVec.z];
+export function vec2To3(v: Vec2, dst: Vec3 = [0, 0, 0]): Vec3 {
+  dst[0] = v[0];
+  dst[2] = v[1];
+  return dst;
 }
 export function vecCopyTo<T extends Vec2 | Vec3>(v: T, dst: T) {
   for (let i = 0; i < v.length; i++) dst[i] = v[i];
 }
-export function vec2CopyTo3(v: Vec2, dst: Vec3) {
-  dst[0] = v[0];
-  dst[2] = v[1];
+export function threeToVec3(threeVec: THREE.Vector3): Vec3 {
+  return [threeVec.x, threeVec.y, threeVec.z];
 }
 export function vecCopyToThree(v: Vec2 | Vec3, dst: THREE.Vector3) {
   if (v.length === 2) {
@@ -144,3 +149,20 @@ export function warnIfNotPresent(...values: any[]) {
 }
 
 export const randomStr = () => Math.floor(Math.random() * Date.now()).toString(36);
+
+/**
+ * To define a superstruct object with optional key:
+ *
+ * const someTypeDef = ss.object({
+ *   a: ss.string(),
+ *   b: ss.optional(ss.string()),
+ * });
+ * type Some = InferSSOptional<typeof someTypeDef, 'b'>;
+ * export const someType = someTypeDef as ss.Struct<Some>;
+ *
+ * Why optional can not be infered directly?
+ *
+ * from https://docs.superstructjs.org/guides/06-using-typescript
+ * If you are not using TypeScript's strictNullChecks option, Superstruct will be unable to infer your "optional" types correctly and will mark all types as optional.
+ */
+export type InferSSOptional<T extends ss.Struct<object>, K extends keyof ss.Infer<T>> = Optional<ss.Infer<T>, K>;

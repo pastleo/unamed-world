@@ -43,7 +43,7 @@ export async function changeRealm(game: Game) {
   };
 
   jumpOffRealm(game);
-  switchRealm(json, game);
+  switchRealm(realmObjPath, json, game);
   jumpOnRealm(game);
 }
 

@@ -1,5 +1,7 @@
 import UnamedNetwork from 'unamed-network';
 
+import debug from 'debug';
+
 import { Game } from './game';
 
 import { getObjEntity } from './obj/obj';
@@ -12,6 +14,8 @@ import { Vec3, Vec2 } from './utils/utils';
 
 import { UNAMED_NETWORK_CONFIG, UNAMED_NETWORK_KNOWN_SERVICE_ADDRS } from '../env';
 import { DBG_MODE } from './dbg';
+
+const log = debug('network');
 
 export interface Networking {
   unamedNetwork: UnamedNetwork;
@@ -39,13 +43,6 @@ export async function ensureStarted(game: Game) {
     (window as any).unamedNetwork = unamedNetwork;
     console.log('window.unamedNetwork created:', unamedNetwork);
     console.log('unamedNetwork started, unamedNetwork.id:', unamedNetwork.id);
-
-    unamedNetwork.on('new-member', ({ memberPeer, room }) => {
-      console.log('new-member', { memberPeer, room });
-    });
-    unamedNetwork.on('room-message', ({ room, fromMember, message }) => {
-      console.log('room-message', { room, fromMember, message });
-    });
   }
 }
 
@@ -59,26 +56,24 @@ interface PingMessage {
 export async function join(roomName: string, game: Game): Promise<boolean> {
   await ensureStarted(game);
 
-  if (game.network.roomName) {
-    throw new Error('WIP: change realm room not implemented');
-  }
   game.network.roomName = roomName;
-  const memberExists = await game.network.unamedNetwork.join(roomName);
+  const memberExists = await game.network.unamedNetwork.join(roomName, true);
 
   if (memberExists) {
     broadcastMyself(game);
   }
-  game.network.unamedNetwork.on('new-member', () => {
+  game.network.unamedNetwork.on('new-member', ({ memberPeer, room }) => {
+    log('new-member', { memberPeer, room });
     broadcastMyself(game);
   });
   game.network.unamedNetwork.on('member-left', ({ memberPeer }) => {
     memberLeft(memberPeer.peerId, game);
   });
   game.network.unamedNetwork.on('room-message', ({ room, fromMember, message }) => {
+    log('room-message', { room, fromMember, message });
     if (room.name !== roomName) return;
     switch (message.type) {
       case 'world-ping':
-        console.log(`from ${fromMember.peerId} ping:`, message);
         handlePing(fromMember.peerId, message as PingMessage, game);
       break;
     }
