@@ -80,6 +80,16 @@ class ECS<ComponentMapT extends Record<string, any>> {
     return entity.sid;
   }
 
+  setSid(ref: EntityRef, newSid: Sid) {
+    const entity = this.getEntity(ref);
+    if (!entity) return;
+    this.sids.set(newSid, ref);
+    if (entity.sid) {
+      this.sids.delete(entity.sid);
+    }
+    entity.sid = newSid;
+  }
+
   fromSid(sid: Sid): EntityRef {
     let ref = this.sids.get(sid);
     if (!this.getEntity(ref)) {

@@ -1,6 +1,7 @@
 import * as ss from 'superstruct';
 import { GameECS } from '../gameECS';
 
+import { ObjPath, objPathType } from './obj';
 import { SubObjState, subObjStateType } from '../subObj/subObj';
 
 import { EntityRef } from '../utils/ecs';
@@ -14,6 +15,7 @@ export interface ObjSpriteComponent {
   tall: number;
   radius: number;
   collision?: boolean;
+  srcRealmObjPath?: ObjPath;
 }
 
 const spriteAnimationType = ss.tuple([ss.number(), ss.number()]);
@@ -33,8 +35,9 @@ const packedObjSpriteComponentTypeDef = ss.object({
   tall: ss.number(),
   radius: ss.number(),
   collision: ss.optional(ss.boolean()),
+  srcRealmObjPath: ss.optional(objPathType),
 });
-export type PackedObjSpriteComponent = InferSSOptional<typeof packedObjSpriteComponentTypeDef, 'eightBitStyle' | 'collision'>;
+export type PackedObjSpriteComponent = InferSSOptional<typeof packedObjSpriteComponentTypeDef, 'eightBitStyle' | 'collision' | 'srcRealmObjPath'>;
 export const packedObjSpriteComponentType = packedObjSpriteComponentTypeDef as ss.Struct<PackedObjSpriteComponent>;
 
 export function pack(objSpriteComponent: ObjSpriteComponent): PackedObjSpriteComponent {

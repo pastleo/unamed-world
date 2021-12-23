@@ -5,17 +5,20 @@ import 'swiper/css';
 
 import { Game } from './game';
 import { GameEntityComponents } from './gameECS';
-import { mountSubObj, movePlayerTo } from './player';
+import { getPlayerLocation, mountSubObj, movePlayerTo } from './player';
 import { broadcastMyself } from './network';
-import { exportRealm } from './storage';
+import { adjustTerrain, afterSaved } from './realm';
+import { exportRealm, buildSpriteFromCurrentRealm, exportSprite } from './storage';
 
-import { Cell, Located, getChunkEntityComponents, locateOrCreateChunkCell, getChunkCell, calcCellLocation } from './chunk/chunk';
+import {
+  Located,
+  getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
+} from './chunk/chunk';
 import { editChunkCanvas2d } from './chunk/render';
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
 import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree } from './utils/utils';
 import { setUrlHash } from './utils/web';
-import Map2D from './utils/map2d';
 
 import { DRAW_CANVAS_SIZE } from './consts';
 
@@ -55,6 +58,9 @@ interface TerrainAltitude {
 
 interface Options {
   swiper: SwiperTool;
+  savedActionShown: boolean;
+  gotoActionDOM: HTMLElement;
+  genActionDOM: HTMLElement;
 }
 
 export function create(): Tools {
@@ -162,7 +168,7 @@ function ensureDrawActivated(game: Game) {
   document.body.appendChild(drawBoxDOM);
 
   const draw: Draw = {
-    swiper: setupSwiperTool(drawBoxDOM, 1, (_activeIndex, prevIndex) => {
+    swiper: setupSwiperTool(drawBoxDOM, 1, 2, (_activeIndex, prevIndex) => {
       updateDrawActiveBrush(game, prevIndex);
     }),
     fillStyle: 'black',
@@ -263,22 +269,50 @@ function ensureOptionsActivated(game: Game) {
   if (game.tools.options) return;
 
   const topToolBoxesTemplate = document.getElementById('top-toolboxes') as HTMLTemplateElement;
+  const savedActionsTemplate = document.getElementById('saved-actions') as HTMLTemplateElement;
 
   const optionsBoxDOM = topToolBoxesTemplate.content.querySelector('#options-box').cloneNode(true) as HTMLElement;
   document.body.appendChild(optionsBoxDOM);
 
+  const saveActionDOM = optionsBoxDOM.querySelector('#save-action');
+  const gotoActionDOM = savedActionsTemplate.content.querySelector('#goto-action').cloneNode(true) as HTMLElement;
+  const genActionDOM = savedActionsTemplate.content.querySelector('#gen-sprite').cloneNode(true) as HTMLElement;
+
   const options: Options = {
-    swiper: setupSwiperTool(optionsBoxDOM, 0, () => {}),
+    swiper: setupSwiperTool(optionsBoxDOM, 0, 2, () => {}),
+    savedActionShown: false,
+    gotoActionDOM, genActionDOM,
   }
 
-  const saveActionDOM = optionsBoxDOM.querySelector('#save-action');
+  if (game.realm.state === 'saved') {
+    showRealmExportedOptions(game);
+  }
+
   saveActionDOM.addEventListener('click', async () => {
     if (options.swiper.activeIndex !== 0) return;
 
-    const realmObjPath = await exportRealm('local', game);
-    if (realmObjPath) {
-      setUrlHash({ '': realmObjPath });
+    const realmObjPath = await exportRealm('local', getPlayerLocation(game), game);
+    afterSaved(realmObjPath, game);
+  });
+  gotoActionDOM.addEventListener('click', () => {
+    if (options.swiper.activeIndex !== 1) return;
+
+    if (game.storage.savedRealmObjPath) {
+      setUrlHash({ '': game.storage.savedRealmObjPath });
     }
+  });
+  genActionDOM.addEventListener('click', async () => {
+    if (options.swiper.activeIndex !== 2) return;
+
+    const spriteObj = buildSpriteFromCurrentRealm(game);
+    const spriteObjPath = await exportSprite('local', spriteObj, game);
+
+    // TODO: add to inventory
+
+    // testing
+    console.log('gen-sprite', { spriteObj, spriteObjPath });
+    const located = locateOrCreateChunkCell([0, 0, 0], game);
+    createSubObj(spriteObj, [0, 0, 0], game, located);
   });
 
   game.tools.options = options;
@@ -292,6 +326,26 @@ function hideOptionsTool(_game: Game) {
   document.getElementById('options-box').classList.remove('active');
 }
 
+export function showRealmExportedOptions(game: Game) {
+  const options = game.tools.options;
+  if (!options || options.savedActionShown) return;
+
+  options.swiper.swiper.appendSlide([
+    options.gotoActionDOM,
+    options.genActionDOM,
+  ]);
+  options.swiper.swiper.slideTo(1);
+
+  options.savedActionShown = true;
+}
+
+export function hideRealmExportedOptions(game: Game) {
+  const options = game.tools.options;
+  if (!options || !options.savedActionShown) return;
+
+  options.swiper.swiper.removeSlide([1, 2]);
+  options.savedActionShown = false;
+}
 
 type InputType = 'down' | 'up' | 'move';
 export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game) {
@@ -387,21 +441,11 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
     if (coneIntersect) {
       const upClicked = coneIntersect.object.id === terrainAltitude.upCone.id;
 
-      const { chunkIJ, cellIJ, cell, chunk } = terrainAltitude.selectedChunkCell;
-      cell.altitude += upClicked ? 0.2 : -0.2;
-      terrainAltitude.coneGroup.position.y = cell.altitude;
-      chunk.persistance = true;
-
-      const updatedCells = new Map2D<Cell>();
-
-      rangeVec2s(cellIJ, 1).map(cellIJ => {
-        const cell = getChunkCell(chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
-        cell.flatness = 4;
-        updatedCells.put(...cellIJ, cell);
-      })
-
-      game.realm.worker.updateCells(chunkIJ, updatedCells.entries());
-      return;
+      return adjustTerrain(
+        upClicked ? 0.2 : -0.2, 4, 0,
+        terrainAltitude.selectedChunkCell,
+        game,
+      );
     }
   }
 
@@ -448,15 +492,15 @@ function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.I
 }
 
 function setupSwiperTool(
-  boxDOM: HTMLElement, initialSlide: number,
+  boxDOM: HTMLElement, initialSlide: number, slidesToShow: number,
   onUpdate: (activeIndex: number, prevIndex: number) => void
 ): SwiperTool {
-  const initialSlideCount = boxDOM.querySelector('.swiper-wrapper').childElementCount;
-  boxDOM.style.width = `${initialSlideCount * 10}rem`;
-  boxDOM.style.marginLeft = `${initialSlideCount * -5}rem`;
+  boxDOM.style.width = `${slidesToShow * 10}rem`;
+  boxDOM.style.marginLeft = `${slidesToShow * -5}rem`;
 
   const swiperTool: SwiperTool = {
     swiper: new Swiper(boxDOM.querySelector('.swiper') as HTMLElement, {
+      modules: [Manipulation],
       slidesPerView: "auto",
       centeredSlides: true,
       slideToClickedSlide: true,

@@ -1,5 +1,5 @@
 import { Game } from './game';
-import { movePlayerAddRelative } from './player';
+import { movePlayerAddRelative, getPlayerLocation } from './player';
 import { setActiveTool, castMainTool } from './tools';
 import { exportRealm, importRealm } from './storage';
 import { calcJsonCid } from './ipfs';
@@ -56,7 +56,7 @@ export function startListeners(game: Game) {
       switch (event.key) {
         case 's':
           event.preventDefault();
-          return await exportRealm('download', game);
+          return await exportRealm('download', getPlayerLocation(game), game);
         case 'o':
           event.preventDefault();
           const json = await openJson();
@@ -68,7 +68,7 @@ export function startListeners(game: Game) {
           return;
         case 'S':
           event.preventDefault();
-          realmObjPath = await exportRealm('ipfs', game);
+          realmObjPath = await exportRealm('ipfs', getPlayerLocation(game), game);
           if (realmObjPath) {
             setUrlHash({ '': realmObjPath });
           }

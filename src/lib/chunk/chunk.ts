@@ -104,13 +104,17 @@ export function getOrCreateChunk(
   return chunk
 }
 
-export function getChunkCell(chunkIJSrc: Vec2, cellIJSrc: Vec2, realmEntity: EntityRef, ecs: GameECS): Cell {
+export function getChunkAndCell(chunkIJSrc: Vec2, cellIJSrc: Vec2, realmEntity: EntityRef, ecs: GameECS): [ChunkComponent, Cell] {
   const [chunkIJ, cellIJ] = correctChunkCellIJ(chunkIJSrc, cellIJSrc);
 
   const chunk = getChunk(chunkIJ, realmEntity, ecs);
   if (!chunk) return null;
 
-  return chunk.cells.get(...cellIJ);
+  return [chunk, chunk.cells.get(...cellIJ)];
+}
+
+export function getChunkCell(chunkIJ: Vec2, cellIJ: Vec2, realmEntity: EntityRef, ecs: GameECS): Cell {
+  return getChunkAndCell(chunkIJ, cellIJ, realmEntity, ecs)[1];
 }
 
 export function getOrCreateChunkCell(
@@ -193,6 +197,11 @@ export function mergeChunk(chunkSrc: Required<Partial<ChunkComponent>, 'chunkIJ'
       )
     ],
   });
+}
+
+export function afterChunkChanged(chunk: ChunkComponent, game: Game) {
+  chunk.persistance = true;
+  game.realm.markChanged();
 }
 
 export function destroy(chunkEntityComponents: GameEntityComponents, ecs: GameECS) {

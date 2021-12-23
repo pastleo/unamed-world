@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 
 import { Game } from '../game';
+
 import { AttributeArrays } from './renderAttribute';
+import { afterChunkChanged } from './chunk';
 
 import { GameEntityComponents } from '../gameECS';
 import { Vec2, warnIfNotPresent } from '../utils/utils';
@@ -105,13 +107,14 @@ export function editChunkCanvas2d(
     chunkRender.editing = {
       canvas2d, material
     }
-    chunkEntityComponents.get('chunk').persistance = true;
   }
 
   const canvas2d = chunkRender.editing.canvas2d;
 
   callback(canvas2d);
 
+  game.realm.markChanged();
+  afterChunkChanged(chunkEntityComponents.get('chunk'), game);
   chunkRender.editing.material.map.needsUpdate = true;
 }
 

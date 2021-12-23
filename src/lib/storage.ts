@@ -6,23 +6,20 @@ import { Game } from './game';
 import { GameECS } from './gameECS';
 import { ensureIpfsStarted, calcJsonCid, fetchIpfsJson } from './ipfs';
 import { migrateRealmJson, migrateSpriteJson } from './migration';
-import { getPlayerLocation } from './player';
 
 import { ObjPath } from './obj/obj';
 import { packedObjRealmComponentType, pack as packObjRealm, unpack as unpackObjRealm } from './obj/realm';
-import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk } from './chunk/chunk';
+import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk, getChunkEntityComponents } from './chunk/chunk';
 import { updateChunkTextureUrl } from './chunk/render';
 import { PackedSubObjComponent, packedSubObjComponentType, pack as packSubObj, unpack as unpackSubObj } from './subObj/subObj';
 import { packedObjSpriteComponentType, pack as packObjSprite, unpack as unpackObjSprite } from './obj/sprite';
 import { packedObjWalkableComponentType, pack as packObjWalkable, unpack as unpackObjWalkable } from './obj/walkable';
 
 import { EntityRef, Sid, sidType, entityEqual } from './utils/ecs';
-import { warnIfNotPresent } from './utils/utils';
+import { Vec2, warnIfNotPresent } from './utils/utils';
 import { createJsonBlob, downloadJson } from './utils/web';
 
 import { LATEST_STORAGE_VERSION } from './consts';
-
-import { DBG_MODE } from './dbg';
 
 export function sidEntryType<T>(t: ss.Struct<T>) {
   return ss.tuple([sidType, t]);
@@ -44,7 +41,6 @@ export type ExportedRealmJson = ss.Infer<typeof exportedRealmJsonType>;
 
 export const exportedSpriteJsonType = ss.object({
   version: ss.number(),
-  // realmCid: ss.string(),
   packedObjSprite: packedObjSpriteComponentType,
   packedObjWalkable: packedObjWalkableComponentType,
 });
@@ -58,12 +54,7 @@ export function init(): StorageManager {
   return {}
 }
 
-export async function start(game: Game): Promise<void> {
-  if (DBG_MODE) {
-    (window as any).exportSprite = () => {
-      exportSprite(game);
-    }
-  }
+export async function start(_game: Game): Promise<void> {
 }
 
 export async function fetchRealm(realmObjPath: ObjPath, game: Game): Promise<ExportedRealmJson> {
@@ -119,13 +110,11 @@ export function loadExportedRealm(realmObjPath: ObjPath, json: ExportedRealmJson
   return newRealmEntity;
 }
 
-type ExportRealmMethod = 'local' | 'download' | 'ipfs';
-export async function exportRealm(method: ExportRealmMethod, game: Game): Promise<ObjPath> {
+export async function exportRealm(method: ExportObjMethod, spawnLocation: Vec2, game: Game): Promise<ObjPath> {
   const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
   const subObjSids: Sid[] = [];
 
-  const spawnLocation = getPlayerLocation(game);
   const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), spawnLocation, game.ecs);
   const packedChunks = packedObjRealm.chunkEntries.map(([_chunkIJ, sid]) => {
     const chunkEntityComponents = game.ecs.getEntityComponents(game.ecs.fromSid(sid));
@@ -158,24 +147,7 @@ export async function exportRealm(method: ExportRealmMethod, game: Game): Promis
     packedChunks,
     packedSubObjs,
   };
-  let realmObjPath: ObjPath;
-
-  switch (method) {
-    case 'local':
-      realmObjPath = `/local/${await calcJsonCid(objRealmJson)}`;
-
-      await localForage.setItem(realmObjPath, objRealmJson);
-      break;
-    case 'ipfs':
-      await ensureIpfsStarted(game);
-      const { path } = await game.ipfs.add(createJsonBlob(objRealmJson));
-      realmObjPath = `/ipfs/${path}`;
-      break;
-    case 'download':
-      downloadJson(objRealmJson, `realm-${await calcJsonCid(objRealmJson)}.json`);
-      break;
-  }
-  game.storage.savedRealmObjPath = realmObjPath;
+  const realmObjPath = await exportObjJson(method, objRealmJson, game);
 
   return realmObjPath;
 }
@@ -205,26 +177,67 @@ export function loadExportedSprite(spriteCid: /* TODO */ Sid, json: ExportedSpri
   return objEntity;
 }
 
-// just for dev obj
-export function exportSprite(game: Game) {
-  const objEntities: EntityRef[] = [];
-  game.ecs.getComponentEntities('subObj').forEach(([_subObjEntity, subObj]) => {
-    if (objEntities.findIndex(oEntity => entityEqual(oEntity, subObj.obj)) === -1) {
-      objEntities.push(subObj.obj);
-    }
+export function buildSpriteFromCurrentRealm(game: Game): EntityRef {
+  const chunkEntityComponents = getChunkEntityComponents([0, 0], game.realm.currentObj, game.ecs);
+
+  const newObjSprite = game.ecs.allocate();
+  const newObjSpriteComponents = game.ecs.getEntityComponents(newObjSprite);
+
+  newObjSpriteComponents.set('obj/sprite', {
+    spritesheet: chunkEntityComponents.get('chunk').textureUrl, // TODO
+    colRow: [1, 1],
+    stateAnimations: {
+      normal: {
+        animations: [[0, 0]],
+        speed: 0,
+      },
+    },
+    tall: 1,
+    radius: 0.5,
+    srcRealmObjPath: game.ecs.getSid(game.realm.currentObj),
+  });
+  newObjSpriteComponents.set('obj/walkable', {
+    speed: 4,
+    maxClimbRad: Math.PI * 0.3,
   });
 
-  objEntities.forEach(objEntity => {
-    const objEntityComponents = game.ecs.getEntityComponents(objEntity);
-    const objSid = game.ecs.getSid(objEntity); // should be hash-of-obj-realm
-    const packedObjSprite = packObjSprite(objEntityComponents.get('obj/sprite'));
-    const packedObjWalkable = packObjWalkable(objEntityComponents.get('obj/walkable'));
+  return newObjSpriteComponents.entity;
+}
 
-    const objSpriteJson: ExportedSpriteJson = {
-      version: LATEST_STORAGE_VERSION,
-      packedObjSprite,
-      packedObjWalkable,
-    };
-    downloadJson(objSpriteJson, `${objSid}-sprite.json`);
-  });
+export async function exportSprite(method: ExportObjMethod, objSprite: EntityRef, game: Game): Promise<ObjPath> {
+  const objSpriteComponents = game.ecs.getEntityComponents(objSprite);
+  const packedObjSprite = packObjSprite(objSpriteComponents.get('obj/sprite'));
+  const packedObjWalkable = packObjWalkable(objSpriteComponents.get('obj/walkable'));
+
+  const objSpriteJson: ExportedSpriteJson = {
+    version: LATEST_STORAGE_VERSION,
+    packedObjSprite,
+    packedObjWalkable,
+  };
+  const spriteObjPath = await exportObjJson(method, objSpriteJson, game);
+  game.ecs.setSid(objSpriteComponents.entity, spriteObjPath);
+
+  return spriteObjPath;
+}
+
+type ExportObjMethod = 'local' | 'download' | 'ipfs';
+async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Promise<ObjPath> {
+  let realmObjPath: ObjPath;
+  switch (method) {
+    case 'local':
+      realmObjPath = `/local/${await calcJsonCid(json)}`;
+
+      await localForage.setItem(realmObjPath, json);
+      break;
+    case 'ipfs':
+      await ensureIpfsStarted(game);
+      const { path } = await game.ipfs.add(createJsonBlob(json));
+      realmObjPath = `/ipfs/${path}`;
+      break;
+    case 'download':
+      downloadJson(json, `realm-${await calcJsonCid(json)}.json`);
+      break;
+  }
+
+  return realmObjPath;
 }

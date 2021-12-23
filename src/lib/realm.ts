@@ -5,26 +5,32 @@ import { Game } from './game';
 import { GameECS } from './gameECS';
 import { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
 import { ExportedRealmJson, loadExportedRealm } from './storage';
+import { hideRealmExportedOptions, showRealmExportedOptions } from './tools';
 
 import { getObjPath, ObjPath } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
 import {
-  Cell, getChunkEntityComponents, createChunk, mergeChunk, destroy as destroyChunk,
+  Cell, Located,
+  getChunkEntityComponents, createChunk, getChunkAndCell, afterChunkChanged,
+  mergeChunk, destroy as destroyChunk,
 } from './chunk/chunk';
 import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
 import { addOrRefreshSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
-import { Vec2, warnIfNotPresent } from './utils/utils';
+import { Vec2, warnIfNotPresent, rangeVec2s } from './utils/utils';
 import { listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
 
 import { CHUNK_SIZE } from './consts';
 
+type RealmState = 'inited' | 'changed' | 'saved';
 export interface Realm {
   currentObj: EntityRef;
   loadedExternal: boolean;
+  state: RealmState,
+  markChanged: () => void,
   prevChunks?: Map2D<EntityRef>;
   light: THREE.DirectionalLight;
   worker: Comlink.Remote<RealmRPCs>;
@@ -46,6 +52,8 @@ export function init(ecs: GameECS): Realm {
   return {
     currentObj,
     loadedExternal: false,
+    state: 'inited',
+    markChanged: () => {},
     light,
     worker,
     emptyMaterial: createEmptyMaterial(),
@@ -60,6 +68,10 @@ export function addToScene(game: Game) {
   listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
     handleNextGeneratedChunk(result, game);
   });
+
+  game.realm.markChanged = () => {
+    markChanged(game);
+  };
 
   resetRealm(game);
 }
@@ -83,8 +95,49 @@ export function switchRealm(realmObjPath: ObjPath, json: ExportedRealmJson, game
   game.realm.prevChunks = currentRealmObjComponents.get('obj/realm').chunks;
   game.ecs.deallocate(game.realm.currentObj);
   game.realm.currentObj = loadExportedRealm(realmObjPath, json, game.ecs);
+  markUnchanged(game, 'inited');
   game.realm.loadedExternal = game.storage.savedRealmObjPath !== realmObjPath;
   resetRealm(game);
+}
+
+export function adjustTerrain(altitudeChange: number, flatness: number, range: number, located: Located, game: Game) {
+  const { chunkIJ, cellIJ } = located;
+
+  const updatedCells = new Map2D<Cell>();
+
+  rangeVec2s(cellIJ, range).map(cellIJ => {
+    const [chunk, cell] = getChunkAndCell(chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
+    cell.altitude += altitudeChange;
+    updatedCells.put(...cellIJ, cell);
+    afterChunkChanged(chunk, game);
+  })
+
+  rangeVec2s(cellIJ, range + 1).map(cellIJ => {
+    const [chunk, cell] = getChunkAndCell(chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
+    cell.flatness = flatness;
+    updatedCells.put(...cellIJ, cell);
+    afterChunkChanged(chunk, game);
+  })
+
+  game.realm.worker.updateCells(chunkIJ, updatedCells.entries());
+}
+
+export function markChanged(game: Game) {
+  hideRealmExportedOptions(game);
+  game.realm.state = 'changed';
+}
+export function markUnchanged(game: Game, state: 'inited' | 'saved') {
+  game.realm.state = state;
+  if (state === 'saved') {
+    showRealmExportedOptions(game);
+  } else {
+    hideRealmExportedOptions(game);
+  }
+}
+
+export function afterSaved(savedRealmObjPath: ObjPath, game: Game) {
+  game.storage.savedRealmObjPath = savedRealmObjPath;
+  markUnchanged(game, 'saved');
 }
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
@@ -148,7 +201,7 @@ export function triggerRealmGeneration(centerChunkIJ: Vec2, game: Game) {
 }
 
 function createEmptyMaterial(): THREE.Material {
-  return createMaterial(ctx => {}, 256, 256);
+  return createMaterial(_ctx => {}, 256, 256);
 }
 function createGridMaterial(): THREE.Material {
   return createMaterial(ctx => {
