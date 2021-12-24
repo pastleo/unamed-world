@@ -8,8 +8,10 @@ import { GameEntityComponents } from './gameECS';
 import { getPlayerLocation, mountSubObj, movePlayerTo } from './player';
 import { broadcastMyself } from './network';
 import { adjustTerrain, afterSaved } from './realm';
-import { exportRealm, buildSpriteFromCurrentRealm, exportSprite } from './storage';
+import { buildSpriteFromCurrentRealm } from './sprite';
+import { exportRealm, exportSprite } from './storage';
 
+import { ObjPath } from './obj/obj';
 import {
   Located,
   getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
@@ -112,7 +114,6 @@ export function start(game: Game) {
     const itemFrag = toolItemTemplate.content.cloneNode(true) as HTMLElement;
     const itemDom = itemFrag.querySelector('.swiper-slide') as HTMLDivElement;
     itemDom.textContent = TOOL_ICONS[name];
-    itemDom.dataset.name = name;
 
     game.tools.swiper.appendSlide(itemFrag);
     game.tools.toolsBox.push(name)
@@ -157,6 +158,23 @@ function updateActiveTool(game: Game) {
 export function setActiveTool(index: number, game: Game) {
   game.tools.swiper.slideToLoop(index);
   updateActiveTool(game);
+}
+
+function addAndSwitchSpriteTool(spriteAsTool: Tool, game: Game) {
+  const spriteToolName: Tool = `sprite/${spriteAsTool}`;
+  if (game.tools.toolsBox.indexOf(spriteToolName) !== -1) return;
+
+  const spriteObjComponents = game.ecs.getEntityComponents(game.ecs.fromSid(spriteAsTool));
+  const spriteThumb = spriteObjComponents.get('obj/sprite').spritesheet;
+
+  const toolSlideTemplate = document.getElementById('tools-item-sprite-obj-template') as HTMLTemplateElement;
+  const toolSlideDOM = toolSlideTemplate.content.querySelector('.swiper-slide').cloneNode(true) as HTMLElement;
+  const thumbDOM = toolSlideDOM.querySelector('.sprite-obj-thumb') as HTMLImageElement;
+  thumbDOM.src = spriteThumb;
+
+  const toolsCount = game.tools.toolsBox.push(spriteToolName);
+  game.tools.swiper.appendSlide(toolSlideDOM);
+  setActiveTool(toolsCount - 1, game);
 }
 
 function ensureDrawActivated(game: Game) {
@@ -307,12 +325,7 @@ function ensureOptionsActivated(game: Game) {
     const spriteObj = buildSpriteFromCurrentRealm(game);
     const spriteObjPath = await exportSprite('local', spriteObj, game);
 
-    // TODO: add to inventory
-
-    // testing
-    console.log('gen-sprite', { spriteObj, spriteObjPath });
-    const located = locateOrCreateChunkCell([0, 0, 0], game);
-    createSubObj(spriteObj, [0, 0, 0], game, located);
+    addAndSwitchSpriteTool(spriteObjPath, game);
   });
 
   game.tools.options = options;
@@ -357,6 +370,10 @@ export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game
       return castDraw(coordsPixel, inputType, game);
     case 'terrainAltitude':
       return castTerrainAltitude(coordsPixel, inputType, game);
+  }
+
+  if (game.tools.activeTool.startsWith('sprite/')) {
+    return castSpriteObj(coordsPixel, inputType, game);
   }
 }
 
@@ -460,6 +477,19 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
   terrainAltitude.coneGroup.position.y = located.cell.altitude;
   terrainAltitude.coneGroup.visible = true;
   terrainAltitude.selectedChunkCell = located;
+}
+
+function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
+  if (inputType !== 'up') return;
+
+  const spriteObjPath: ObjPath = game.tools.activeTool.replace(/^sprite\//, '');
+  const spriteObjAsTool = game.ecs.fromSid(spriteObjPath);
+  const [realmIntersect] = rayCastRealm(coordsPixel, game);
+  if (!realmIntersect || !spriteObjAsTool) return;
+
+  const position = threeToVec3(realmIntersect.point);
+  const located = locateOrCreateChunkCell(position, game);
+  createSubObj(spriteObjAsTool, position, game, located);
 }
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {

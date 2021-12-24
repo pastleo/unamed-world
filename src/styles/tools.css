@@ -45,6 +45,9 @@
 .swiper .swiper-slide.swiper-slide-active {
   text-shadow: 0 0 10px white;
 }
+.swiper .swiper-slide .sprite-obj-thumb {
+  width: 75%;
+}
 
 #draw-box {
   height: 8rem;

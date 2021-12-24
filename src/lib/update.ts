@@ -32,6 +32,7 @@ export async function changeRealm(game: Game) {
   if (!realmObjPath) return
 
   const memberFound = await join(realmObjPath, game);
+  console.log('changeRealm: join result:', { memberFound });
 
   // TODO: if realmObjPath is local, and did not found on localstorage, ask from members
 
