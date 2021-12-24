@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <div id='tools-box'>
+  <div id='main-toolbox' class='toolbox'>
     <div id='tools-swiper' class='swiper'>
       <div class='swiper-wrapper'>
         <div class='swiper-slide'></div>
@@ -21,9 +21,14 @@
   <template id='tools-item-template'>
     <div class='swiper-slide'></div>
   </template>
+  <template id='tools-item-sprite-obj-template'>
+    <div class='swiper-slide'>
+      <img class='sprite-obj-thumb' />
+    </div>
+  </template>
 
-  <template id='top-tools-boxes'>
-    <div id='draw-box' class='top-toolbox'>
+  <template id='top-toolboxes'>
+    <div id='draw-box' class='toolbox top-toolbox'>
       <div class='swiper'>
         <div class='swiper-wrapper'>
           <div class='swiper-slide'>
@@ -40,6 +45,25 @@
       <div class="misc-panel">
         <input id='draw-size' type='range' value='3' min='1' max='20'></input>
       </div>
+    </div>
+
+    <div id='options-box' class='toolbox top-toolbox'>
+      <div class='swiper'>
+        <div class='swiper-wrapper'>
+          <div id='save-action' class='swiper-slide'>
+            💾
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id='saved-actions'>
+    <div id='goto-action' class='swiper-slide'>
+      🚪
+    </div>
+    <div id='gen-sprite' class='swiper-slide'>
+      🛠️
     </div>
   </template>
 

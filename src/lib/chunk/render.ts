@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 
 import { Game } from '../game';
+
 import { AttributeArrays } from './renderAttribute';
+import { afterChunkChanged } from './chunk';
 
 import { GameEntityComponents } from '../gameECS';
 import { Vec2, warnIfNotPresent } from '../utils/utils';
@@ -57,7 +59,7 @@ export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents,
       transparent: true,
     });
   } else {
-    material = game.realm.gridMaterial;
+    material = game.realm.loadedExternal ? game.realm.emptyMaterial : game.realm.gridMaterial;
   }
 
   if (chunkRender) {
@@ -111,7 +113,17 @@ export function editChunkCanvas2d(
 
   callback(canvas2d);
 
+  game.realm.markChanged();
+  afterChunkChanged(chunkEntityComponents.get('chunk'), game);
   chunkRender.editing.material.map.needsUpdate = true;
+}
+
+export function updateChunkTextureUrl(chunkEntityComponents: GameEntityComponents) {
+  const chunk = chunkEntityComponents.get('chunk');
+  const chunkRender = chunkEntityComponents.get('chunk/render');
+  if (chunkRender.editing) {
+    chunk.textureUrl = chunkRender.editing.canvas2d.canvas.toDataURL('image/png');
+  }
 }
 
 function addGroupForMultiMaterial(geometry: THREE.BufferGeometry) {

@@ -5,21 +5,28 @@ import 'swiper/css';
 
 import { Game } from './game';
 import { GameEntityComponents } from './gameECS';
-import { mountSubObj, movePlayerTo } from './player';
+import { getPlayerLocation, mountSubObj, movePlayerTo } from './player';
 import { broadcastMyself } from './network';
+import { adjustTerrain, afterSaved } from './realm';
+import { buildSpriteFromCurrentRealm } from './sprite';
+import { exportRealm, exportSprite } from './storage';
 
-import { Cell, Located, getChunkEntityComponents, locateOrCreateChunkCell, getChunkCell, calcCellLocation } from './chunk/chunk';
+import { ObjPath } from './obj/obj';
+import {
+  Located,
+  getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
+} from './chunk/chunk';
 import { editChunkCanvas2d } from './chunk/render';
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
 import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree } from './utils/utils';
-import Map2D from './utils/map2d';
+import { setUrlHash } from './utils/web';
 
 import { DRAW_CANVAS_SIZE } from './consts';
 
 import '../styles/tools.css';
 
-export type Tool = 'walk' | 'draw' | 'terrainAltitude' | string;
+export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | string;
 export interface Tools {
   activeTool: Tool;
   swiper: Swiper;
@@ -28,14 +35,20 @@ export interface Tools {
 
   draw?: Draw;
   terrainAltitude?: TerrainAltitude;
+  options?: Options;
+}
+
+interface SwiperTool {
+  swiper: Swiper;
+  activeIndex: number;
 }
 
 interface Draw {
-  swiper: Swiper;
-  activeIndex: number;
+  swiper: SwiperTool;
   fillStyle: string;
   fillSize: number;
   eraser: boolean;
+  pickingColor: boolean;
 }
 
 interface TerrainAltitude {
@@ -43,6 +56,13 @@ interface TerrainAltitude {
   downCone: THREE.Mesh;
   coneGroup: THREE.Object3D;
   selectedChunkCell?: Located;
+}
+
+interface Options {
+  swiper: SwiperTool;
+  savedActionShown: boolean;
+  gotoActionDOM: HTMLElement;
+  genActionDOM: HTMLElement;
 }
 
 export function create(): Tools {
@@ -67,6 +87,7 @@ const TOOL_ICONS: Record<Tool, string> = {
   walk: '🚶',
   draw: '✍️',
   terrainAltitude: '↕️',
+  options: '⚙️',
 }
 const RAYCAST_CHUNK_RANGE = 4;
 
@@ -75,25 +96,24 @@ export function start(game: Game) {
     updateActiveTool(game);
   });
   game.tools.swiper.on('touchMove', () => {
-    document.getElementById('tools-box').classList.add('zoom');
+    document.getElementById('main-toolbox').classList.add('zoom');
   });
   game.tools.swiper.on('touchEnd', () => {
-    document.getElementById('tools-box').classList.remove('zoom');
+    document.getElementById('main-toolbox').classList.remove('zoom');
   });
 
   const toolItemTemplate = document.getElementById('tools-item-template') as HTMLTemplateElement;
 
-  const initTools = ['walk', 'draw', 'terrainAltitude'];
+  const initTools = ['walk', 'draw', 'terrainAltitude', 'options'];
   const toolCount = initTools.length;
   
-  document.getElementById('tools-box').style.width = `${toolCount * 10}rem`;
-  document.getElementById('tools-box').style.marginLeft = `${toolCount * -5}rem`;
+  document.getElementById('main-toolbox').style.width = `${toolCount * 10}rem`;
+  document.getElementById('main-toolbox').style.marginLeft = `${toolCount * -5}rem`;
 
   initTools.forEach(name => {
     const itemFrag = toolItemTemplate.content.cloneNode(true) as HTMLElement;
     const itemDom = itemFrag.querySelector('.swiper-slide') as HTMLDivElement;
     itemDom.textContent = TOOL_ICONS[name];
-    itemDom.dataset.name = name;
 
     game.tools.swiper.appendSlide(itemFrag);
     game.tools.toolsBox.push(name)
@@ -116,6 +136,10 @@ function updateActiveTool(game: Game) {
       ensureTerrainAltitudeActivated(game);
       showTerrainAltitudeTool(game);
       break;
+    case 'options':
+      ensureOptionsActivated(game);
+      showOptionsTool(game);
+      break;
   }
 
   switch(prevTool) {
@@ -125,6 +149,9 @@ function updateActiveTool(game: Game) {
     case 'terrainAltitude':
       hideTerrainAltitudeTool(game);
       break;
+    case 'options':
+      hideOptionsTool(game);
+      break;
   }
 }
 
@@ -133,45 +160,51 @@ export function setActiveTool(index: number, game: Game) {
   updateActiveTool(game);
 }
 
+function addAndSwitchSpriteTool(spriteAsTool: Tool, game: Game) {
+  const spriteToolName: Tool = `sprite/${spriteAsTool}`;
+  if (game.tools.toolsBox.indexOf(spriteToolName) !== -1) return;
+
+  const spriteObjComponents = game.ecs.getEntityComponents(game.ecs.fromSid(spriteAsTool));
+  const spriteThumb = spriteObjComponents.get('obj/sprite').spritesheet;
+
+  const toolSlideTemplate = document.getElementById('tools-item-sprite-obj-template') as HTMLTemplateElement;
+  const toolSlideDOM = toolSlideTemplate.content.querySelector('.swiper-slide').cloneNode(true) as HTMLElement;
+  const thumbDOM = toolSlideDOM.querySelector('.sprite-obj-thumb') as HTMLImageElement;
+  thumbDOM.src = spriteThumb;
+
+  const toolsCount = game.tools.toolsBox.push(spriteToolName);
+  game.tools.swiper.appendSlide(toolSlideDOM);
+  setActiveTool(toolsCount - 1, game);
+}
+
 function ensureDrawActivated(game: Game) {
   if (game.tools.draw) return;
 
-  const topToolBoxesTemplate = document.getElementById('top-tools-boxes') as HTMLTemplateElement;
+  const topToolBoxesTemplate = document.getElementById('top-toolboxes') as HTMLTemplateElement;
 
   const drawBoxDOM = topToolBoxesTemplate.content.querySelector('#draw-box').cloneNode(true) as HTMLElement;
   document.body.appendChild(drawBoxDOM);
 
-  const initialSlide = 1;
   const draw: Draw = {
-    swiper: new Swiper(drawBoxDOM.querySelector('.swiper') as HTMLElement, {
-      modules: [Manipulation],
-      slidesPerView: "auto",
-      centeredSlides: true,
-      slideToClickedSlide: true,
-      initialSlide,
+    swiper: setupSwiperTool(drawBoxDOM, 1, 2, (_activeIndex, prevIndex) => {
+      updateDrawActiveBrush(game, prevIndex);
     }),
-    activeIndex: initialSlide,
     fillStyle: 'black',
     fillSize: 3,
     eraser: false,
+    pickingColor: false,
   }
 
-  drawBoxDOM.querySelectorAll('input[type=color]').forEach((element: HTMLInputElement) => {
-    element.addEventListener('click', event => {
-      if (draw.activeIndex !== parseInt(element.dataset.slide)) {
-        event.preventDefault();
-      }
+  drawBoxDOM.querySelectorAll('input[type=color]').forEach((colorInput: HTMLInputElement) => {
+    colorInput.disabled = true;
+    colorInput.addEventListener('click', () => {
+      draw.pickingColor = true;
     });
-    element.addEventListener('change', () => {
+    colorInput.addEventListener('change', () => {
       updateDrawActiveBrush(game);
     });
   });
-
-  draw.swiper.on('activeIndexChange', () => {
-    setTimeout(() => {
-      updateDrawActiveBrush(game);
-    }, 100);
-  });
+  enableColorInput(drawBoxDOM, draw.swiper);
 
   const drawSizeInput = drawBoxDOM.querySelector('#draw-size') as HTMLInputElement;
   drawSizeInput.addEventListener('change', () => {
@@ -181,27 +214,40 @@ function ensureDrawActivated(game: Game) {
   game.tools.draw = draw;
 }
 
-function showDrawTool(_game: Game) {
+function showDrawTool(game: Game) {
   document.getElementById('draw-box').classList.add('active');
+  game.tools.draw.pickingColor = false;
 }
 
 function hideDrawTool(_game: Game) {
   document.getElementById('draw-box').classList.remove('active');
 }
 
-function updateDrawActiveBrush(game: Game) {
+function updateDrawActiveBrush(game: Game, prevIndex?: number) {
   const draw = game.tools.draw;
-  draw.activeIndex = draw.swiper.activeIndex;
+  const drawBoxDOM = document.getElementById('draw-box');
+  const swiperContainer = drawBoxDOM.querySelector('.swiper-wrapper') as HTMLElement;
 
-  const activeDOM = document.getElementById('draw-box')
-    .querySelector('.swiper-wrapper')
-    .children[draw.swiper.activeIndex] as HTMLElement;
+  if (typeof prevIndex === 'number') {
+    const prevColorInput = swiperContainer.children[prevIndex].querySelector('input');
+    if (prevColorInput) {
+      prevColorInput.disabled = true;
+    }
+  }
+  const activeDOM = swiperContainer.children[draw.swiper.activeIndex] as HTMLElement;
 
   draw.eraser = !!activeDOM.dataset.eraser;
   if (draw.eraser) return;
 
   const colorInput = activeDOM.querySelector('input[type=color]') as HTMLInputElement;
   draw.fillStyle = colorInput.value;
+  enableColorInput(drawBoxDOM, draw.swiper);
+}
+
+function enableColorInput(drawBoxDOM: HTMLElement, swiperTool: SwiperTool) {
+  const activeDOM = drawBoxDOM.querySelector('.swiper-wrapper').children[swiperTool.activeIndex] as HTMLElement;
+  const colorInput = activeDOM.querySelector('input[type=color]') as HTMLInputElement;
+  colorInput.disabled = false;
 }
 
 function ensureTerrainAltitudeActivated(game: Game) {
@@ -237,6 +283,83 @@ function hideTerrainAltitudeTool(game: Game) {
   game.tools.terrainAltitude.coneGroup.visible = false;
 }
 
+function ensureOptionsActivated(game: Game) {
+  if (game.tools.options) return;
+
+  const topToolBoxesTemplate = document.getElementById('top-toolboxes') as HTMLTemplateElement;
+  const savedActionsTemplate = document.getElementById('saved-actions') as HTMLTemplateElement;
+
+  const optionsBoxDOM = topToolBoxesTemplate.content.querySelector('#options-box').cloneNode(true) as HTMLElement;
+  document.body.appendChild(optionsBoxDOM);
+
+  const saveActionDOM = optionsBoxDOM.querySelector('#save-action');
+  const gotoActionDOM = savedActionsTemplate.content.querySelector('#goto-action').cloneNode(true) as HTMLElement;
+  const genActionDOM = savedActionsTemplate.content.querySelector('#gen-sprite').cloneNode(true) as HTMLElement;
+
+  const options: Options = {
+    swiper: setupSwiperTool(optionsBoxDOM, 0, 2, () => {}),
+    savedActionShown: false,
+    gotoActionDOM, genActionDOM,
+  }
+
+  if (game.realm.state === 'saved') {
+    showRealmExportedOptions(game);
+  }
+
+  saveActionDOM.addEventListener('click', async () => {
+    if (options.swiper.activeIndex !== 0) return;
+
+    const realmObjPath = await exportRealm('local', getPlayerLocation(game), game);
+    afterSaved(realmObjPath, game);
+  });
+  gotoActionDOM.addEventListener('click', () => {
+    if (options.swiper.activeIndex !== 1) return;
+
+    if (game.storage.savedRealmObjPath) {
+      setUrlHash({ '': game.storage.savedRealmObjPath });
+    }
+  });
+  genActionDOM.addEventListener('click', async () => {
+    if (options.swiper.activeIndex !== 2) return;
+
+    const spriteObj = buildSpriteFromCurrentRealm(game);
+    const spriteObjPath = await exportSprite('local', spriteObj, game);
+
+    addAndSwitchSpriteTool(spriteObjPath, game);
+  });
+
+  game.tools.options = options;
+}
+
+function showOptionsTool(_game: Game) {
+  document.getElementById('options-box').classList.add('active');
+}
+
+function hideOptionsTool(_game: Game) {
+  document.getElementById('options-box').classList.remove('active');
+}
+
+export function showRealmExportedOptions(game: Game) {
+  const options = game.tools.options;
+  if (!options || options.savedActionShown) return;
+
+  options.swiper.swiper.appendSlide([
+    options.gotoActionDOM,
+    options.genActionDOM,
+  ]);
+  options.swiper.swiper.slideTo(1);
+
+  options.savedActionShown = true;
+}
+
+export function hideRealmExportedOptions(game: Game) {
+  const options = game.tools.options;
+  if (!options || !options.savedActionShown) return;
+
+  options.swiper.swiper.removeSlide([1, 2]);
+  options.savedActionShown = false;
+}
+
 type InputType = 'down' | 'up' | 'move';
 export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
@@ -247,6 +370,10 @@ export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game
       return castDraw(coordsPixel, inputType, game);
     case 'terrainAltitude':
       return castTerrainAltitude(coordsPixel, inputType, game);
+  }
+
+  if (game.tools.activeTool.startsWith('sprite/')) {
+    return castSpriteObj(coordsPixel, inputType, game);
   }
 }
 
@@ -281,8 +408,6 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
   if (distanceBetweenSubObj > targetObjSprite.radius) return;
 
-  console.log('changing to', game.ecs.getUUID(nearBySubObj.obj));
-
   game.player.objEntity = nearBySubObj.obj;
   destroySubObj(game.player.subObjEntity, game);
   const newSubObj = createSubObj(game.player.objEntity, subObj.position, game, located);
@@ -291,6 +416,11 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
 }
 
 function castDraw(coordsPixel: Vec2, _inputType: InputType, game: Game) {
+  if (game.tools.draw.pickingColor) {
+    game.tools.draw.pickingColor = false;
+    return;
+  }
+
   const [intersect, chunkEntityComponents] = rayCastRealm(coordsPixel, game);
   if (!intersect) return;
 
@@ -328,20 +458,11 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
     if (coneIntersect) {
       const upClicked = coneIntersect.object.id === terrainAltitude.upCone.id;
 
-      const { chunkIJ, cellIJ, cell } = terrainAltitude.selectedChunkCell;
-      cell.altitude += upClicked ? 0.2 : -0.2;
-      terrainAltitude.coneGroup.position.y = cell.altitude;
-
-      const updatedCells = new Map2D<Cell>();
-
-      rangeVec2s(cellIJ, 1).map(cellIJ => {
-        const cell = getChunkCell(chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
-        cell.flatness = 4;
-        updatedCells.put(...cellIJ, cell);
-      })
-
-      game.realm.worker.updateCells(chunkIJ, updatedCells.entries());
-      return;
+      return adjustTerrain(
+        upClicked ? 0.2 : -0.2, 4, 0,
+        terrainAltitude.selectedChunkCell,
+        game,
+      );
     }
   }
 
@@ -356,6 +477,19 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
   terrainAltitude.coneGroup.position.y = located.cell.altitude;
   terrainAltitude.coneGroup.visible = true;
   terrainAltitude.selectedChunkCell = located;
+}
+
+function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
+  if (inputType !== 'up') return;
+
+  const spriteObjPath: ObjPath = game.tools.activeTool.replace(/^sprite\//, '');
+  const spriteObjAsTool = game.ecs.fromSid(spriteObjPath);
+  const [realmIntersect] = rayCastRealm(coordsPixel, game);
+  if (!realmIntersect || !spriteObjAsTool) return;
+
+  const position = threeToVec3(realmIntersect.point);
+  const located = locateOrCreateChunkCell(position, game);
+  createSubObj(spriteObjAsTool, position, game, located);
 }
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {
@@ -385,4 +519,32 @@ function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.I
   raycaster.setFromCamera({ x: coords[0], y: coords[1] }, game.camera.camera);
   const intersects = raycaster.intersectObjects(objs);
   return intersects[0];
+}
+
+function setupSwiperTool(
+  boxDOM: HTMLElement, initialSlide: number, slidesToShow: number,
+  onUpdate: (activeIndex: number, prevIndex: number) => void
+): SwiperTool {
+  boxDOM.style.width = `${slidesToShow * 10}rem`;
+  boxDOM.style.marginLeft = `${slidesToShow * -5}rem`;
+
+  const swiperTool: SwiperTool = {
+    swiper: new Swiper(boxDOM.querySelector('.swiper') as HTMLElement, {
+      modules: [Manipulation],
+      slidesPerView: "auto",
+      centeredSlides: true,
+      slideToClickedSlide: true,
+      initialSlide,
+    }),
+    activeIndex: initialSlide,
+  }
+  swiperTool.swiper.on('activeIndexChange', () => {
+    setTimeout(() => {
+      const prevIndex = swiperTool.activeIndex;
+      swiperTool.activeIndex = swiperTool.swiper.activeIndex;
+      onUpdate(swiperTool.activeIndex, prevIndex);
+    }, 100);
+  });
+
+  return swiperTool;
 }

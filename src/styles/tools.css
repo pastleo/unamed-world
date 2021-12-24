@@ -1,6 +1,5 @@
-#tools-box {
+#main-toolbox {
   position: fixed;
-  left: 50%;
   bottom: 0;
   height: 10rem;
 
@@ -8,8 +7,22 @@
   transform-origin: bottom;
   transform: scale(0.5);
 }
-#tools-box.zoom {
+#main-toolbox.zoom {
   transform: scale(1);
+}
+
+.toolbox {
+  left: 50%;
+  height: 10rem;
+}
+
+.top-toolbox {
+  position: fixed;
+  top: -10rem;
+  transition: top 0.5s;
+}
+.top-toolbox.active {
+  top: 0;
 }
 
 .swiper {
@@ -32,28 +45,32 @@
 .swiper .swiper-slide.swiper-slide-active {
   text-shadow: 0 0 10px white;
 }
-
-.top-toolbox {
-  position: fixed;
-  top: -10rem;
-  height: 10rem;
-  transition: top 0.5s;
-}
-.top-toolbox.active {
-  top: 0;
+.swiper .swiper-slide .sprite-obj-thumb {
+  width: 75%;
 }
 
 #draw-box {
-  left: 50%;
-  margin-left: -15rem;
-  width: 30rem;
   height: 8rem;
 }
 
 #draw-box .misc-panel {
   text-align: center;
+  max-width: 80vw;
+  margin-left: auto;
+  margin-right: auto;
 }
 #draw-box #draw-size {
-  width: 100%;
-  max-width: 80vw;
+  width: 50%;
+  transform: scale(1.5);
+}
+#draw-box input[type=color] {
+  width: 2rem;
+  height: 2rem;
+  box-sizing: content-box;
+  border-radius: 1rem;
+  border: transparent solid 3px;
+  background: #efefef;
+}
+#draw-box input[type=color]:disabled {
+  opacity: 0.6;
 }

@@ -1,5 +1,6 @@
 (window as any).global = window; // for ipfs-core to work
 import { create as createIPFS } from 'ipfs-core';
+
 import { Game } from './lib/game';
 
 import { IPFS_OPTIONS } from './env';

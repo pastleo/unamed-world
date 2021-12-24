@@ -9,7 +9,7 @@ import {
   vec2Type, mod, warnIfNotPresent, add,
   sub, multiply, clamp, step, smooth,
 } from '../utils/utils';
-import { EntityRef, uuidType, entityEqual } from '../utils/ecs';
+import { EntityRef, sidType, entityEqual } from '../utils/ecs';
 import Map2D, { map2DEntriesType } from '../utils/map2d';
 
 import { CHUNK_SIZE } from '../consts';
@@ -21,6 +21,7 @@ export interface ChunkComponent {
   cells: Map2D<Cell>;
   subObjs: EntityRef[];
   persistance: boolean;
+  repeatable: boolean;
   textureUrl: string;
 }
 
@@ -103,13 +104,17 @@ export function getOrCreateChunk(
   return chunk
 }
 
-export function getChunkCell(chunkIJSrc: Vec2, cellIJSrc: Vec2, realmEntity: EntityRef, ecs: GameECS): Cell {
+export function getChunkAndCell(chunkIJSrc: Vec2, cellIJSrc: Vec2, realmEntity: EntityRef, ecs: GameECS): [ChunkComponent, Cell] {
   const [chunkIJ, cellIJ] = correctChunkCellIJ(chunkIJSrc, cellIJSrc);
 
   const chunk = getChunk(chunkIJ, realmEntity, ecs);
   if (!chunk) return null;
 
-  return chunk.cells.get(...cellIJ);
+  return [chunk, chunk.cells.get(...cellIJ)];
+}
+
+export function getChunkCell(chunkIJ: Vec2, cellIJ: Vec2, realmEntity: EntityRef, ecs: GameECS): Cell {
+  return getChunkAndCell(chunkIJ, cellIJ, realmEntity, ecs)[1];
 }
 
 export function getOrCreateChunkCell(
@@ -194,6 +199,11 @@ export function mergeChunk(chunkSrc: Required<Partial<ChunkComponent>, 'chunkIJ'
   });
 }
 
+export function afterChunkChanged(chunk: ChunkComponent, game: Game) {
+  chunk.persistance = true;
+  game.realm.markChanged();
+}
+
 export function destroy(chunkEntityComponents: GameEntityComponents, ecs: GameECS) {
   ecs.deallocate(chunkEntityComponents.entity);
 }
@@ -201,29 +211,32 @@ export function destroy(chunkEntityComponents: GameEntityComponents, ecs: GameEC
 export const packedChunkComponentType = ss.object({
   chunkIJ: vec2Type,
   cellsEntries: map2DEntriesType(cellType),
-  subObjs: ss.array(uuidType),
+  subObjs: ss.array(sidType),
+  repeatable: ss.boolean(),
   textureUrl: ss.string(),
 });
 export type PackedChunkComponent = ss.Infer<typeof packedChunkComponentType>;
 
 export function pack(chunk: ChunkComponent, ecs: GameECS): PackedChunkComponent {
-  const { chunkIJ, cells, subObjs, textureUrl } = chunk;
+  const { chunkIJ, cells, subObjs, textureUrl, repeatable } = chunk;
   return {
     chunkIJ,
     cellsEntries: cells.entries(),
-    subObjs: subObjs.map(subObjEntity => ecs.getUUID(subObjEntity)),
+    subObjs: subObjs.map(subObjEntity => ecs.getSid(subObjEntity)),
     textureUrl,
+    repeatable,
   }
 }
 
 export function unpack(chunkEntity: EntityRef, packedChunk: PackedChunkComponent, ecs: GameECS) {
-  const { chunkIJ, cellsEntries, subObjs, textureUrl } = packedChunk;
+  const { chunkIJ, cellsEntries, subObjs, textureUrl, repeatable } = packedChunk;
   ecs.setComponent(chunkEntity, 'chunk', {
     chunkIJ,
     cells: Map2D.fromEntries(cellsEntries),
-    subObjs: subObjs.map(uuid => ecs.fromUUID(uuid)),
+    subObjs: subObjs.map(sid => ecs.fromSid(sid)),
     textureUrl,
     persistance: true,
+    repeatable,
   });
 }
 
@@ -233,6 +246,7 @@ function createTmpChunkComponent(chunkIJ: Vec2): ChunkComponent {
     chunkIJ,
     subObjs: [],
     persistance: false,
+    repeatable: false,
     textureUrl: '',
   }
 }

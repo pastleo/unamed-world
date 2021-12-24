@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 export function parseUrlHash(): Record<string, string> {
   if (typeof window === 'undefined') return {};
 
@@ -18,12 +16,14 @@ export function setUrlHash(values: Record<string, string>) {
   }).map(([k, v]) => (k ? [k, v].join('=') : v)).join('&');
   window.location.hash = `#${paramStr}`;
 }
+
 export function createJsonBlob(json: any): Blob {
   return new Blob(
     [JSON.stringify(json)],
     { type: 'application/json' },
   );
 }
+
 export function downloadJson(json: any, filename: string) {
   const blob = createJsonBlob(json);
 
@@ -33,6 +33,26 @@ export function downloadJson(json: any, filename: string) {
   document.body.appendChild(aTag);
   aTag.click();
   document.body.removeChild(aTag);
+}
+export function openJson(): Promise<any> {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (file && file.type === 'application/json') {
+        file.text().then(json => {
+          resolve(
+            JSON.parse(json)
+          );
+        });
+      }
+    });
+
+    input.click();
+  });
 }
 
 export function createCanvas2d(width: number, height: number): CanvasRenderingContext2D {

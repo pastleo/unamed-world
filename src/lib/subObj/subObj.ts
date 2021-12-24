@@ -7,7 +7,7 @@ import { requireObjSprite, getObjOrBaseComponents } from '../sprite';
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { addOrRefreshSpriteToScene, updateSpritePosition, removeSprite } from './spriteRender';
 
-import { EntityRef, uuidType, entityEqual } from '../utils/ecs';
+import { EntityRef, sidType, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, vec2Type, vec3Type, length, add, sub, warnIfNotPresent } from '../utils/utils';
 
 export const subObjStateType = ss.union([ss.literal('normal'), ss.literal('walking'), ss.string()]);
@@ -118,7 +118,7 @@ export function detectCollision(subObjEntity: EntityRef, chunkIJ: Vec2, game: Ga
 }
 
 export const packedSubObjComponentType = ss.object({
-  obj: uuidType,
+  obj: sidType,
   position: vec3Type,
   rotation: vec3Type,
   groundAltitude: ss.number(),
@@ -131,7 +131,7 @@ export type PackedSubObjComponent = ss.Infer<typeof packedSubObjComponentType>;
 export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubObjComponent {
   const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = subObjComponent;
   return {
-    obj: ecs.getUUID(obj),
+    obj: ecs.getSid(obj),
     position, rotation, groundAltitude, state, cellIJ, chunkIJ,
   }
 }
@@ -139,7 +139,7 @@ export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubO
 export function unpack(subObjEntity: EntityRef, packedSubObj: PackedSubObjComponent, ecs: GameECS) {
   const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = packedSubObj;
   ecs.setComponent(subObjEntity, 'subObj', {
-    obj: ecs.fromUUID(obj),
+    obj: ecs.fromSid(obj),
     position, rotation, groundAltitude, state, cellIJ, chunkIJ,
   });
 }

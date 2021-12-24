@@ -1,122 +1,96 @@
 import localForage from 'localforage';
-import * as BufferUtils from 'uint8arrays';
+
 import * as ss from 'superstruct';
 
 import { Game } from './game';
 import { GameECS } from './gameECS';
-import { ensureIpfsStarted } from './ipfs';
+import { ensureIpfsStarted, calcJsonCid, fetchIpfsJson } from './ipfs';
+import { migrateRealmJson, migrateSpriteJson } from './migration';
 
+import { ObjPath } from './obj/obj';
 import { packedObjRealmComponentType, pack as packObjRealm, unpack as unpackObjRealm } from './obj/realm';
-import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk } from './chunk/chunk';
+import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk, getChunkEntityComponents } from './chunk/chunk';
+import { updateChunkTextureUrl } from './chunk/render';
 import { PackedSubObjComponent, packedSubObjComponentType, pack as packSubObj, unpack as unpackSubObj } from './subObj/subObj';
 import { packedObjSpriteComponentType, pack as packObjSprite, unpack as unpackObjSprite } from './obj/sprite';
 import { packedObjWalkableComponentType, pack as packObjWalkable, unpack as unpackObjWalkable } from './obj/walkable';
 
-import { EntityRef, UUID, uuidType, entityEqual } from './utils/ecs';
-import { Vec2, warnIfNotPresent, genUUID } from './utils/utils';
+import { EntityRef, Sid, sidType, entityEqual } from './utils/ecs';
+import { Vec2, warnIfNotPresent } from './utils/utils';
 import { createJsonBlob, downloadJson } from './utils/web';
 
-import { DBG_MODE } from './dbg';
+import { LATEST_STORAGE_VERSION } from './consts';
 
-export const LATEST_STORAGE_VERSION = 2;
-
-export function uuidEntryType<T>(t: ss.Struct<T>) {
-  return ss.tuple([uuidType, t]);
+export function sidEntryType<T>(t: ss.Struct<T>) {
+  return ss.tuple([sidType, t]);
 }
-export type UUIDEntry<T> = [UUID, T] & ss.Infer<ReturnType<typeof uuidEntryType>>;
+export type SidEntry<T> = [Sid, T] & ss.Infer<ReturnType<typeof sidEntryType>>;
 
-export function uuidEntriesType<T>(t: ss.Struct<T>) {
-  return ss.array(uuidEntryType(t));
+export function sidEntriesType<T>(t: ss.Struct<T>) {
+  return ss.array(sidEntryType(t));
 }
-export type UUIDEntries<T> = UUIDEntry<T>[] & ss.Infer<ReturnType<typeof uuidEntriesType>>;
+export type SidEntries<T> = SidEntry<T>[] & ss.Infer<ReturnType<typeof sidEntryType>>;
 
 const exportedRealmJsonType = ss.object({
   version: ss.number(),
   packedObjRealm: packedObjRealmComponentType,
-  packedChunks: uuidEntriesType(packedChunkComponentType),
-  packedSubObjs: uuidEntriesType(packedSubObjComponentType),
+  packedChunks: sidEntriesType(packedChunkComponentType),
+  packedSubObjs: sidEntriesType(packedSubObjComponentType),
 });
 export type ExportedRealmJson = ss.Infer<typeof exportedRealmJsonType>;
 
 export const exportedSpriteJsonType = ss.object({
   version: ss.number(),
-  objUUID: uuidType,
   packedObjSprite: packedObjSpriteComponentType,
   packedObjWalkable: packedObjWalkableComponentType,
 });
 export type ExportedSpriteJson = ss.Infer<typeof exportedSpriteJsonType>;
 
 export interface StorageManager {
+  savedRealmObjPath?: ObjPath;
 }
 
 export function init(): StorageManager {
   return {}
 }
 
-export async function start(game: Game): Promise<void> {
-  if (DBG_MODE) {
-    (window as any).exportRealm = async () => {
-      const exportedIpfsPath = await exportRealm(game);
-      console.log({ exportedIpfsPath });
-    };
-    (window as any).exportSprite = () => {
-      exportSprite(game);
-    }
+export async function start(_game: Game): Promise<void> {
+}
+
+export async function fetchRealm(realmObjPath: ObjPath, game: Game): Promise<ExportedRealmJson> {
+  const json = await fetchObjJson(realmObjPath, game, '-realm');
+
+  if (json) {
+    return importRealm(realmObjPath, json);
   }
 }
 
-export async function fetchRealm(realmObjPath: UUID, game: Game): Promise<ExportedRealmJson> {
-  let json;
-  if (realmObjPath.startsWith('/ipfs/')) {
-    await ensureIpfsStarted(game);
-    json = await fetchIpfsJson(`${realmObjPath}/realm.json`, game);
-  } else {
-    const devPath = `dev-objs/${realmObjPath.replace(/^\//, '')}-realm.json`;
-    const response = await fetch(devPath);
-    if (warnIfNotPresent(response.ok)) return;
-    json = await response.json();
-  }
-
+export async function importRealm(realmObjPath: ObjPath, json: any): Promise<ExportedRealmJson> {
   migrateRealmJson(json) // alter json in-place
   const [err, jsonValidated] = ss.validate(json, exportedRealmJsonType);
 
-  if (err) throw err;
+  if (err) {
+    console.warn('importRealm: realmJson did not pass the validation:', err);
+    return;
+  };
 
-  await localForage.setItem(`realm:${realmObjPath}`, jsonValidated);
+  await localForage.setItem(realmObjPath, jsonValidated);
   return jsonValidated;
 }
 
-function migrateRealmJson(json: any) {
-  if (!json.version) { // version null
-    json.packedChunks.forEach(([_, chunk]: [string, {cellsEntries: any}]) => {
-      chunk.cellsEntries.forEach(([_, cell]: [Vec2, {flatness: number}]) => {
-        cell.flatness *= 10;
-      });
-    });
-    json.version = 1;
-    console.log('migrated realmJson to v1:', json);
-  }
-
-  if (json.version === 1) {
-    delete json.realmUUID;
-    json.version = 2;
-    console.log('migrated realmJson to v2:', json);
-  }
-}
-
-export function loadExportedRealm(objUUID: string, json: ExportedRealmJson, ecs: GameECS): EntityRef {
-  const newRealmEntity = ecs.fromUUID(objUUID);
+export function loadExportedRealm(realmObjPath: ObjPath, json: ExportedRealmJson, ecs: GameECS): EntityRef {
+  const newRealmEntity = ecs.fromSid(realmObjPath);
   unpackObjRealm(newRealmEntity, json.packedObjRealm, ecs);
-  json.packedChunks.forEach(([UUID, packedChunk]) => {
+  json.packedChunks.forEach(([sid, packedChunk]) => {
     unpackChunk(
-      ecs.fromUUID(UUID),
+      ecs.fromSid(sid),
       packedChunk,
       ecs,
     )
   });
-  json.packedSubObjs.forEach(([UUID, packedSubObjs]) => {
+  json.packedSubObjs.forEach(([sid, packedSubObjs]) => {
     unpackSubObj(
-      ecs.fromUUID(UUID),
+      ecs.fromSid(sid),
       packedSubObjs,
       ecs,
     );
@@ -125,39 +99,36 @@ export function loadExportedRealm(objUUID: string, json: ExportedRealmJson, ecs:
   return newRealmEntity;
 }
 
-export async function exportRealm(game: Game): Promise<string> {
-  await ensureIpfsStarted(game);
-
+export async function exportRealm(method: ExportObjMethod, spawnLocation: Vec2, game: Game): Promise<ObjPath> {
   const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
-  const tmpUUID = genUUID();
-  const objTmpPath = `/tmp/${tmpUUID}`;
-  await game.ipfs.files.mkdir(objTmpPath, { parents: true });
+  const subObjSids: Sid[] = [];
 
-  //const realmUUID = game.ecs.getUUID(game.realm.currentObj, true);
-  const subObjUUIDs: UUID[] = [];
+  const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), spawnLocation, game.ecs);
+  const packedChunks = packedObjRealm.chunkEntries.map(([_chunkIJ, sid]) => {
+    const chunkEntityComponents = game.ecs.getEntityComponents(game.ecs.fromSid(sid));
+    const chunk = chunkEntityComponents.get('chunk');
 
-  const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), game.ecs);
-  const packedChunks = packedObjRealm.chunkEntries.map(([_chunkIJ, uuid]) => {
-    const chunk = game.ecs.getComponent(game.ecs.fromUUID(uuid), 'chunk');
+    updateChunkTextureUrl(chunkEntityComponents);
+
     const packedChunk = packChunk({
       ...chunk,
       subObjs: chunk.subObjs.filter(subObjEntity => !entityEqual(subObjEntity, game.player.subObjEntity))
     }, game.ecs);
-    subObjUUIDs.push(...packedChunk.subObjs);
+    subObjSids.push(...packedChunk.subObjs);
 
-    return [uuid, packedChunk] as UUIDEntry<PackedChunkComponent>;
+    return [sid, packedChunk] as SidEntry<PackedChunkComponent>;
   });
-  const packedSubObjs = subObjUUIDs.map(uuid => ([
-    uuid,
+  const packedSubObjs = subObjSids.map(sid => ([
+    sid,
     packSubObj(
       game.ecs.getComponent(
-        game.ecs.fromUUID(uuid),
+        game.ecs.fromSid(sid),
         'subObj',
       ),
       game.ecs,
     )
-  ] as UUIDEntry<PackedSubObjComponent>));
+  ] as SidEntry<PackedSubObjComponent>));
   
   const objRealmJson: ExportedRealmJson = {
     version: LATEST_STORAGE_VERSION,
@@ -165,30 +136,20 @@ export async function exportRealm(game: Game): Promise<string> {
     packedChunks,
     packedSubObjs,
   };
+  const realmObjPath = await exportObjJson(method, objRealmJson, game);
 
-  //downloadJson(objRealmJson, `${realmUUID}-realm.json`);
-
-  await game.ipfs.files.write(`${objTmpPath}/realm.json`, createJsonBlob(objRealmJson), { create: true });
-
-  // TODO: generate ExportedSpriteJson on `${objTmpPath}/sprite.json`
-
-  const objPath = `/ipfs/${(await game.ipfs.files.stat(objTmpPath)).cid}`;
-  //const addOptions = {
-    //pin: true,
-    //wrapWithDirectory: true,
-    //timeout: 10000
-  //};
-  //for await (const uploadedFile of game.ipfs.addAll(globSource(objPath, '**/*'), addOptions)) {
-    //console.log({ uploadedFile })
-  //}
-  return objPath;
+  return realmObjPath;
 }
 
-export async function fetchObjSprite(spriteObjUUID: UUID): Promise<ExportedSpriteJson> {
-  const response = await fetch(`dev-objs/${spriteObjUUID}-sprite.json`);
-  if (warnIfNotPresent(response.ok)) return;
-  const json = await response.json();
+export async function fetchObjSprite(spriteObjPath: ObjPath, game: Game): Promise<ExportedSpriteJson> {
+  const json = await fetchObjJson(spriteObjPath, game, '-sprite');
 
+  if (json) {
+    return importSprite(spriteObjPath, json);
+  }
+}
+
+export async function importSprite(realmObjPath: ObjPath, json: any): Promise<ExportedSpriteJson> {
   migrateSpriteJson(json);
   const [err, jsonValidated] = ss.validate(json, exportedSpriteJsonType);
 
@@ -196,64 +157,70 @@ export async function fetchObjSprite(spriteObjUUID: UUID): Promise<ExportedSprit
     console.warn(err);
     return;
   }
-  if (spriteObjUUID !== jsonValidated.objUUID) {
-    console.warn('UUID in json not equal');
-    return;
-  }
 
-  await localForage.setItem(`sprite:${spriteObjUUID}`, jsonValidated);
+  await localForage.setItem(realmObjPath, jsonValidated);
   return jsonValidated;
 }
 
-function migrateSpriteJson(json: any) {
-  if (!json.version) { // version null
-    json.version = 1;
-    console.log('migrated SpriteJson:', json.objUUID);
-  }
-}
-
-export function loadExportedSprite(json: ExportedSpriteJson, ecs: GameECS): EntityRef {
-  const objEntity = ecs.fromUUID(json.objUUID);
+export function loadExportedSprite(spriteCid: /* TODO */ Sid, json: ExportedSpriteJson, ecs: GameECS): EntityRef {
+  const objEntity = ecs.fromSid(spriteCid);
   unpackObjSprite(objEntity, json.packedObjSprite, ecs);
   unpackObjWalkable(objEntity, json.packedObjWalkable, ecs);
 
   return objEntity;
 }
 
-// just for dev obj
-export function exportSprite(game: Game) {
-  const objEntities: EntityRef[] = [];
-  game.ecs.getComponentEntities('subObj').forEach(([_subObjEntity, subObj]) => {
-    if (objEntities.findIndex(oEntity => entityEqual(oEntity, subObj.obj)) === -1) {
-      objEntities.push(subObj.obj);
-    }
-  });
+export async function exportSprite(method: ExportObjMethod, objSprite: EntityRef, game: Game): Promise<ObjPath> {
+  const objSpriteComponents = game.ecs.getEntityComponents(objSprite);
+  const packedObjSprite = packObjSprite(objSpriteComponents.get('obj/sprite'));
+  const packedObjWalkable = packObjWalkable(objSpriteComponents.get('obj/walkable'));
 
-  objEntities.forEach(objEntity => {
-    const objEntityComponents = game.ecs.getEntityComponents(objEntity);
-    const objUUID = game.ecs.getUUID(objEntity);
-    const packedObjSprite = packObjSprite(objEntityComponents.get('obj/sprite'));
-    const packedObjWalkable = packObjWalkable(objEntityComponents.get('obj/walkable'));
+  const objSpriteJson: ExportedSpriteJson = {
+    version: LATEST_STORAGE_VERSION,
+    packedObjSprite,
+    packedObjWalkable,
+  };
+  const spriteObjPath = await exportObjJson(method, objSpriteJson, game);
+  game.ecs.setSid(objSpriteComponents.entity, spriteObjPath);
 
-    const objSpriteJson: ExportedSpriteJson = {
-      version: LATEST_STORAGE_VERSION,
-      objUUID,
-      packedObjSprite,
-      packedObjWalkable,
-    };
-    downloadJson(objSpriteJson, `${objUUID}-sprite.json`);
-  });
+  return spriteObjPath;
 }
 
-async function fetchIpfsJson(ipfsPath: string, game: Game) {
-  const chunks = [];
-  console.log(`ipfs.files.read('${ipfsPath}') starts...`);
-
-  for await (const chunk of game.ipfs.files.read(ipfsPath)) {
-    chunks.push(chunk);
+async function fetchObjJson(objPath: ObjPath, game: Game, devObjPostfix: string): Promise<any> {
+  let json;
+  if (objPath.startsWith('/local/')) {
+    json = await localForage.getItem(objPath);
+  } else if (objPath.startsWith('/ipfs/')) {
+    await ensureIpfsStarted(game);
+    json = await fetchIpfsJson(objPath, game);
+  } else {
+    const devPath = `dev-objs/${objPath.replace(/^\//, '')}${devObjPostfix}.json`;
+    const response = await fetch(devPath);
+    if (warnIfNotPresent(response.ok)) return;
+    json = await response.json();
   }
-  const data = BufferUtils.concat(chunks);
-  const json = JSON.parse(BufferUtils.toString(data));
-  console.log('fetchIpfsJson done', { ipfsPath, json });
+
   return json;
+}
+
+type ExportObjMethod = 'local' | 'download' | 'ipfs';
+async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Promise<ObjPath> {
+  let realmObjPath: ObjPath;
+  switch (method) {
+    case 'local':
+      realmObjPath = `/local/${await calcJsonCid(json)}`;
+
+      await localForage.setItem(realmObjPath, json);
+      break;
+    case 'ipfs':
+      await ensureIpfsStarted(game);
+      const { path } = await game.ipfs.add(createJsonBlob(json));
+      realmObjPath = `/ipfs/${path}`;
+      break;
+    case 'download':
+      downloadJson(json, `realm-${await calcJsonCid(json)}.json`);
+      break;
+  }
+
+  return realmObjPath;
 }
