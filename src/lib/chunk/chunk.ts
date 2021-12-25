@@ -222,7 +222,11 @@ export function pack(chunk: ChunkComponent, ecs: GameECS): PackedChunkComponent 
   return {
     chunkIJ,
     cellsEntries: cells.entries(),
-    subObjs: subObjs.map(subObjEntity => ecs.getSid(subObjEntity)),
+    subObjs: subObjs.filter(
+      subObjEntity => !ecs.getComponent(subObjEntity, 'subObj').mounted
+    ).map(
+      subObjEntity => ecs.getSid(subObjEntity)
+    ),
     textureUrl,
     repeatable,
   }

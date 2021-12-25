@@ -48,6 +48,7 @@ export function mountSubObj(subObjEntity: EntityRef, game: Game) {
   game.player.subObjEntity = subObjEntity;
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   game.player.objEntity = subObj.obj;
+  subObj.mounted = true;
 
   game.player.chunkIJ = subObj.chunkIJ;
   const subObjRender = game.ecs.getComponent(game.player.subObjEntity, 'subObj/spriteRender');

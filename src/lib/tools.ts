@@ -457,9 +457,11 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
 
     if (coneIntersect) {
       const upClicked = coneIntersect.object.id === terrainAltitude.upCone.id;
+      const adjustment = upClicked ? 0.2 : -0.2;
 
+      terrainAltitude.coneGroup.position.y += adjustment;
       return adjustTerrain(
-        upClicked ? 0.2 : -0.2, 4, 0,
+        adjustment, 4, 0,
         terrainAltitude.selectedChunkCell,
         game,
       );

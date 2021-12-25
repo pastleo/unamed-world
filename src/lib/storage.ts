@@ -107,14 +107,9 @@ export async function exportRealm(method: ExportObjMethod, spawnLocation: Vec2, 
   const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), spawnLocation, game.ecs);
   const packedChunks = packedObjRealm.chunkEntries.map(([_chunkIJ, sid]) => {
     const chunkEntityComponents = game.ecs.getEntityComponents(game.ecs.fromSid(sid));
-    const chunk = chunkEntityComponents.get('chunk');
 
     updateChunkTextureUrl(chunkEntityComponents);
-
-    const packedChunk = packChunk({
-      ...chunk,
-      subObjs: chunk.subObjs.filter(subObjEntity => !entityEqual(subObjEntity, game.player.subObjEntity))
-    }, game.ecs);
+    const packedChunk = packChunk(chunkEntityComponents.get('chunk'), game.ecs);
     subObjSids.push(...packedChunk.subObjs);
 
     return [sid, packedChunk] as SidEntry<PackedChunkComponent>;
