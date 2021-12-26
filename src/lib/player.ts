@@ -106,6 +106,11 @@ export function movePlayerAddRelative(dVec: Vec2, game: Game) {
   broadcastMyself(game);
 }
 
+export function syncLocationToRealmSpawnLocation(game: Game) {
+  const realmObj = game.ecs.getComponent(game.realm.currentObj, 'obj/realm');
+  realmObj.spawnLocation = getPlayerLocation(game);
+}
+
 function maxDistanceBetweenPlayer(vec: Vec2 | null): Vec2 {
   const distance = length(vec || [0, 0]);
   if (distance > MAX_DISTANCE_BETWEEN_PLAYER) {

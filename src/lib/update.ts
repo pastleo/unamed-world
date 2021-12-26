@@ -7,8 +7,8 @@ import { update as updateCamera, resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { switchRealm } from './realm';
 import { jumpOnRealm, jumpOffRealm } from './player';
-import { fetchRealm } from './storage';
-import { join } from './network';
+import { fetchObjJson, importRealm } from './storage';
+import { join, reqRealm, unpauseProcessingRuntimeMessages } from './network';
 
 import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
@@ -31,20 +31,24 @@ export async function changeRealm(game: Game) {
   const realmObjPath = parseUrlHash()[''];
   if (!realmObjPath) return
 
-  const memberFound = await join(realmObjPath, game);
-  console.log('changeRealm: join result:', { memberFound });
+  const memberExists = await join(realmObjPath, game);
 
-  // TODO: if realmObjPath is local, and did not found on localstorage, ask from members
+  let json = await fetchObjJson(realmObjPath, game, '-realm');
 
-  const json = await fetchRealm(realmObjPath, game);
-  if (!json) {
-    console.warn(`changeRealm: fetchRealm '${realmObjPath}' failed`);
-    return;
+  if (!json && memberExists) {
+    json = await reqRealm(game);
+  }
+
+  const jsonValidated = await importRealm(realmObjPath, json);
+  if (!jsonValidated) {
+    return console.warn(`changeRealm: fetchRealm '${realmObjPath}' failed`);
   };
 
   jumpOffRealm(game);
-  switchRealm(realmObjPath, json, game);
+  switchRealm(realmObjPath, jsonValidated, game);
   jumpOnRealm(game);
+
+  unpauseProcessingRuntimeMessages(game);
 }
 
 const UPDATE_CHUNK_RANGE = 2;

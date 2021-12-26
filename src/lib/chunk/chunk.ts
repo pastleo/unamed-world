@@ -199,9 +199,8 @@ export function mergeChunk(chunkSrc: Required<Partial<ChunkComponent>, 'chunkIJ'
   });
 }
 
-export function afterChunkChanged(chunk: ChunkComponent, game: Game) {
+export function afterChunkChanged(chunk: ChunkComponent) {
   chunk.persistance = true;
-  game.realm.markChanged();
 }
 
 export function destroy(chunkEntityComponents: GameEntityComponents, ecs: GameECS) {

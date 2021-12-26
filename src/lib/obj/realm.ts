@@ -1,5 +1,5 @@
 import * as ss from 'superstruct';
-import { GameECS } from '../gameECS';
+import type { GameECS } from '../gameECS';
 
 import { EntityRef, sidType } from '../utils/ecs';
 import { Vec2, vec2Type, InferSSOptional } from '../utils/utils';
@@ -41,8 +41,9 @@ const packedObjRealmComponentTypeDef = ss.object({
 export type PackedObjRealmComponent = InferSSOptional<typeof packedObjRealmComponentTypeDef, 'spawnLocation'>
 export const packedObjRealmComponentType = packedObjRealmComponentTypeDef as ss.Struct<PackedObjRealmComponent>;
 
-export function pack(objRealm: ObjRealmComponent, spawnLocation: Vec2, ecs: GameECS): PackedObjRealmComponent {
-  const { backgrounds } = objRealm;
+
+export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmComponent {
+  const { backgrounds, spawnLocation } = objRealm;
   return {
     chunkEntries: objRealm.chunks.entries().filter(([_, chunkEntity]) => {
       const chunk = ecs.getComponent(chunkEntity, 'chunk');

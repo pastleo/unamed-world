@@ -90,9 +90,9 @@ class ECS<ComponentMapT extends Record<string, any>> {
     entity.sid = newSid;
   }
 
-  fromSid(sid: Sid): EntityRef {
+  fromSid(sid: Sid, noAllocation: boolean = false): EntityRef {
     let ref = this.sids.get(sid);
-    if (!this.getEntity(ref)) {
+    if (!this.getEntity(ref) && !noAllocation) {
       ref = this.allocate();
       this.entities[ref[0]].sid = sid; // just allocated, directly access should be fine
       this.sids.set(sid, ref);
