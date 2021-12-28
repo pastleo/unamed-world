@@ -99,7 +99,7 @@ export function packRealm(game: Game): PackedRealmJson {
   const packedChunks = packedObjRealm.chunkEntries.map(([_chunkIJ, sid]) => {
     const chunkEntityComponents = game.ecs.getEntityComponents(game.ecs.fromSid(sid));
 
-    updateChunkTextureUrl(chunkEntityComponents);
+    updateChunkTextureUrl(chunkEntityComponents, game.realm.rmEditingWhileUpdateChunkTexture);
     const packedChunk = packChunk(chunkEntityComponents.get('chunk'), game.ecs);
     subObjSids.push(...packedChunk.subObjs);
 

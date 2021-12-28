@@ -7,7 +7,11 @@ import { Game } from './game';
 import { GameEntityComponents } from './gameECS';
 import { mountSubObj, movePlayerTo, syncLocationToRealmSpawnLocation } from './player';
 import { broadcastMyself } from './network';
-import { ChunkDrawAction, ChunkTerrainAltitudeAction, dispatchChunkAction, afterSaved } from './realm';
+import { afterSaved } from './realm';
+import {
+  ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction,
+  dispatchAction,
+} from './action';
 import { buildSpriteFromCurrentRealm } from './sprite';
 import { exportRealm, exportSprite } from './storage';
 
@@ -57,7 +61,6 @@ interface TerrainAltitude {
 
 interface Options {
   swiper: SwiperTool;
-  savedActionShown: boolean;
 }
 
 export function create(): Tools {
@@ -291,11 +294,6 @@ function ensureOptionsActivated(game: Game) {
 
   const options: Options = {
     swiper: setupSwiperTool(optionsBoxDOM, 0, 2, () => {}),
-    savedActionShown: false,
-  }
-
-  if (game.realm.state === 'saved') {
-    showRealmExportedOptions(game);
   }
 
   saveActionDOM.addEventListener('click', async () => {
@@ -303,8 +301,10 @@ function ensureOptionsActivated(game: Game) {
 
     if (!confirm('Will Save and switch to the saved room / realm, proceed?')) return;
 
+    game.realm.rmEditingWhileUpdateChunkTexture = true;
     syncLocationToRealmSpawnLocation(game);
     const realmObjPath = await exportRealm('local', game);
+    game.realm.rmEditingWhileUpdateChunkTexture = false;
 
     if (realmObjPath) {
       afterSaved(realmObjPath, game);
@@ -330,22 +330,6 @@ function showOptionsTool(_game: Game) {
 
 function hideOptionsTool(_game: Game) {
   document.getElementById('options-box').classList.remove('active');
-}
-
-export function showRealmExportedOptions(game: Game) {
-  const options = game.tools.options;
-  if (!options || options.savedActionShown) return;
-
-  //options.swiper.swiper.slideTo(1);
-  options.savedActionShown = true;
-}
-
-export function hideRealmExportedOptions(game: Game) {
-  const options = game.tools.options;
-  if (!options || !options.savedActionShown) return;
-
-  //options.swiper.swiper.removeSlide([1, 2]);
-  options.savedActionShown = false;
 }
 
 type InputType = 'down' | 'up' | 'move';
@@ -415,14 +399,14 @@ function castDraw(coordsPixel: Vec2, _inputType: InputType, game: Game) {
   const uv: Vec2 = [intersect.uv.x, intersect.uv.y];
 
   const action: ChunkDrawAction = {
-    type: 'draw',
+    type: 'chunk-draw',
     chunkIJ: chunkEntityComponents.get('chunk').chunkIJ,
     erasing: game.tools.draw.eraser,
     color: game.tools.draw.fillStyle,
     uv,
     radius: game.tools.draw.fillSize,
   };
-  dispatchChunkAction(action, game);
+  dispatchAction(action, game);
 }
 
 function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game) {
@@ -441,7 +425,7 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
       const adjustment = upClicked ? 0.2 : -0.2;
 
       const action: ChunkTerrainAltitudeAction = {
-        type: 'terrainAltitude',
+        type: 'chunk-terrainAltitude',
         chunkIJ: terrainAltitude.selectedChunkCell.chunkIJ,
         cellIJ: terrainAltitude.selectedChunkCell.cellIJ,
         altitudeAdjustment: adjustment,
@@ -449,7 +433,7 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
         range: 0,
       };
       terrainAltitude.coneGroup.position.y += adjustment;
-      return dispatchChunkAction(action, game);
+      return dispatchAction(action, game);
     }
   }
 
@@ -474,9 +458,15 @@ function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
   const [realmIntersect] = rayCastRealm(coordsPixel, game);
   if (!realmIntersect || !spriteObjAsTool) return;
 
-  const position = threeToVec3(realmIntersect.point);
-  const located = locateOrCreateChunkCell(position, game);
-  createSubObj(spriteObjAsTool, position, game, located);
+  const newSubObj = game.ecs.allocate();
+  const sid = game.ecs.getSid(newSubObj);
+  const action: AddSubObjAction = {
+    type: 'subObj-add',
+    sid, obj: spriteObjPath,
+    position: threeToVec3(realmIntersect.point),
+  }
+
+  dispatchAction(action, game);
 }
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {

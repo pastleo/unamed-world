@@ -30,12 +30,12 @@ async function main() {
     changeRealm(game);
   });
 
-  window.addEventListener('beforeunload', event => {
-    if (game.realm.state === 'changed' && !DBG_MODE) {
-      event.preventDefault();
-      event.returnValue = 'Changes are not saved, are you sure?';
-    }
-  }, { capture: true });
+  //window.addEventListener('beforeunload', event => {
+    //if (game.realm.state === 'changed' && !DBG_MODE) {
+      //event.preventDefault();
+      //event.returnValue = 'Changes are not saved, are you sure?';
+    //}
+  //}, { capture: true });
 
   startLoop(game);
 

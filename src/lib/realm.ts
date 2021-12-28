@@ -5,58 +5,33 @@ import { Game } from './game';
 import { GameECS } from './gameECS';
 import { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
 import { PackedRealmJson, loadExportedRealm } from './storage';
-import { hideRealmExportedOptions, showRealmExportedOptions } from './tools';
 
 import { getObjPath, ObjPath } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
 import {
-  Cell, getChunkEntityComponents, createChunk, getChunkAndCell, afterChunkChanged,
+  Cell, getChunkEntityComponents, createChunk,
   mergeChunk, destroy as destroyChunk,
 } from './chunk/chunk';
-import { addChunkMeshToScene, removeChunkMeshFromScene, editChunkCanvas2d } from './chunk/render';
+import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
 import { addOrRefreshSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
-import { Vec2, warnIfNotPresent, rangeVec2s } from './utils/utils';
+import { Vec2, warnIfNotPresent } from './utils/utils';
 import { listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
-import SetVec2 from './utils/setVec2';
 
-import { CHUNK_SIZE, DRAW_CANVAS_SIZE, REALM_CHANGED_BROADCAST_INTIVAL } from './consts';
+import { CHUNK_SIZE } from './consts';
 
-type RealmState = 'inited' | 'changed' | 'saved';
 export interface Realm {
   currentObj: EntityRef;
   brandNew: boolean;
-  state: RealmState;
-  dispatchChunkAction: (action: ChunkAction) => void;
-  changedChunkIJs: SetVec2;
-  changedBroadcastLoop?: ReturnType<typeof setTimeout>;
-  prevChunks?: Map2D<EntityRef>;
   light: THREE.DirectionalLight;
   worker: Comlink.Remote<RealmRPCs>;
   emptyMaterial: THREE.Material;
   gridMaterial: THREE.Material;
-}
-
-export interface ChunkAction {
-  type: string;
-  chunkIJ: Vec2;
-}
-export interface ChunkDrawAction extends ChunkAction {
-  type: 'draw';
-  erasing: boolean;
-  color: string;
-  uv: Vec2;
-  radius: number;
-}
-export interface ChunkTerrainAltitudeAction extends ChunkAction {
-  type: 'terrainAltitude';
-  cellIJ: Vec2;
-  altitudeAdjustment: number;
-  flatness: number;
-  range: number;
+  prevChunks?: Map2D<EntityRef>;
+  rmEditingWhileUpdateChunkTexture?: boolean; // temporary
 }
 
 export function init(ecs: GameECS): Realm {
@@ -73,9 +48,6 @@ export function init(ecs: GameECS): Realm {
   return {
     currentObj,
     brandNew: true,
-    state: 'inited',
-    dispatchChunkAction: () => {},
-    changedChunkIJs: new SetVec2(),
     light,
     worker,
     emptyMaterial: createEmptyMaterial(),
@@ -90,10 +62,6 @@ export function addToScene(game: Game) {
   listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
     handleNextGeneratedChunk(result, game);
   });
-
-  game.realm.dispatchChunkAction = action => {
-    dispatchChunkAction(action, game);
-  };
 
   resetRealm(game);
 }
@@ -118,91 +86,11 @@ export function switchRealm(realmObjPath: ObjPath, json: PackedRealmJson, game: 
   game.ecs.deallocate(game.realm.currentObj);
   game.realm.currentObj = loadExportedRealm(realmObjPath, json, game.ecs);
   game.realm.brandNew = false;
-  markUnchanged(game, 'inited');
   resetRealm(game);
-}
-
-export function dispatchChunkAction(action: ChunkAction, game: Game) {
-  switch (action.type) {
-    case 'draw':
-      draw(action as ChunkDrawAction, game);
-      break;
-    case 'terrainAltitude':
-      adjustTerrain(action as ChunkTerrainAltitudeAction, game);
-      break;
-    default:
-      return console.warn('dispatchChunkAction: unknown action', action);
-  }
-
-  hideRealmExportedOptions(game);
-  game.realm.state = 'changed';
-
-  game.realm.changedChunkIJs.add(action.chunkIJ);
-
-  if (game.realm.changedBroadcastLoop) return;
-  game.realm.changedBroadcastLoop = setTimeout(() => {
-    broadcastChanged(game);
-  }, REALM_CHANGED_BROADCAST_INTIVAL);
-}
-
-function draw(action: ChunkDrawAction, game: Game) {
-  const chunkEntityComponents = getChunkEntityComponents(action.chunkIJ, game.realm.currentObj, game.ecs);
-  editChunkCanvas2d((canvas2d: CanvasRenderingContext2D) => {
-    if (action.erasing) {
-      canvas2d.fillStyle = 'rgba(255, 255, 255, 1)';
-      canvas2d.globalCompositeOperation = 'destination-out';
-    } else {
-      canvas2d.fillStyle = action.color;
-      canvas2d.globalCompositeOperation = 'source-over';
-    }
-
-    canvas2d.beginPath();
-    canvas2d.arc(
-      DRAW_CANVAS_SIZE * action.uv[0], DRAW_CANVAS_SIZE * (1 - action.uv[1]),
-      action.radius,
-      0, 2 * Math.PI);
-    canvas2d.fill();
-  }, chunkEntityComponents, game);
-
-  afterChunkChanged(chunkEntityComponents.get('chunk'));
-}
-
-function adjustTerrain(action: ChunkTerrainAltitudeAction, game: Game) {
-  const updatedCells = new Map2D<Cell>();
-
-  rangeVec2s(action.cellIJ, action.range).map(cellIJ => {
-    const [chunk, cell] = getChunkAndCell(action.chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
-    cell.altitude += action.altitudeAdjustment;
-    updatedCells.put(...cellIJ, cell);
-    afterChunkChanged(chunk);
-  });
-
-  rangeVec2s(action.cellIJ, action.range + 1).map(cellIJ => {
-    const [chunk, cell] = getChunkAndCell(action.chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
-    cell.flatness = action.flatness;
-    updatedCells.put(...cellIJ, cell);
-    afterChunkChanged(chunk);
-  });
-
-  game.realm.worker.updateCells(action.chunkIJ, updatedCells.entries());
-}
-
-function broadcastChanged(game: Game) {
-  // WIP
-}
-
-export function markUnchanged(game: Game, state: 'inited' | 'saved') {
-  game.realm.state = state;
-  if (state === 'saved') {
-    showRealmExportedOptions(game);
-  } else {
-    hideRealmExportedOptions(game);
-  }
 }
 
 export function afterSaved(savedRealmObjPath: ObjPath, game: Game) {
   game.storage.savedRealmObjPath = savedRealmObjPath;
-  markUnchanged(game, 'saved');
 }
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {

@@ -28,4 +28,4 @@ export const DRAW_CANVAS_SIZE = 512;
 
 export const LATEST_STORAGE_VERSION = 2;
 
-export const REALM_CHANGED_BROADCAST_INTIVAL = 200;
+export const ACTION_BROADCAST_INTIVAL = 50;

@@ -119,15 +119,18 @@ export function editChunkCanvas2d(
   chunkRender.editing.material.map.needsUpdate = true;
 }
 
-export function updateChunkTextureUrl(chunkEntityComponents: GameEntityComponents) {
+export function updateChunkTextureUrl(chunkEntityComponents: GameEntityComponents, rmEditing: boolean = false) {
   const chunk = chunkEntityComponents.get('chunk');
   const chunkRender = chunkEntityComponents.get('chunk/render');
   if (chunkRender.editing) {
     chunk.textureUrl = chunkRender.editing.canvas2d.canvas.toDataURL('image/png');
-    const material = (chunkRender.mesh.material as THREE.Material[])[1];
-    chunkRender.mesh.material = material;
-    resetGroupForSingleMaterial(chunkRender.mesh.geometry);
-    delete chunkRender.editing;
+
+    if (rmEditing) {
+      const material = (chunkRender.mesh.material as THREE.Material[])[1];
+      chunkRender.mesh.material = material;
+      resetGroupForSingleMaterial(chunkRender.mesh.geometry);
+      delete chunkRender.editing;
+    }
   }
 }
 
