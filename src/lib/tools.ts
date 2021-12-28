@@ -5,9 +5,13 @@ import 'swiper/css';
 
 import { Game } from './game';
 import { GameEntityComponents } from './gameECS';
-import { getPlayerLocation, mountSubObj, movePlayerTo } from './player';
+import { mountSubObj, movePlayerTo, syncLocationToRealmSpawnLocation } from './player';
 import { broadcastMyself } from './network';
-import { adjustTerrain, afterSaved } from './realm';
+import { afterSaved } from './realm';
+import {
+  ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction,
+  dispatchAction,
+} from './action';
 import { buildSpriteFromCurrentRealm } from './sprite';
 import { exportRealm, exportSprite } from './storage';
 
@@ -16,13 +20,10 @@ import {
   Located,
   getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
 } from './chunk/chunk';
-import { editChunkCanvas2d } from './chunk/render';
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
 import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree } from './utils/utils';
 import { setUrlHash } from './utils/web';
-
-import { DRAW_CANVAS_SIZE } from './consts';
 
 import '../styles/tools.css';
 
@@ -60,9 +61,6 @@ interface TerrainAltitude {
 
 interface Options {
   swiper: SwiperTool;
-  savedActionShown: boolean;
-  gotoActionDOM: HTMLElement;
-  genActionDOM: HTMLElement;
 }
 
 export function create(): Tools {
@@ -287,41 +285,36 @@ function ensureOptionsActivated(game: Game) {
   if (game.tools.options) return;
 
   const topToolBoxesTemplate = document.getElementById('top-toolboxes') as HTMLTemplateElement;
-  const savedActionsTemplate = document.getElementById('saved-actions') as HTMLTemplateElement;
 
   const optionsBoxDOM = topToolBoxesTemplate.content.querySelector('#options-box').cloneNode(true) as HTMLElement;
   document.body.appendChild(optionsBoxDOM);
 
   const saveActionDOM = optionsBoxDOM.querySelector('#save-action');
-  const gotoActionDOM = savedActionsTemplate.content.querySelector('#goto-action').cloneNode(true) as HTMLElement;
-  const genActionDOM = savedActionsTemplate.content.querySelector('#gen-sprite').cloneNode(true) as HTMLElement;
+  const genActionDOM = optionsBoxDOM.querySelector('#gen-sprite');
 
   const options: Options = {
     swiper: setupSwiperTool(optionsBoxDOM, 0, 2, () => {}),
-    savedActionShown: false,
-    gotoActionDOM, genActionDOM,
-  }
-
-  if (game.realm.state === 'saved') {
-    showRealmExportedOptions(game);
   }
 
   saveActionDOM.addEventListener('click', async () => {
     if (options.swiper.activeIndex !== 0) return;
 
-    const realmObjPath = await exportRealm('local', getPlayerLocation(game), game);
-    afterSaved(realmObjPath, game);
-  });
-  gotoActionDOM.addEventListener('click', () => {
-    if (options.swiper.activeIndex !== 1) return;
+    if (!confirm('Will Save and switch to the saved room / realm, proceed?')) return;
 
-    if (game.storage.savedRealmObjPath) {
+    game.realm.rmEditingWhileUpdateChunkTexture = true;
+    syncLocationToRealmSpawnLocation(game);
+    const realmObjPath = await exportRealm('local', game);
+    game.realm.rmEditingWhileUpdateChunkTexture = false;
+
+    if (realmObjPath) {
+      afterSaved(realmObjPath, game);
       setUrlHash({ '': game.storage.savedRealmObjPath });
     }
   });
   genActionDOM.addEventListener('click', async () => {
-    if (options.swiper.activeIndex !== 2) return;
+    if (options.swiper.activeIndex !== 1) return;
 
+    await exportRealm('local', game);
     const spriteObj = buildSpriteFromCurrentRealm(game);
     const spriteObjPath = await exportSprite('local', spriteObj, game);
 
@@ -337,27 +330,6 @@ function showOptionsTool(_game: Game) {
 
 function hideOptionsTool(_game: Game) {
   document.getElementById('options-box').classList.remove('active');
-}
-
-export function showRealmExportedOptions(game: Game) {
-  const options = game.tools.options;
-  if (!options || options.savedActionShown) return;
-
-  options.swiper.swiper.appendSlide([
-    options.gotoActionDOM,
-    options.genActionDOM,
-  ]);
-  options.swiper.swiper.slideTo(1);
-
-  options.savedActionShown = true;
-}
-
-export function hideRealmExportedOptions(game: Game) {
-  const options = game.tools.options;
-  if (!options || !options.savedActionShown) return;
-
-  options.swiper.swiper.removeSlide([1, 2]);
-  options.savedActionShown = false;
 }
 
 type InputType = 'down' | 'up' | 'move';
@@ -426,22 +398,15 @@ function castDraw(coordsPixel: Vec2, _inputType: InputType, game: Game) {
 
   const uv: Vec2 = [intersect.uv.x, intersect.uv.y];
 
-  editChunkCanvas2d(canvas2d => {
-    if (game.tools.draw.eraser) {
-      canvas2d.fillStyle = 'rgba(255, 255, 255, 1)';
-      canvas2d.globalCompositeOperation = 'destination-out';
-    } else {
-      canvas2d.fillStyle = game.tools.draw.fillStyle;
-      canvas2d.globalCompositeOperation = 'source-over';
-    }
-
-    canvas2d.beginPath();
-    canvas2d.arc(
-      DRAW_CANVAS_SIZE * uv[0], DRAW_CANVAS_SIZE * (1 - uv[1]),
-      game.tools.draw.fillSize,
-      0, 2 * Math.PI);
-    canvas2d.fill();
-  }, chunkEntityComponents, game);
+  const action: ChunkDrawAction = {
+    type: 'chunk-draw',
+    chunkIJ: chunkEntityComponents.get('chunk').chunkIJ,
+    erasing: game.tools.draw.eraser,
+    color: game.tools.draw.fillStyle,
+    uv,
+    radius: game.tools.draw.fillSize,
+  };
+  dispatchAction(action, game);
 }
 
 function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game) {
@@ -457,12 +422,18 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
 
     if (coneIntersect) {
       const upClicked = coneIntersect.object.id === terrainAltitude.upCone.id;
+      const adjustment = upClicked ? 0.2 : -0.2;
 
-      return adjustTerrain(
-        upClicked ? 0.2 : -0.2, 4, 0,
-        terrainAltitude.selectedChunkCell,
-        game,
-      );
+      const action: ChunkTerrainAltitudeAction = {
+        type: 'chunk-terrainAltitude',
+        chunkIJ: terrainAltitude.selectedChunkCell.chunkIJ,
+        cellIJ: terrainAltitude.selectedChunkCell.cellIJ,
+        altitudeAdjustment: adjustment,
+        flatness: 4,
+        range: 0,
+      };
+      terrainAltitude.coneGroup.position.y += adjustment;
+      return dispatchAction(action, game);
     }
   }
 
@@ -487,9 +458,15 @@ function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
   const [realmIntersect] = rayCastRealm(coordsPixel, game);
   if (!realmIntersect || !spriteObjAsTool) return;
 
-  const position = threeToVec3(realmIntersect.point);
-  const located = locateOrCreateChunkCell(position, game);
-  createSubObj(spriteObjAsTool, position, game, located);
+  const newSubObj = game.ecs.allocate();
+  const sid = game.ecs.getSid(newSubObj);
+  const action: AddSubObjAction = {
+    type: 'subObj-add',
+    sid, obj: spriteObjPath,
+    position: threeToVec3(realmIntersect.point),
+  }
+
+  dispatchAction(action, game);
 }
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {

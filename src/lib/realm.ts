@@ -4,14 +4,12 @@ import * as Comlink from 'comlink';
 import { Game } from './game';
 import { GameECS } from './gameECS';
 import { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
-import { ExportedRealmJson, loadExportedRealm } from './storage';
-import { hideRealmExportedOptions, showRealmExportedOptions } from './tools';
+import { PackedRealmJson, loadExportedRealm } from './storage';
 
 import { getObjPath, ObjPath } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
 import {
-  Cell, Located,
-  getChunkEntityComponents, createChunk, getChunkAndCell, afterChunkChanged,
+  Cell, getChunkEntityComponents, createChunk,
   mergeChunk, destroy as destroyChunk,
 } from './chunk/chunk';
 import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
@@ -19,23 +17,21 @@ import { addOrRefreshSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
-import { Vec2, warnIfNotPresent, rangeVec2s } from './utils/utils';
+import { Vec2, warnIfNotPresent } from './utils/utils';
 import { listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
 
 import { CHUNK_SIZE } from './consts';
 
-type RealmState = 'inited' | 'changed' | 'saved';
 export interface Realm {
   currentObj: EntityRef;
-  loadedExternal: boolean;
-  state: RealmState,
-  markChanged: () => void,
-  prevChunks?: Map2D<EntityRef>;
+  brandNew: boolean;
   light: THREE.DirectionalLight;
   worker: Comlink.Remote<RealmRPCs>;
   emptyMaterial: THREE.Material;
   gridMaterial: THREE.Material;
+  prevChunks?: Map2D<EntityRef>;
+  rmEditingWhileUpdateChunkTexture?: boolean; // temporary
 }
 
 export function init(ecs: GameECS): Realm {
@@ -51,9 +47,7 @@ export function init(ecs: GameECS): Realm {
 
   return {
     currentObj,
-    loadedExternal: false,
-    state: 'inited',
-    markChanged: () => {},
+    brandNew: true,
     light,
     worker,
     emptyMaterial: createEmptyMaterial(),
@@ -68,10 +62,6 @@ export function addToScene(game: Game) {
   listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
     handleNextGeneratedChunk(result, game);
   });
-
-  game.realm.markChanged = () => {
-    markChanged(game);
-  };
 
   resetRealm(game);
 }
@@ -89,55 +79,18 @@ export function resetRealm(game: Game) {
   })();
 }
 
-export function switchRealm(realmObjPath: ObjPath, json: ExportedRealmJson, game: Game) {
+export function switchRealm(realmObjPath: ObjPath, json: PackedRealmJson, game: Game) {
   const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
   game.realm.prevChunks = currentRealmObjComponents.get('obj/realm').chunks;
   game.ecs.deallocate(game.realm.currentObj);
   game.realm.currentObj = loadExportedRealm(realmObjPath, json, game.ecs);
-  markUnchanged(game, 'inited');
-  game.realm.loadedExternal = game.storage.savedRealmObjPath !== realmObjPath;
+  game.realm.brandNew = false;
   resetRealm(game);
-}
-
-export function adjustTerrain(altitudeChange: number, flatness: number, range: number, located: Located, game: Game) {
-  const { chunkIJ, cellIJ } = located;
-
-  const updatedCells = new Map2D<Cell>();
-
-  rangeVec2s(cellIJ, range).map(cellIJ => {
-    const [chunk, cell] = getChunkAndCell(chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
-    cell.altitude += altitudeChange;
-    updatedCells.put(...cellIJ, cell);
-    afterChunkChanged(chunk, game);
-  })
-
-  rangeVec2s(cellIJ, range + 1).map(cellIJ => {
-    const [chunk, cell] = getChunkAndCell(chunkIJ, cellIJ, game.realm.currentObj, game.ecs);
-    cell.flatness = flatness;
-    updatedCells.put(...cellIJ, cell);
-    afterChunkChanged(chunk, game);
-  })
-
-  game.realm.worker.updateCells(chunkIJ, updatedCells.entries());
-}
-
-export function markChanged(game: Game) {
-  hideRealmExportedOptions(game);
-  game.realm.state = 'changed';
-}
-export function markUnchanged(game: Game, state: 'inited' | 'saved') {
-  game.realm.state = state;
-  if (state === 'saved') {
-    showRealmExportedOptions(game);
-  } else {
-    hideRealmExportedOptions(game);
-  }
 }
 
 export function afterSaved(savedRealmObjPath: ObjPath, game: Game) {
   game.storage.savedRealmObjPath = savedRealmObjPath;
-  markUnchanged(game, 'saved');
 }
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {

@@ -3,7 +3,7 @@ import localForage from 'localforage';
 import debug from 'debug';
 
 import { GameECS, init as initECS } from '../lib/gameECS';
-import { ExportedRealmJson, loadExportedRealm } from '../lib/storage';
+import { PackedRealmJson, loadExportedRealm } from '../lib/storage';
 
 import { ObjPath } from '../lib/obj/obj';
 import { ObjRealmComponent, createBaseRealm } from '../lib/obj/realm';
@@ -73,7 +73,7 @@ startWorker();
 async function loadRealm(objRealmPath: ObjPath, worker: RealmWorker) {
   if (!objRealmPath) return;
 
-  const json = await localForage.getItem<ExportedRealmJson>(objRealmPath);
+  const json = await localForage.getItem<PackedRealmJson>(objRealmPath);
   if (json) {
     const prevChunks = worker.ecs.getComponent(worker.realmEntity, 'obj/realm').chunks;
     prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {

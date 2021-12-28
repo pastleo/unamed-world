@@ -1,6 +1,7 @@
 import { Game } from './game';
 import { GameECS, GameEntityComponents } from './gameECS';
-import { fetchObjSprite, loadExportedSprite } from './storage';
+import { fetchObjJson, importSprite, loadExportedSprite } from './storage';
+import { reqSprite } from './network';
 
 import { ObjPath, createObjEntity } from './obj/obj';
 import { getChunkEntityComponents } from './chunk/chunk';
@@ -41,10 +42,15 @@ export async function requireObjSprite(subObjEntityRequiring: EntityRef, objEnti
     waitingSubObjs.push(subObjEntityRequiring);
   }
 
-  const json = await fetchObjSprite(spriteObjPath, game);
-  if (warnIfNotPresent(json)) return;
+  let json = await fetchObjJson(spriteObjPath, game, '-sprite');
 
-  loadExportedSprite(spriteObjPath, json, game.ecs);
+  if (!json && game.network.roomName) {
+    json = await reqSprite(spriteObjPath, game);
+  }
+  if (warnIfNotPresent(json)) return;
+  const jsonValidated = await importSprite(spriteObjPath, json);
+
+  loadExportedSprite(spriteObjPath, jsonValidated, game.ecs);
   waitingSubObjs.forEach(subObj => {
     addOrRefreshSubObjToScene(subObj, game);
   });

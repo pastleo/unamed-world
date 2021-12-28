@@ -199,9 +199,8 @@ export function mergeChunk(chunkSrc: Required<Partial<ChunkComponent>, 'chunkIJ'
   });
 }
 
-export function afterChunkChanged(chunk: ChunkComponent, game: Game) {
+export function afterChunkChanged(chunk: ChunkComponent) {
   chunk.persistance = true;
-  game.realm.markChanged();
 }
 
 export function destroy(chunkEntityComponents: GameEntityComponents, ecs: GameECS) {
@@ -222,7 +221,11 @@ export function pack(chunk: ChunkComponent, ecs: GameECS): PackedChunkComponent 
   return {
     chunkIJ,
     cellsEntries: cells.entries(),
-    subObjs: subObjs.map(subObjEntity => ecs.getSid(subObjEntity)),
+    subObjs: subObjs.filter(
+      subObjEntity => !ecs.getComponent(subObjEntity, 'subObj').mounted
+    ).map(
+      subObjEntity => ecs.getSid(subObjEntity)
+    ),
     textureUrl,
     repeatable,
   }

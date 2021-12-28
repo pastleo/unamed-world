@@ -48,6 +48,7 @@ export function mountSubObj(subObjEntity: EntityRef, game: Game) {
   game.player.subObjEntity = subObjEntity;
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   game.player.objEntity = subObj.obj;
+  subObj.mounted = true;
 
   game.player.chunkIJ = subObj.chunkIJ;
   const subObjRender = game.ecs.getComponent(game.player.subObjEntity, 'subObj/spriteRender');
@@ -103,6 +104,11 @@ export function movePlayerAddRelative(dVec: Vec2, game: Game) {
   setMoveRelative(subObjEntity, vec, game);
   updateCameraLocation(game);
   broadcastMyself(game);
+}
+
+export function syncLocationToRealmSpawnLocation(game: Game) {
+  const realmObj = game.ecs.getComponent(game.realm.currentObj, 'obj/realm');
+  realmObj.spawnLocation = getPlayerLocation(game);
 }
 
 function maxDistanceBetweenPlayer(vec: Vec2 | null): Vec2 {

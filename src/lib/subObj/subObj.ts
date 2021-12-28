@@ -19,6 +19,7 @@ export interface SubObjComponent {
   obj: EntityRef;
   position: Vec3;
   rotation: Vec3;
+  mounted: boolean;
   groundAltitude: number;
   state: SubObjState;
   cellIJ: Vec2;
@@ -33,6 +34,7 @@ export function createSubObj(obj: EntityRef, position: Vec3, game: Game, located
   const subObjEntity = existingSubObjEntity ?? game.ecs.allocate();
   game.ecs.setComponent(subObjEntity, 'subObj', {
     obj, position, rotation: [0, 0, 0],
+    mounted: false,
     groundAltitude: calcAltitudeAt(position, located, game),
     state: 'normal',
     cellIJ, chunkIJ,
@@ -140,6 +142,7 @@ export function unpack(subObjEntity: EntityRef, packedSubObj: PackedSubObjCompon
   const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = packedSubObj;
   ecs.setComponent(subObjEntity, 'subObj', {
     obj: ecs.fromSid(obj),
+    mounted: false,
     position, rotation, groundAltitude, state, cellIJ, chunkIJ,
   });
 }
