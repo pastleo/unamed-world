@@ -59,10 +59,7 @@ export function locateOrCreateChunkCell(
     console.warn('locateOrCreateChunkCell: position has NaN:', position);
     return null;
   }
-  const chunkIJ = [
-    Math.floor((position[0] + CHUNK_SIZE / 2) / CHUNK_SIZE),
-    Math.floor((position[2] + CHUNK_SIZE / 2) / CHUNK_SIZE),
-  ] as Vec2;
+  const chunkIJ = locateChunkIJ(position);
 
   const chunk = getOrCreateChunk(chunkIJ, game.realm.currentObj, game.ecs, createChunkFn);
   
@@ -77,6 +74,13 @@ export function locateOrCreateChunkCell(
     chunk,
     chunkIJ,
   }
+}
+
+export function locateChunkIJ(position: Vec3): Vec2 {
+  return [
+    Math.floor((position[0] + CHUNK_SIZE / 2) / CHUNK_SIZE),
+    Math.floor((position[2] + CHUNK_SIZE / 2) / CHUNK_SIZE),
+  ];
 }
 
 export function getChunkEntityComponents(chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS): GameEntityComponents {

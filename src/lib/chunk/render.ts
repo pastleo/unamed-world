@@ -5,7 +5,7 @@ import { GameEntityComponents } from '../gameECS';
 
 import { AttributeArrays } from './renderAttribute';
 
-import { Vec2, warnIfNotPresent } from '../utils/utils';
+import { Vec2, Vec3, warnIfNotPresent, vecCopyToThree } from '../utils/utils';
 import { createCanvas2d } from '../utils/web';
 
 import { CHUNK_SIZE, DRAW_CANVAS_SIZE } from '../consts';
@@ -75,10 +75,16 @@ export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents,
 }
 
 function addMeshToScene(chunkRender: ChunkRenderComponent, chunkIJ: Vec2, game: Game) {
-  chunkRender.mesh.position.x = chunkIJ[0] * CHUNK_SIZE;
-  chunkRender.mesh.position.z = chunkIJ[1] * CHUNK_SIZE;
+  vecCopyToThree(
+    calcChunkMeshPosition(chunkIJ),
+    chunkRender.mesh.position,
+  );
   chunkRender.mesh.renderOrder = -1;
   game.scene.add(chunkRender.mesh);
+}
+
+export function calcChunkMeshPosition(chunkIJ: Vec2): Vec3 {
+  return [chunkIJ[0] * CHUNK_SIZE, 0, chunkIJ[1] * CHUNK_SIZE];
 }
 
 export function editChunkCanvas2d(

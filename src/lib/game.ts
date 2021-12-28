@@ -51,7 +51,7 @@ export async function setup(): Promise<Game> {
   const game: Game = {
     ecs,
     renderer,
-    scene: new THREE.Scene,
+    scene: new THREE.Scene(),
     camera: initCamera(),
     realm: initRealm(ecs),
     spriteManager: initSpriteManager(),
