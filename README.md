@@ -1,18 +1,24 @@
 # unamed-world
 
+Game world for exploration of imagination
+
+## Introduction
+
+### [intro.unamed.world](https://intro.unamed.world)
+
 ## Setup for development
 
 ```sh
-git clone https://github.com/pastleo/unamed-world.git
+git clone --recurse-submodules https://github.com/pastleo/unamed-world.git
 cd unamed-world
 npm install
 cp src/env.js.dev src/env.js
 npm run dev
 ```
 
-then open `http://localhost:8000` in browser.
+then open `http://localhost:8080` in browser.
 
-> start typescript checker by running `npm run tc` in another shell session
+> typescript checker can be started by running `npm run tc` in another shell session
 
 ## Assets
 
