@@ -28,7 +28,7 @@ export interface Networking {
   pingThrottle: boolean;
 
   paused: boolean;
-  reqs: Map<string, (message: RoomMessage) => void>;
+  reqs: Map<string, (message: RoomMessage, fromMember: Peer) => void>;
   pausedResolves: (() => void)[];
 
   actionsToBroadcast: Action[];
@@ -104,6 +104,14 @@ interface PingMessage extends RoomMessage {
 interface ReqResMessage extends RoomMessage {
   reqId: string;
 }
+interface ReqObjMessage extends ReqResMessage {
+  type: 'req-obj';
+  objType: 'realm' | 'sprite';
+  objPath: ObjPath;
+}
+interface ReqObjFoundMessage extends ReqResMessage {
+  type: 'res-obj-found';
+}
 interface ReqRealmMessage extends ReqResMessage {
   type: 'req-realm';
 }
@@ -162,20 +170,9 @@ export function reqRealm(game: Game): Promise<PackedRealmJson> {
   });
 }
 
-export function reqSprite(spriteObjPath: ObjPath, game: Game): Promise<PackedSpriteJson> {
-  return new Promise(resolve => {
-    const reqId = randomStr();
-    const message: ReqSpriteMessage = {
-      type: 'req-sprite', reqId,
-      roomName: game.network.roomName,
-      spriteObjPath,
-    }
-
-    game.network.reqs.set(reqId, message => {
-      resolve((message as ResSpriteMessage).sprite);
-    });
-    game.network.unamedNetwork.broadcast(game.network.roomName, message);
-  });
+export async function reqSprite(spriteObjPath: ObjPath, game: Game): Promise<PackedSpriteJson> {
+  const memberWithSprite = await reqObj('sprite', spriteObjPath, game);
+  return reqSpriteFromMember(spriteObjPath, memberWithSprite, game);
 }
 
 export function broadcastMyself(game: Game) {
@@ -227,10 +224,13 @@ async function handleRoomMessage(fromMember: Peer, message: RoomMessage, room: R
   if (room.name !== game.network.roomName) return;
 
   switch (message.type) {
+    case 'req-obj':
+      return handleReqObj(fromMember, message as ReqObjMessage, game);
     case 'req-realm':
       return handleReqRealm(fromMember, message as ReqRealmMessage, game);
     case 'req-sprite':
       return handleReqSprite(fromMember, message as ReqSpriteMessage, game);
+    case 'res-obj-found':
     case 'res-realm':
     case 'res-sprite':
       return handleResMessage(fromMember, message as ReqResMessage, game);
@@ -242,15 +242,40 @@ async function handleRoomMessage(fromMember: Peer, message: RoomMessage, room: R
       return handleActions(fromMember, message as ActionsMessage, game);
   }
 }
-function handleResMessage(_fromMember: Peer, message: ReqResMessage, game: Game) {
+function handleResMessage(fromMember: Peer, message: ReqResMessage, game: Game) {
   const req = game.network.reqs.get(message.reqId);
   if (req) {
     game.network.reqs.delete(message.reqId);
-    req(message);
+    req(message, fromMember);
   }
 }
 
-function handleReqRealm(_fromMember: Peer, message: ReqRealmMessage, game: Game) {
+function handleReqObj(fromMember: Peer, message: ReqObjMessage, game: Game) {
+  let found = false;
+
+  if (
+    message.objType === 'realm' &&
+    game.ecs.getSid(game.realm.currentObj) === message.objPath
+  ) {
+    found = true;
+  } else {
+    const entity = game.ecs.fromSid(message.objPath, true);
+    if (entity && game.ecs.getComponent(entity, 'obj/sprite')) {
+      found = true;
+    }
+  }
+
+  if (found) {
+    const resMessage: ReqObjFoundMessage = {
+      type: 'res-obj-found',
+      reqId: message.reqId,
+      roomName: game.network.roomName,
+    }
+    game.network.unamedNetwork.broadcast(game.network.roomName, resMessage, [fromMember.peerId]);
+  }
+}
+
+function handleReqRealm(fromMember: Peer, message: ReqRealmMessage, game: Game) {
   if (!game.network.master) return;
 
   const resMessage: ResRealmMessage = {
@@ -260,12 +285,10 @@ function handleReqRealm(_fromMember: Peer, message: ReqRealmMessage, game: Game)
     realm: packRealm(game),
   }
 
-  game.network.unamedNetwork.broadcast(game.network.roomName, resMessage);
+  game.network.unamedNetwork.broadcast(game.network.roomName, resMessage, [fromMember.peerId]);
 }
 
-function handleReqSprite(_fromMember: Peer, message: ReqSpriteMessage, game: Game) {
-  // TODO: somehow make only one member replying...
-
+function handleReqSprite(fromMember: Peer, message: ReqSpriteMessage, game: Game) {
   const objSprite = game.ecs.fromSid(message.spriteObjPath, true);
   if (!objSprite) return;
 
@@ -276,7 +299,7 @@ function handleReqSprite(_fromMember: Peer, message: ReqSpriteMessage, game: Gam
     sprite: packSprite(objSprite, game),
   }
 
-  game.network.unamedNetwork.broadcast(game.network.roomName, resMessage);
+  game.network.unamedNetwork.broadcast(game.network.roomName, resMessage, [fromMember.peerId]);
 }
 
 function handlePing(fromMember: Peer, message: PingMessage, game: Game) {
@@ -298,6 +321,37 @@ function handlePing(fromMember: Peer, message: PingMessage, game: Game) {
 function handleActions(_fromMember: Peer, message: ActionsMessage, game: Game) {
   message.actions.forEach(action => {
     processAction(action, game);
+  });
+}
+
+function reqObj(objType: 'realm' | 'sprite', objPath: ObjPath, game: Game): Promise<Peer> {
+  return new Promise(resolve => {
+    const reqId = randomStr();
+    const message: ReqObjMessage = {
+      type: 'req-obj', reqId,
+      roomName: game.network.roomName,
+      objType, objPath,
+    }
+
+    game.network.reqs.set(reqId, (_message, fromMember) => {
+      resolve(fromMember);
+    });
+    game.network.unamedNetwork.broadcast(game.network.roomName, message);
+  });
+}
+function reqSpriteFromMember(spriteObjPath: ObjPath, member: Peer, game: Game): Promise<PackedSpriteJson> {
+  return new Promise(resolve => {
+    const reqId = randomStr();
+    const message: ReqSpriteMessage = {
+      type: 'req-sprite', reqId,
+      roomName: game.network.roomName,
+      spriteObjPath,
+    }
+
+    game.network.reqs.set(reqId, message => {
+      resolve((message as ResSpriteMessage).sprite);
+    });
+    game.network.unamedNetwork.broadcast(game.network.roomName, message, [member.peerId]);
   });
 }
 
