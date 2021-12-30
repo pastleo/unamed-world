@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 
 import { Game } from '../game';
-import { SubObjComponent } from './subObj';
+import { SubObjComponent, getObjOrBaseComponents } from './subObj';
 import { ObjSpriteComponent } from '../obj/sprite';
-import { getObjOrBaseComponents } from '../sprite';
 
 import { EntityRef } from '../utils/ecs';
 import { mod, warnIfNotPresent } from '../utils/utils';
@@ -12,16 +11,23 @@ export interface SubObjSpriteRenderComponent {
   sprite: THREE.Sprite;
 }
 
-export function addOrRefreshSpriteToScene(subObjEntity: EntityRef, game: Game) {
+export function addSpriteToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   const subObjComponents = game.ecs.getEntityComponents(subObjEntity);
   const subObj = subObjComponents.get('subObj');
   if (warnIfNotPresent(subObj)) return;
+
+  game.spriteManager.requireObjSprite(subObjEntity, subObj.obj);
+
   const objSprite = getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');;
   if (warnIfNotPresent(objSprite)) return;
 
   let subObjSpriteRender = subObjComponents.get('subObj/spriteRender');
   if (subObjSpriteRender) {
-    subObjSpriteRender.sprite.removeFromParent();
+    if (refresh) {
+      subObjSpriteRender.sprite.removeFromParent();
+    } else {
+      return;
+    }
   }
 
   const texture = game.loader.load(objSprite.spritesheet);

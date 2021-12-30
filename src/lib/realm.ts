@@ -13,7 +13,7 @@ import {
   mergeChunk, destroy as destroyChunk,
 } from './chunk/chunk';
 import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
-import { addOrRefreshSubObjToScene, destroySubObj } from './subObj/subObj';
+import { addSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
@@ -124,7 +124,7 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
   addChunkMeshToScene(chunkEntityComponents, chunkIJ, attributeArrays, game);
   const chunk = chunkEntityComponents.get('chunk');
   chunk.subObjs.forEach(subObjEntity => {
-    addOrRefreshSubObjToScene(subObjEntity, game);
+    addSubObjToScene(subObjEntity, game);
   });
 
   if (game.realm.prevChunks) {

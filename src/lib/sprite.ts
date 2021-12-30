@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 
 import { Game } from './game';
-import { GameECS, GameEntityComponents } from './gameECS';
+import { GameECS } from './gameECS';
 import { fetchObjJson, importSprite, loadExportedSprite } from './storage';
 import { reqSprite } from './network';
 
 import { ObjPath, createObjEntity } from './obj/obj';
 import { getChunkEntityComponents, locateChunkIJ } from './chunk/chunk';
 import { calcChunkMeshPosition } from './chunk/render';
-import { addOrRefreshSubObjToScene } from './subObj/subObj';
+import { addSubObjToScene } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { Vec2, warnIfNotPresent, vecCopyToThree } from './utils/utils';
@@ -18,19 +18,21 @@ import { CHUNK_SIZE } from './consts';
 
 export interface SpriteManager {
   fetchingObjs: Map<ObjPath, EntityRef[]>;
+  requireObjSprite: (subObjEntityRequiring: EntityRef, objEntity: EntityRef) => void;
 }
 
 export function init(): SpriteManager {
   return {
     fetchingObjs: new Map(),
+    requireObjSprite: () => {},
   }
 }
 
-export function getObjOrBaseComponents(objEntity: EntityRef, ecs: GameECS): GameEntityComponents {
-  const objSprite = ecs.getComponent(objEntity, 'obj/sprite');
-  if (objSprite) return ecs.getEntityComponents(objEntity);
-
-  return ecs.getEntityComponents(ecs.fromSid('base'));
+export function start(game: Game) {
+  game.spriteManager.requireObjSprite = (subObjEntityRequiring, objEntity) => {
+    requireObjSprite(subObjEntityRequiring, objEntity, game) ;
+  }
+  createBaseSpriteObj(game.ecs);
 }
 
 export async function requireObjSprite(subObjEntityRequiring: EntityRef, objEntity: EntityRef, game: Game) {
@@ -57,7 +59,7 @@ export async function requireObjSprite(subObjEntityRequiring: EntityRef, objEnti
 
   loadExportedSprite(spriteObjPath, jsonValidated, game.ecs);
   waitingSubObjs.forEach(subObj => {
-    addOrRefreshSubObjToScene(subObj, game);
+    addSubObjToScene(subObj, game, true);
   });
   game.spriteManager.fetchingObjs.delete(spriteObjPath);
 }

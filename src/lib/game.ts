@@ -5,7 +5,7 @@ import { getChunk } from './chunk/chunk';
 
 import { GameECS, init as initECS } from './gameECS';
 import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
-import { SpriteManager, init as initSpriteManager, createBaseSpriteObj } from './sprite';
+import { SpriteManager, init as initSpriteManager, start as startSpriteManager } from './sprite';
 import { changeRealm } from './update';
 
 import { Networking, init as initNetworking } from './network';
@@ -65,11 +65,11 @@ export async function setup(): Promise<Game> {
     loader: new THREE.TextureLoader(),
   }
 
-  createBaseSpriteObj(game.ecs);
   document.body.appendChild(renderer.domElement);
 
   addRealmToScene(game);
   addCameraToScene(game);
+  startSpriteManager(game);
   addPlayerToRealm(game);
   startTools(game);
   startListeners(game);

@@ -1,6 +1,6 @@
 import { Game } from './game';
 import { ChunkComponent, getChunk } from './chunk/chunk';
-import { updateSpriteTexture } from './subObj/spriteRender';
+import { updateSubObjDisplay } from './subObj/subObj';
 import { update as updatePlayer } from './player';
 import { update as updateInput } from './input';
 import { update as updateCamera, resize as resizeCamera } from './camera';
@@ -31,12 +31,15 @@ export async function changeRealm(game: Game) {
   const realmObjPath = parseUrlHash()[''];
   if (!realmObjPath) return
 
-  const memberExists = await join(realmObjPath, game);
+  const joinPromise = join(realmObjPath, game);
 
   let json = await fetchObjJson(realmObjPath, game, '-realm');
 
-  if (!json && memberExists) {
-    json = await reqRealm(game);
+  if (!json) {
+    const memberExists = await joinPromise;
+    if (memberExists) {
+      json = await reqRealm(game);
+    }
   }
 
   const jsonValidated = await importRealm(realmObjPath, json);
@@ -69,5 +72,5 @@ function updateChunk(_chunkIJ: Vec2, chunk: ChunkComponent, tDiff: number, game:
 
 function updateSubObj(subObj: EntityRef, tDiff: number, game: Game) {
   updateWalking(subObj, tDiff, game);
-  updateSpriteTexture(subObj, game);
+  updateSubObjDisplay(subObj, game);
 }

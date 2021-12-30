@@ -1,9 +1,8 @@
 import { Game } from '../game';
 import { GameEntityComponents } from '../gameECS';
-import { getObjOrBaseComponents } from '../sprite';
 
 import { ObjEntityComponents } from '../obj/obj';
-import { SubObjEntityComponents } from '../subObj/subObj';
+import { SubObjEntityComponents, getObjOrBaseComponents } from '../subObj/subObj';
 import { locateOrCreateChunkCell, getOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { moveSubObj, detectCollision } from './subObj';
 

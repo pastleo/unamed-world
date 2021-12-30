@@ -2,10 +2,10 @@ import * as ss from 'superstruct';
 
 import { Game } from '../game';
 import { GameECS, GameEntityComponents } from '../gameECS';
-import { requireObjSprite, getObjOrBaseComponents } from '../sprite';
 
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
-import { addOrRefreshSpriteToScene, updateSpritePosition, removeSprite } from './spriteRender';
+import { addSpriteToScene, updateSpriteTexture, updateSpritePosition, removeSprite } from './spriteRender';
+import { addMeshToScene, updateMeshPosition } from './meshRender';
 
 import { EntityRef, sidType, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, vec2Type, vec3Type, length, add, sub, warnIfNotPresent } from '../utils/utils';
@@ -26,6 +26,13 @@ export interface SubObjComponent {
   chunkIJ: Vec2;
 }
 
+export function getObjOrBaseComponents(objEntity: EntityRef, ecs: GameECS): GameEntityComponents {
+  const objSprite = ecs.getComponent(objEntity, 'obj/sprite');
+  if (objSprite) return ecs.getEntityComponents(objEntity);
+
+  return ecs.getEntityComponents(ecs.fromSid('base'));
+}
+
 export function createSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
   const located = locatedArg ?? locateOrCreateChunkCell(position, game);
   if (warnIfNotPresent(located)) return;
@@ -41,23 +48,28 @@ export function createSubObj(obj: EntityRef, position: Vec3, game: Game, located
   });
 
   located.chunk.subObjs.push(subObjEntity);
-  addOrRefreshSubObjToScene(subObjEntity, game);
+  addSubObjToScene(subObjEntity, game);
 
   return subObjEntity;
 }
 
-export function addOrRefreshSubObjToScene(subObjEntity: EntityRef, game: Game) {
-  requireObjSprite(subObjEntity, game.ecs.getComponent(subObjEntity, 'subObj').obj, game);
-
+export function addSubObjToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   // all possible subObj render systems:
-  addOrRefreshSpriteToScene(subObjEntity, game);
+  addSpriteToScene(subObjEntity, game, refresh);
+  addMeshToScene(subObjEntity, game, refresh);
 
   updateSubObjPosition(subObjEntity, game);
+}
+
+export function updateSubObjDisplay(subObjEntity: EntityRef, game: Game) {
+  // all possible subObj render systems:
+  updateSpriteTexture(subObjEntity, game);
 }
 
 export function updateSubObjPosition(subObjEntity: EntityRef, game: Game) {
   // all possible subObj render systems:
   updateSpritePosition(subObjEntity, game);
+  updateMeshPosition(subObjEntity, game);
 }
 
 export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
