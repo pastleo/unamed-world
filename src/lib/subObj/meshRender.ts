@@ -27,8 +27,11 @@ export function addMeshToScene(subObjEntity: EntityRef, game: Game, refresh: boo
 
   const geometry = new THREE.BoxGeometry(1, 1, 1);
   const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-  subObjMeshRender.mesh = new THREE.Mesh(geometry, material);
-  game.scene.add(subObjMeshRender.mesh);
+  const mesh = new THREE.Mesh(geometry, material);
+  game.scene.add(mesh);
+
+  subObjMeshRender = { mesh };
+  game.ecs.setComponent(subObjEntity, 'subObj/meshRender', subObjMeshRender);
 }
 
 export function updateMeshPosition(subObjEntity: EntityRef, game: Game) {

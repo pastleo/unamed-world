@@ -5,7 +5,7 @@ import { getChunk } from './chunk/chunk';
 
 import { GameECS, init as initECS } from './gameECS';
 import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
-import { SpriteManager, init as initSpriteManager, start as startSpriteManager } from './sprite';
+import { createBuiltInObjs } from './builtInObj';
 import { changeRealm } from './update';
 
 import { Networking, init as initNetworking } from './network';
@@ -30,7 +30,6 @@ export interface Game {
   scene: THREE.Scene;
   camera: Camera;
   realm: Realm;
-  spriteManager: SpriteManager;
   player: Player;
   tools: Tools;
   ipfs: IPFS;
@@ -54,7 +53,6 @@ export async function setup(): Promise<Game> {
     scene: new THREE.Scene(),
     camera: initCamera(),
     realm: initRealm(ecs),
-    spriteManager: initSpriteManager(),
     player: createPlayer(ecs),
     tools: createTools(),
     ipfs: null,
@@ -67,9 +65,9 @@ export async function setup(): Promise<Game> {
 
   document.body.appendChild(renderer.domElement);
 
+  createBuiltInObjs(game.ecs);
   addRealmToScene(game);
   addCameraToScene(game);
-  startSpriteManager(game);
   addPlayerToRealm(game);
   startTools(game);
   startListeners(game);

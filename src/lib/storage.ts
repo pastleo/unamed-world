@@ -5,21 +5,23 @@ import * as ss from 'superstruct';
 import { Game } from './game';
 import { GameECS } from './gameECS';
 import { ensureIpfsStarted, calcJsonCid, fetchIpfsJson } from './ipfs';
-import { migrateRealmJson, migrateSpriteJson } from './migration';
+import {
+  migrateRealmJson, migrateSpriteJson,
+  LATEST_REALM_JSON_VERSION, LATEST_SPRITE_JSON_VERSION,
+} from './migration';
+import { reqSprite } from './network';
 
-import { ObjPath } from './obj/obj';
+import { ObjPath, packedObjComponentType, pack as packObj, unpack as unpackObj } from './obj/obj';
 import { packedObjRealmComponentType, pack as packObjRealm, unpack as unpackObjRealm } from './obj/realm';
 import { PackedChunkComponent, packedChunkComponentType, pack as packChunk, unpack as unpackChunk } from './chunk/chunk';
 import { updateChunkTextureUrl } from './chunk/render';
-import { PackedSubObjComponent, packedSubObjComponentType, pack as packSubObj, unpack as unpackSubObj } from './subObj/subObj';
+import { PackedSubObjComponent, packedSubObjComponentType, pack as packSubObj, unpack as unpackSubObj, addSubObjToScene } from './subObj/subObj';
 import { packedObjSpriteComponentType, pack as packObjSprite, unpack as unpackObjSprite } from './obj/sprite';
 import { packedObjWalkableComponentType, pack as packObjWalkable, unpack as unpackObjWalkable } from './obj/walkable';
 
-import { EntityRef, Sid, sidType } from './utils/ecs';
+import { EntityRef, Sid, sidType, entityEqual } from './utils/ecs';
 import { warnIfNotPresent } from './utils/utils';
 import { createJsonBlob, downloadJson } from './utils/web';
-
-import { LATEST_STORAGE_VERSION } from './consts';
 
 export function sidEntryType<T>(t: ss.Struct<T>) {
   return ss.tuple([sidType, t]);
@@ -41,20 +43,30 @@ export type PackedRealmJson = ss.Infer<typeof packedRealmJsonType>;
 
 export const packedSpriteJsonType = ss.object({
   version: ss.number(),
+  packedObj: packedObjComponentType,
   packedObjSprite: packedObjSpriteComponentType,
   packedObjWalkable: packedObjWalkableComponentType,
 });
 export type PackedSpriteJson = ss.Infer<typeof packedSpriteJsonType>;
 
 export interface StorageManager {
+  fetchingForSubObjs: Map<ObjPath, EntityRef[]>;
+  requireForSubObj: (subObjEntityRequiring: EntityRef, objEntity: EntityRef) => void;
+
   savedRealmObjPath?: ObjPath;
 }
 
 export function init(): StorageManager {
-  return {}
+  return {
+    fetchingForSubObjs: new Map(),
+    requireForSubObj: () => [[0, 0], null],
+  }
 }
 
-export async function start(_game: Game): Promise<void> {
+export async function start(game: Game): Promise<void> {
+  game.storage.requireForSubObj = (subObjEntityRequiring, objEntity) => (
+    requireForSubObj(subObjEntityRequiring, objEntity, game)
+  );
 }
 
 export async function importRealm(realmObjPath: ObjPath, json: any): Promise<PackedRealmJson> {
@@ -117,7 +129,7 @@ export function packRealm(game: Game): PackedRealmJson {
   ] as SidEntry<PackedSubObjComponent>));
   
   return {
-    version: LATEST_STORAGE_VERSION,
+    version: LATEST_REALM_JSON_VERSION,
     packedObjRealm,
     packedChunks,
     packedSubObjs,
@@ -147,6 +159,7 @@ export async function importSprite(realmObjPath: ObjPath, json: any): Promise<Pa
 
 export function loadExportedSprite(objSpritePath: ObjPath, json: PackedSpriteJson, ecs: GameECS): EntityRef {
   const objEntity = ecs.fromSid(objSpritePath);
+  unpackObj(objEntity, json.packedObj, ecs);
   unpackObjSprite(objEntity, json.packedObjSprite, ecs);
   unpackObjWalkable(objEntity, json.packedObjWalkable, ecs);
 
@@ -155,11 +168,13 @@ export function loadExportedSprite(objSpritePath: ObjPath, json: PackedSpriteJso
 
 export function packSprite(objSprite: EntityRef, game: Game): PackedSpriteJson {
   const objSpriteComponents = game.ecs.getEntityComponents(objSprite);
+  const packedObj = packObj(objSpriteComponents.get('obj'));
   const packedObjSprite = packObjSprite(objSpriteComponents.get('obj/sprite'));
   const packedObjWalkable = packObjWalkable(objSpriteComponents.get('obj/walkable'));
 
   return {
-    version: LATEST_STORAGE_VERSION,
+    version: LATEST_SPRITE_JSON_VERSION,
+    packedObj,
     packedObjSprite,
     packedObjWalkable,
   }
@@ -190,6 +205,35 @@ export async function fetchObjJson(objPath: ObjPath, game: Game, devObjPostfix: 
   }
 
   return json;
+}
+
+async function requireForSubObj(subObjEntityRequiring: EntityRef, objEntity: EntityRef, game: Game) {
+  const objPath = game.ecs.getSid(objEntity);
+  const obj = game.ecs.getComponent(objEntity, 'obj');
+  if (obj) return; // already required
+
+  let waitingSubObjs = game.storage.fetchingForSubObjs.get(objPath);
+  if (!waitingSubObjs) {
+    waitingSubObjs = [];
+    game.storage.fetchingForSubObjs.set(objPath, waitingSubObjs);
+  }
+  if (waitingSubObjs.findIndex(subObj => entityEqual(subObj, subObjEntityRequiring)) === -1) {
+    waitingSubObjs.push(subObjEntityRequiring);
+  }
+
+  let json = await fetchObjJson(objPath, game, '-sprite');
+
+  if (!json && game.network.roomName) {
+    json = await reqSprite(objPath, game);
+  }
+  if (warnIfNotPresent(json)) return;
+  const jsonValidated = await importSprite(objPath, json);
+
+  loadExportedSprite(objPath, jsonValidated, game.ecs);
+  waitingSubObjs.forEach(subObj => {
+    addSubObjToScene(subObj, game, true);
+  });
+  game.storage.fetchingForSubObjs.delete(objPath);
 }
 
 type ExportObjMethod = 'local' | 'download' | 'ipfs';

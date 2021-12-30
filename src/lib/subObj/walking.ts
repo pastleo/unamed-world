@@ -1,10 +1,10 @@
 import { Game } from '../game';
 import { GameEntityComponents } from '../gameECS';
 
-import { ObjEntityComponents } from '../obj/obj';
-import { SubObjEntityComponents, getObjOrBaseComponents } from '../subObj/subObj';
+import { SubObjEntityComponents } from '../subObj/subObj';
 import { locateOrCreateChunkCell, getOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { moveSubObj, detectCollision } from './subObj';
+import { ObjEntityComponents, getOrBaseObjEntityComponents } from '../obj/obj';
 
 import { EntityRef } from '../utils/ecs';
 import { Vec2, sub, add, length, multiply, vec3To2, clamp, warnIfNotPresent } from '../utils/utils';
@@ -32,7 +32,7 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
   const subObjWalking = subObj.get('subObj/walking');
 
   if (subObjWalking?.moving) {
-    const obj = getObjOrBaseComponents(subObjComponent.obj, game.ecs);
+    const obj = getOrBaseObjEntityComponents(subObjComponent.obj, game.ecs);
     const movingRange = movableRange(subObj, obj, tDiff, game);
 
     if (movingRange > 0) {

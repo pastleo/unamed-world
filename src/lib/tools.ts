@@ -12,7 +12,7 @@ import {
   ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction,
   dispatchAction,
 } from './action';
-import { buildSpriteFromCurrentRealm } from './sprite';
+import { buildSpriteFromCurrentRealm } from './objBuilder';
 import { exportRealm, exportSprite } from './storage';
 
 import { ObjPath } from './obj/obj';
@@ -27,7 +27,7 @@ import { setUrlHash } from './utils/web';
 
 import '../styles/tools.css';
 
-export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | string;
+export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
 export interface Tools {
   activeTool: Tool;
   swiper: Swiper;
@@ -86,6 +86,7 @@ const TOOL_ICONS: Record<Tool, string> = {
   draw: '✍️',
   terrainAltitude: '↕️',
   options: '⚙️',
+  pin: '🚩',
 }
 const RAYCAST_CHUNK_RANGE = 4;
 
@@ -102,7 +103,7 @@ export function start(game: Game) {
 
   const toolItemTemplate = document.getElementById('tools-item-template') as HTMLTemplateElement;
 
-  const initTools = ['walk', 'draw', 'terrainAltitude', 'options'];
+  const initTools = ['walk', 'draw', 'terrainAltitude', 'pin', 'options'];
   const toolCount = initTools.length;
   
   document.getElementById('main-toolbox').style.width = `${toolCount * 10}rem`;
@@ -342,6 +343,8 @@ export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game
       return castDraw(coordsPixel, inputType, game);
     case 'terrainAltitude':
       return castTerrainAltitude(coordsPixel, inputType, game);
+    case 'pin':
+      return castPin(coordsPixel, inputType, game);
   }
 
   if (game.tools.activeTool.startsWith('sprite/')) {
@@ -450,6 +453,25 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
   terrainAltitude.selectedChunkCell = located;
 }
 
+function castPin(coordsPixel: Vec2, inputType: InputType, game: Game) {
+  if (inputType !== 'up') return;
+
+  //const spriteObjPath: ObjPath = game.tools.activeTool.replace(/^sprite\//, '');
+  //const spriteObjAsTool = game.ecs.fromSid(spriteObjPath);
+  const [realmIntersect] = rayCastRealm(coordsPixel, game);
+  if (!realmIntersect) return;
+
+  const newSubObj = game.ecs.allocate();
+  const sid = game.ecs.getSid(newSubObj);
+  const action: AddSubObjAction = {
+    type: 'subObj-add',
+    sid, obj: 'pin',
+    position: threeToVec3(realmIntersect.point),
+  }
+
+  dispatchAction(action, game);
+}
+
 function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
   if (inputType !== 'up') return;
 
@@ -468,6 +490,8 @@ function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
   dispatchAction(action, game);
 }
+
+
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {
   const chunkMeshes = rangeVec2s(game.player.chunkIJ, RAYCAST_CHUNK_RANGE).map(chunkIJ => (

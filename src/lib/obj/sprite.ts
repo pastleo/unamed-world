@@ -1,5 +1,5 @@
 import * as ss from 'superstruct';
-import { GameECS } from '../gameECS';
+import type { GameECS } from '../gameECS';
 
 import { ObjPath, objPathType } from './obj';
 import { SubObjState, subObjStateType } from '../subObj/subObj';
@@ -16,6 +16,13 @@ export interface ObjSpriteComponent {
   radius: number;
   collision?: boolean;
   srcRealmObjPath?: ObjPath;
+}
+
+export function getOrBaseSprite(objEntity: EntityRef, ecs: GameECS): ObjSpriteComponent {
+  const objSprite = ecs.getComponent(objEntity, 'obj/sprite');
+  if (objSprite) return objSprite;
+
+  return ecs.getComponent(ecs.fromSid('base'), 'obj/sprite');
 }
 
 const spriteAnimationType = ss.tuple([ss.number(), ss.number()]);

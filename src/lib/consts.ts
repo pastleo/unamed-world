@@ -26,6 +26,4 @@ export const BASE_REALM_BACKGROUND = [
 
 export const DRAW_CANVAS_SIZE = 512;
 
-export const LATEST_STORAGE_VERSION = 2;
-
 export const ACTION_BROADCAST_INTIVAL = 50;

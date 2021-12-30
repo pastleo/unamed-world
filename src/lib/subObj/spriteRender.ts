@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-import { Game } from '../game';
-import { SubObjComponent, getObjOrBaseComponents } from './subObj';
-import { ObjSpriteComponent } from '../obj/sprite';
+import type { Game } from '../game';
+import { SubObjComponent } from './subObj';
+import { ObjSpriteComponent, getOrBaseSprite } from '../obj/sprite';
 
 import { EntityRef } from '../utils/ecs';
 import { mod, warnIfNotPresent } from '../utils/utils';
@@ -16,9 +16,7 @@ export function addSpriteToScene(subObjEntity: EntityRef, game: Game, refresh: b
   const subObj = subObjComponents.get('subObj');
   if (warnIfNotPresent(subObj)) return;
 
-  game.spriteManager.requireObjSprite(subObjEntity, subObj.obj);
-
-  const objSprite = getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');;
+  const objSprite = getOrBaseSprite(subObj.obj, game.ecs);
   if (warnIfNotPresent(objSprite)) return;
 
   let subObjSpriteRender = subObjComponents.get('subObj/spriteRender');
@@ -56,7 +54,7 @@ export function updateSpritePosition(subObjEntity: EntityRef, game: Game) {
   const subObjSpriteRender = game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
   if (!subObjSpriteRender) return;
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
-  const objSprite = getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');;
+  const objSprite = getOrBaseSprite(subObj.obj, game.ecs);
   if (warnIfNotPresent(subObj, objSprite)) return;
 
   subObjSpriteRender.sprite.position.x = subObj.position[0];
@@ -72,7 +70,7 @@ export function updateSpriteTexture(
   const subObjSpriteRender = subObjSpriteRenderArg ?? game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
   if (!subObjSpriteRender) return;
   const subObj = subObjArg ?? game.ecs.getComponent(subObjEntity, 'subObj');
-  const objSprite = objSpriteArg ?? getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');
+  const objSprite = objSpriteArg ?? getOrBaseSprite(subObj.obj, game.ecs);
   if (warnIfNotPresent(subObj)) return;
 
   const texture = subObjSpriteRender.sprite.material.map;

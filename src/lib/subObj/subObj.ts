@@ -6,6 +6,7 @@ import { GameECS, GameEntityComponents } from '../gameECS';
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { addSpriteToScene, updateSpriteTexture, updateSpritePosition, removeSprite } from './spriteRender';
 import { addMeshToScene, updateMeshPosition } from './meshRender';
+import { getOrBaseSprite } from '../obj/sprite';
 
 import { EntityRef, sidType, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, vec2Type, vec3Type, length, add, sub, warnIfNotPresent } from '../utils/utils';
@@ -24,13 +25,6 @@ export interface SubObjComponent {
   state: SubObjState;
   cellIJ: Vec2;
   chunkIJ: Vec2;
-}
-
-export function getObjOrBaseComponents(objEntity: EntityRef, ecs: GameECS): GameEntityComponents {
-  const objSprite = ecs.getComponent(objEntity, 'obj/sprite');
-  if (objSprite) return ecs.getEntityComponents(objEntity);
-
-  return ecs.getEntityComponents(ecs.fromSid('base'));
 }
 
 export function createSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
@@ -54,6 +48,9 @@ export function createSubObj(obj: EntityRef, position: Vec3, game: Game, located
 }
 
 export function addSubObjToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  game.storage.requireForSubObj(subObjEntity, subObj.obj);
+
   // all possible subObj render systems:
   addSpriteToScene(subObjEntity, game, refresh);
   addMeshToScene(subObjEntity, game, refresh);
@@ -118,14 +115,14 @@ export function detectCollision(subObjEntity: EntityRef, chunkIJ: Vec2, game: Ga
     ))
   )).filter(
     sObjEntity => {
-      //const sObjSprite = getObjOrBaseComponents(sObjEntity, game.ecs).get('obj/sprite');
+      //const sObjSprite = getOrBaseSprite(sObjEntity, game.ecs);
       //return sObjSprite.collision && !entityEqual(sObjEntity, subObj.entity)
       return !entityEqual(sObjEntity, subObj.entity)
     }
   ).filter(
     sObjEntity => {
       const sObj = game.ecs.getComponent(sObjEntity, 'subObj');
-      const sObjSprite = getObjOrBaseComponents(sObj.obj, game.ecs).get('obj/sprite');
+      const sObjSprite = getOrBaseSprite(sObj.obj, game.ecs);
       return (sObjSprite.radius + objSprite.radius) > length(sub(sObj.position, position))
     }
   );

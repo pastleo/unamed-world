@@ -1,78 +1,25 @@
 import * as THREE from 'three';
 
 import { Game } from './game';
-import { GameECS } from './gameECS';
-import { fetchObjJson, importSprite, loadExportedSprite } from './storage';
-import { reqSprite } from './network';
 
-import { ObjPath, createObjEntity } from './obj/obj';
 import { getChunkEntityComponents, locateChunkIJ } from './chunk/chunk';
 import { calcChunkMeshPosition } from './chunk/render';
-import { addSubObjToScene } from './subObj/subObj';
 
-import { EntityRef, entityEqual } from './utils/ecs';
-import { Vec2, warnIfNotPresent, vecCopyToThree } from './utils/utils';
-import { createCanvas2d } from './utils/web';
+import { EntityRef } from './utils/ecs';
+import { Vec2, vecCopyToThree } from './utils/utils';
+import { loadImage } from './utils/web';
 
 import { CHUNK_SIZE } from './consts';
 
-export interface SpriteManager {
-  fetchingObjs: Map<ObjPath, EntityRef[]>;
-  requireObjSprite: (subObjEntityRequiring: EntityRef, objEntity: EntityRef) => void;
-}
+//export interface ObjBuilder {
+//}
 
-export function init(): SpriteManager {
-  return {
-    fetchingObjs: new Map(),
-    requireObjSprite: () => {},
-  }
-}
+//export function init(): ObjBuilder {
+  //return {}
+//}
 
-export function start(game: Game) {
-  game.spriteManager.requireObjSprite = (subObjEntityRequiring, objEntity) => {
-    requireObjSprite(subObjEntityRequiring, objEntity, game) ;
-  }
-  createBaseSpriteObj(game.ecs);
-}
-
-export async function requireObjSprite(subObjEntityRequiring: EntityRef, objEntity: EntityRef, game: Game) {
-  const objSprite = game.ecs.getComponent(objEntity, 'obj/sprite');
-  if (objSprite) return; // already required
-
-  const spriteObjPath: ObjPath = game.ecs.getSid(objEntity);
-  let waitingSubObjs = game.spriteManager.fetchingObjs.get(spriteObjPath);
-  if (!waitingSubObjs) {
-    waitingSubObjs = []
-    game.spriteManager.fetchingObjs.set(spriteObjPath, waitingSubObjs);
-  }
-  if (waitingSubObjs.findIndex(subObj => entityEqual(subObj, subObjEntityRequiring)) === -1) {
-    waitingSubObjs.push(subObjEntityRequiring);
-  }
-
-  let json = await fetchObjJson(spriteObjPath, game, '-sprite');
-
-  if (!json && game.network.roomName) {
-    json = await reqSprite(spriteObjPath, game);
-  }
-  if (warnIfNotPresent(json)) return;
-  const jsonValidated = await importSprite(spriteObjPath, json);
-
-  loadExportedSprite(spriteObjPath, jsonValidated, game.ecs);
-  waitingSubObjs.forEach(subObj => {
-    addSubObjToScene(subObj, game, true);
-  });
-  game.spriteManager.fetchingObjs.delete(spriteObjPath);
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise(resolve => {
-    const image = new Image();
-    image.onload = () => {
-      resolve(image);
-    };
-    image.src = src;
-  });
-}
+//export async function start(_game: Game) {
+//}
 
 async function renderSpritesheet(game: Game) {
   const left = -9;
@@ -148,6 +95,9 @@ export function buildSpriteFromCurrentRealm(game: Game): EntityRef {
 
   renderSpritesheet(game);
 
+  newObjSpriteComponents.set('obj', {
+    subObjType: 'sprite',
+  });
   newObjSpriteComponents.set('obj/sprite', {
     spritesheet: chunkEntityComponents.get('chunk').textureUrl, // TODO
     colRow: [1, 1],
@@ -167,36 +117,4 @@ export function buildSpriteFromCurrentRealm(game: Game): EntityRef {
   });
 
   return newObjSpriteComponents.entity;
-}
-
-
-export function createBaseSpriteObj(ecs: GameECS) {
-  const ctx = createCanvas2d(256, 256);
-
-  const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  gradient.addColorStop(0, '#FFFFFFFF')
-  gradient.addColorStop(1, '#FFFFFF00')
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 256, 256);
-
-  const objEntity = createObjEntity(ecs, 'base');
-  ecs.setComponent(objEntity, 'obj/sprite', {
-    spritesheet: ctx.canvas.toDataURL('image/png'), // use 'image/webp' when Safari finally support webp
-    eightBitStyle: true,
-    colRow: [1, 1],
-    stateAnimations: {
-      normal: {
-        animations: [[0, 0]],
-        speed: 0,
-      },
-    },
-    tall: 1,
-    radius: 0.5,
-    collision: false,
-  });
-  ecs.setComponent(objEntity, 'obj/walkable', {
-    speed: 4,
-    maxClimbRad: Math.PI * 0.3,
-  });
 }
