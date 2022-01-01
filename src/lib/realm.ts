@@ -4,7 +4,8 @@ import * as Comlink from 'comlink';
 import { Game } from './game';
 import { GameECS } from './gameECS';
 import { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
-import { PackedRealmJson, loadExportedRealm } from './storage';
+import type { PackedRealmJson } from './resourcePacker';
+import { loadPackedRealm } from './resourceLoader';
 
 import { getObjPath, ObjPath } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
@@ -84,13 +85,13 @@ export function switchRealm(realmObjPath: ObjPath, json: PackedRealmJson, game: 
 
   game.realm.prevChunks = currentRealmObjComponents.get('obj/realm').chunks;
   game.ecs.deallocate(game.realm.currentObj);
-  game.realm.currentObj = loadExportedRealm(realmObjPath, json, game.ecs);
+  game.realm.currentObj = loadPackedRealm(realmObjPath, json, game.ecs);
   game.realm.brandNew = false;
   resetRealm(game);
 }
 
 export function afterSaved(savedRealmObjPath: ObjPath, game: Game) {
-  game.storage.savedRealmObjPath = savedRealmObjPath;
+  game.resource.savedRealmObjPath = savedRealmObjPath;
 }
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {

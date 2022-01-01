@@ -1,8 +1,8 @@
 import * as ss from 'superstruct';
 import { Required } from 'utility-types';
 
-import { Game } from '../game';
-import { GameECS, GameEntityComponents } from '../gameECS';
+import type { Game } from '../game';
+import type { GameECS, GameEntityComponents } from '../gameECS';
 
 import {
   Vec2, Vec3,

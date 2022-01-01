@@ -1,9 +1,8 @@
 import debug from 'debug';
 
-import { SidEntries } from './storage';
-import { ChunkComponent } from './chunk/chunk';
-
-import { Vec2 } from './utils/utils';
+import type { SidEntries } from './resourcePacker';
+import type { ChunkComponent } from './chunk/chunk';
+import type { Vec2 } from './utils/utils';
 
 const log = debug('migration');
 

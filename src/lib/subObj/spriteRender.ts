@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 
 import type { Game } from '../game';
-import { SubObjComponent } from './subObj';
-import { ObjSpriteComponent, getOrBaseSprite } from '../obj/sprite';
+import { getOrBaseSprite } from '../builtInObj';
+
+import type { SubObjComponent } from './subObj';
+import type { ObjSpriteComponent } from '../obj/sprite';
 
 import { EntityRef } from '../utils/ecs';
 import { mod, warnIfNotPresent } from '../utils/utils';

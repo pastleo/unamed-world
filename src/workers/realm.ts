@@ -3,14 +3,15 @@ import localForage from 'localforage';
 import debug from 'debug';
 
 import { GameECS, init as initECS } from '../lib/gameECS';
-import { PackedRealmJson, loadExportedRealm } from '../lib/storage';
+import type { PackedRealmJson } from '../lib/resourcePacker';
+import { loadPackedRealm } from '../lib/resourceLoader';
 
-import { ObjPath } from '../lib/obj/obj';
+import type { ObjPath } from '../lib/obj/obj';
 import { ObjRealmComponent, createBaseRealm } from '../lib/obj/realm';
 import { Cell, ChunkComponent, getChunk, getChunkCell } from '../lib/chunk/chunk';
 import { ChunkRenderAttributeComponent, AttributeArrays, chunkAttributeArrays } from '../lib/chunk/renderAttribute';
 
-import { EntityRef } from '../lib/utils/ecs';
+import type { EntityRef } from '../lib/utils/ecs';
 import { Vec2, rangeVec2s, add } from '../lib/utils/utils';
 import SetVec2 from '../lib/utils/setVec2';
 import Map2D from '../lib/utils/map2d';
@@ -81,7 +82,7 @@ async function loadRealm(objRealmPath: ObjPath, worker: RealmWorker) {
     });
 
     worker.generatingChunkQueue = [];
-    worker.realmEntity = loadExportedRealm(objRealmPath, json, worker.ecs);
+    worker.realmEntity = loadPackedRealm(objRealmPath, json, worker.ecs);
   }
 }
 

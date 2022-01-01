@@ -1,8 +1,17 @@
 import { GameECS } from './gameECS';
 
 import { createObjEntity } from './obj/obj';
+import type { ObjSpriteComponent } from './obj/sprite';
 
 import { createCanvas2d } from './utils/web';
+import type { EntityRef } from './utils/ecs';
+
+export function getOrBaseSprite(objEntity: EntityRef, ecs: GameECS): ObjSpriteComponent {
+  const objSprite = ecs.getComponent(objEntity, 'obj/sprite');
+  if (objSprite) return objSprite;
+
+  return ecs.getComponent(ecs.fromSid('base'), 'obj/sprite');
+}
 
 export function createBuiltInObjs(ecs: GameECS) {
   createBaseSpriteObj(ecs);

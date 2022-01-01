@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import * as ss from 'superstruct';
 
-import { Optional } from 'utility-types';
-
 export const vec2Type = ss.tuple([ss.number(), ss.number()]);
 export type Vec2 = ss.Infer<typeof vec2Type>;
 export const vec3Type = ss.tuple([ss.number(), ss.number(), ss.number()]);
@@ -150,19 +148,4 @@ export function warnIfNotPresent(...values: any[]) {
 
 export const randomStr = () => Math.floor(Math.random() * Date.now()).toString(36);
 
-/**
- * To define a superstruct object with optional key:
- *
- * const someTypeDef = ss.object({
- *   a: ss.string(),
- *   b: ss.optional(ss.string()),
- * });
- * type Some = InferSSOptional<typeof someTypeDef, 'b'>;
- * export const someType = someTypeDef as ss.Struct<Some>;
- *
- * Why optional can not be infered directly?
- *
- * from https://docs.superstructjs.org/guides/06-using-typescript
- * If you are not using TypeScript's strictNullChecks option, Superstruct will be unable to infer your "optional" types correctly and will mark all types as optional.
- */
-export type InferSSOptional<T extends ss.Struct<object>, K extends keyof ss.Infer<T>> = Optional<ss.Infer<T>, K>;
+export type EqualOrNever<T, R> = T extends R ? (R extends T ? T : never) : never;

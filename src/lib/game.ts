@@ -10,15 +10,15 @@ import { changeRealm } from './update';
 
 import { Networking, init as initNetworking } from './network';
 import {
-  StorageManager, init as initStorageManager, start as startStorageManager,
-} from './storage';
+  ResourceManager, init as initResourceManager, start as startResourceManager,
+} from './resource';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
 import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
 
-import { Vec2 } from './utils/utils';
+import type { Vec2 } from './utils/utils';
 
 import { DBG_MODE } from './dbg';
 
@@ -33,7 +33,7 @@ export interface Game {
   player: Player;
   tools: Tools;
   ipfs: IPFS;
-  storage: StorageManager;
+  resource: ResourceManager;
   network: Networking;
   input: Input,
   time: number;
@@ -56,7 +56,7 @@ export async function setup(): Promise<Game> {
     player: createPlayer(ecs),
     tools: createTools(),
     ipfs: null,
-    storage: initStorageManager(),
+    resource: initResourceManager(),
     network: initNetworking(),
     input: createInput(),
     time: 0,
@@ -72,7 +72,7 @@ export async function setup(): Promise<Game> {
   startTools(game);
   startListeners(game);
 
-  await startStorageManager(game);
+  await startResourceManager(game);
 
   changeRealm(game);
 

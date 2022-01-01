@@ -1,6 +1,6 @@
-import { Game } from './game';
-import { GameECS } from './gameECS';
-import { EntityRef } from './utils/ecs';
+import type { Game } from './game';
+import type { GameECS } from './gameECS';
+import type { EntityRef } from './utils/ecs';
 
 import { getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';

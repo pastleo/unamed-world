@@ -2,16 +2,16 @@ import UnamedNetwork, { Room, Peer } from 'unamed-network';
 
 import debug from 'debug';
 
-import { Game } from './game';
-import { PackedRealmJson, PackedSpriteJson, packRealm, packSprite } from './storage';
+import type { Game } from './game';
+import { PackedRealmJson, PackedSpriteJson, packRealm, packSprite } from './resourcePacker';
 
 import { ObjPath, getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
 import { locateOrCreateChunkCell } from './chunk/chunk';
 import { initSubObjWalking, getMoveTarget, setMoveTo } from './subObj/walking';
-import { Action, ChunkAction, processAction } from './action';
+import { Action, processAction } from './action';
 
-import { EntityRef, Sid } from './utils/ecs';
+import type { EntityRef, Sid } from './utils/ecs';
 import { Vec3, Vec2, randomStr } from './utils/utils';
 
 import { UNAMED_NETWORK_CONFIG, UNAMED_NETWORK_KNOWN_SERVICE_ADDRS } from '../env';

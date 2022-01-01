@@ -1,4 +1,4 @@
-import { Game } from './game';
+import type { Game } from './game';
 import { ChunkComponent, getChunk } from './chunk/chunk';
 import { updateSubObjDisplay } from './subObj/subObj';
 import { update as updatePlayer } from './player';
@@ -7,10 +7,10 @@ import { update as updateCamera, resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { switchRealm } from './realm';
 import { jumpOnRealm, jumpOffRealm } from './player';
-import { fetchObjJson, importRealm } from './storage';
+import { fetchObjJson, importRealm } from './resource';
 import { join, reqRealm, unpauseProcessingRuntimeMessages } from './network';
 
-import { EntityRef } from './utils/ecs';
+import type { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
 import { parseUrlHash } from './utils/web';
 

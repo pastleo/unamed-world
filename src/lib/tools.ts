@@ -3,8 +3,8 @@ import Swiper, { Manipulation } from 'swiper';
 
 import 'swiper/css';
 
-import { Game } from './game';
-import { GameEntityComponents } from './gameECS';
+import type { Game } from './game';
+import type { GameEntityComponents } from './gameECS';
 import { mountSubObj, movePlayerTo, syncLocationToRealmSpawnLocation } from './player';
 import { broadcastMyself } from './network';
 import { afterSaved } from './realm';
@@ -13,9 +13,9 @@ import {
   dispatchAction,
 } from './action';
 import { buildSpriteFromCurrentRealm } from './objBuilder';
-import { exportRealm, exportSprite } from './storage';
+import { exportRealm, exportSprite } from './resource';
 
-import { ObjPath } from './obj/obj';
+import type { ObjPath } from './obj/obj';
 import {
   Located,
   getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
@@ -309,7 +309,7 @@ function ensureOptionsActivated(game: Game) {
 
     if (realmObjPath) {
       afterSaved(realmObjPath, game);
-      setUrlHash({ '': game.storage.savedRealmObjPath });
+      setUrlHash({ '': game.resource.savedRealmObjPath });
     }
   });
   genActionDOM.addEventListener('click', async () => {

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
-import { Game } from '../game';
-import { GameEntityComponents } from '../gameECS';
+import type { Game } from '../game';
+import type { GameEntityComponents } from '../gameECS';
 
-import { AttributeArrays } from './renderAttribute';
+import type { AttributeArrays } from './renderAttribute';
 
 import { Vec2, Vec3, warnIfNotPresent, vecCopyToThree } from '../utils/utils';
 import { createCanvas2d } from '../utils/web';

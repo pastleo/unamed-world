@@ -1,21 +1,22 @@
 import * as ss from 'superstruct';
 
-import { Game } from '../game';
-import { GameECS, GameEntityComponents } from '../gameECS';
+import type { Game } from '../game';
+import type { GameECS, GameEntityComponents } from '../gameECS';
+import { requireForSubObj } from '../resource';
+import { getOrBaseSprite } from '../builtInObj';
 
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { addSpriteToScene, updateSpriteTexture, updateSpritePosition, removeSprite } from './spriteRender';
 import { addMeshToScene, updateMeshPosition } from './meshRender';
-import { getOrBaseSprite } from '../obj/sprite';
 
-import { EntityRef, sidType, entityEqual } from '../utils/ecs';
-import { Vec2, Vec3, vec2Type, vec3Type, length, add, sub, warnIfNotPresent } from '../utils/utils';
+import { EntityRef, Sid, entityEqual } from '../utils/ecs';
+import { Vec2, Vec3, length, add, sub, warnIfNotPresent } from '../utils/utils';
 
-export const subObjStateType = ss.union([ss.literal('normal'), ss.literal('walking'), ss.string()]);
-export type SubObjState = ss.Infer<typeof subObjStateType>;
+import { EnsureSS, packedSubObjComponentType, subObjStateType } from '../utils/superstructTypes';
 
 export type SubObjEntityComponents = GameEntityComponents;
 
+export type SubObjState = EnsureSS<'normal' | 'walking' | string, typeof subObjStateType>;
 export interface SubObjComponent {
   obj: EntityRef;
   position: Vec3;
@@ -49,7 +50,7 @@ export function createSubObj(obj: EntityRef, position: Vec3, game: Game, located
 
 export function addSubObjToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
-  game.storage.requireForSubObj(subObjEntity, subObj.obj);
+  requireForSubObj(subObjEntity, subObj.obj, game);
 
   // all possible subObj render systems:
   addSpriteToScene(subObjEntity, game, refresh);
@@ -128,16 +129,16 @@ export function detectCollision(subObjEntity: EntityRef, chunkIJ: Vec2, game: Ga
   );
 }
 
-export const packedSubObjComponentType = ss.object({
-  obj: sidType,
-  position: vec3Type,
-  rotation: vec3Type,
-  groundAltitude: ss.number(),
-  state: subObjStateType,
-  cellIJ: vec2Type,
-  chunkIJ: vec2Type,
-});
-export type PackedSubObjComponent = ss.Infer<typeof packedSubObjComponentType>;
+interface PackedSubObjComponentDef {
+  obj: Sid;
+  position: Vec3;
+  rotation: Vec3;
+  groundAltitude: number;
+  state: SubObjState;
+  cellIJ: Vec2;
+  chunkIJ: Vec2;
+}
+export type PackedSubObjComponent = EnsureSS<PackedSubObjComponentDef, typeof packedSubObjComponentType>;
 
 export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubObjComponent {
   const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = subObjComponent;

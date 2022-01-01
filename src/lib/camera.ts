@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Game } from './game';
+import type { Game } from './game';
 import { Vec2, Vec3, length, sub, multiply, threeToVec3, vecCopyTo, vec2To3, vecAddToThree } from './utils/utils';
 
 import {

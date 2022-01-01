@@ -1,7 +1,7 @@
-import { Game } from './game';
+import type { Game } from './game';
 import { movePlayerAddRelative, syncLocationToRealmSpawnLocation } from './player';
 import { setActiveTool, castMainTool } from './tools';
-import { exportRealm, importRealm } from './storage';
+import { exportRealm, importRealm } from './resource';
 import { calcJsonCid } from './ipfs';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 
