@@ -28,6 +28,7 @@ export interface Realm {
   currentObj: EntityRef;
   brandNew: boolean;
   light: THREE.DirectionalLight;
+  ambientLight: THREE.AmbientLight;
   worker: Comlink.Remote<RealmRPCs>;
   emptyMaterial: THREE.Material;
   gridMaterial: THREE.Material;
@@ -42,6 +43,8 @@ export function init(ecs: GameECS): Realm {
   light.position.set(0, 1, 0);
   light.target.position.set(0.25, 0, 0);
 
+  const ambientLight = new THREE.AmbientLight(0x404040);
+
   const worker = Comlink.wrap<RealmRPCs>(
     new Worker(new URL('../workers/realm', import.meta.url))
   );
@@ -50,6 +53,7 @@ export function init(ecs: GameECS): Realm {
     currentObj,
     brandNew: true,
     light,
+    ambientLight,
     worker,
     emptyMaterial: createEmptyMaterial(),
     gridMaterial: createGridMaterial(),
@@ -59,6 +63,7 @@ export function init(ecs: GameECS): Realm {
 export function addToScene(game: Game) {
   game.scene.add(game.realm.light);
   game.scene.add(game.realm.light.target);
+  game.scene.add(game.realm.ambientLight);
 
   listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
     handleNextGeneratedChunk(result, game);

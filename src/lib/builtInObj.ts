@@ -51,6 +51,7 @@ export function createBaseSpriteObj(ecs: GameECS) {
 
 export function createPinObj(ecs: GameECS) {
   const objEntity = createObjEntity(ecs, 'pin', 'mesh');
-  ecs.setComponent(objEntity, 'obj/mesh', {
+  ecs.setComponent(objEntity, 'obj/model', {
+    glbUrl: 'assets/pin.glb',
   });
 }

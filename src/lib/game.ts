@@ -17,6 +17,7 @@ import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from '
 import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
+import { Cache, init as initCache } from './cache';
 
 import type { Vec2 } from './utils/utils';
 
@@ -35,7 +36,8 @@ export interface Game {
   ipfs: IPFS;
   resource: ResourceManager;
   network: Networking;
-  input: Input,
+  input: Input;
+  cache: Cache;
   time: number;
 
   loader: THREE.TextureLoader;
@@ -59,6 +61,7 @@ export async function setup(): Promise<Game> {
     resource: initResourceManager(),
     network: initNetworking(),
     input: createInput(),
+    cache: initCache(),
     time: 0,
     loader: new THREE.TextureLoader(),
   }

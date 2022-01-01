@@ -103,7 +103,7 @@ export function updateSpriteTexture(
 
 export function removeSprite(subObjEntity: EntityRef, game: Game) {
   const subObjSpriteRender = game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
-  if (warnIfNotPresent(subObjSpriteRender)) return;
+  if (!subObjSpriteRender) return;
 
   subObjSpriteRender.sprite.removeFromParent();
 }

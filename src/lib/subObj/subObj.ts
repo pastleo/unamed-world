@@ -1,5 +1,3 @@
-import * as ss from 'superstruct';
-
 import type { Game } from '../game';
 import type { GameECS, GameEntityComponents } from '../gameECS';
 import { requireForSubObj } from '../resource';
@@ -7,7 +5,7 @@ import { getOrBaseSprite } from '../builtInObj';
 
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { addSpriteToScene, updateSpriteTexture, updateSpritePosition, removeSprite } from './spriteRender';
-import { addMeshToScene, updateMeshPosition } from './meshRender';
+import { addModelToScene, updateModelPosition, removeModel } from './modelRender';
 
 import { EntityRef, Sid, entityEqual } from '../utils/ecs';
 import { Vec2, Vec3, length, add, sub, warnIfNotPresent } from '../utils/utils';
@@ -50,11 +48,23 @@ export function createSubObj(obj: EntityRef, position: Vec3, game: Game, located
 
 export function addSubObjToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  const obj = game.ecs.getComponent(subObj.obj, 'obj');
   requireForSubObj(subObjEntity, subObj.obj, game);
 
-  // all possible subObj render systems:
-  addSpriteToScene(subObjEntity, game, refresh);
-  addMeshToScene(subObjEntity, game, refresh);
+  if (obj) {
+    // all possible subObj render systems:
+    switch (obj.subObjType) {
+      case 'sprite':
+        addSpriteToScene(subObjEntity, game, refresh);
+        break;
+      case 'mesh':
+        removeSprite(subObjEntity, game);
+        addModelToScene(subObjEntity, game, refresh);
+        break;
+    }
+  } else {
+    addSpriteToScene(subObjEntity, game, refresh);
+  }
 
   updateSubObjPosition(subObjEntity, game);
 }
@@ -67,7 +77,7 @@ export function updateSubObjDisplay(subObjEntity: EntityRef, game: Game) {
 export function updateSubObjPosition(subObjEntity: EntityRef, game: Game) {
   // all possible subObj render systems:
   updateSpritePosition(subObjEntity, game);
-  updateMeshPosition(subObjEntity, game);
+  updateModelPosition(subObjEntity, game);
 }
 
 export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
@@ -99,6 +109,7 @@ export function destroySubObj(subObjEntity: EntityRef, game: Game) {
 
   // all possible subObj render systems:
   removeSprite(subObjEntity, game);
+  removeModel(subObjEntity, game);
 
   game.ecs.deallocate(subObjEntity);
 }
