@@ -3,7 +3,7 @@ import * as Comlink from 'comlink';
 
 import { Game } from './game';
 import { GameECS } from './gameECS';
-import { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
+import type { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
 import type { PackedRealmJson } from './resourcePacker';
 import { loadPackedRealm } from './resourceLoader';
 

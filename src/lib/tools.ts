@@ -12,7 +12,7 @@ import {
   ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction,
   dispatchAction,
 } from './action';
-import { buildSpriteFromCurrentRealm } from './objBuilder';
+//import { buildSpriteFromCurrentRealm } from './objBuilder';
 import { exportRealm, exportSprite } from './resource';
 
 import type { ObjPath } from './obj/obj';
@@ -316,10 +316,10 @@ function ensureOptionsActivated(game: Game) {
     if (options.swiper.activeIndex !== 1) return;
 
     await exportRealm('local', game);
-    const spriteObj = buildSpriteFromCurrentRealm(game);
-    const spriteObjPath = await exportSprite('local', spriteObj, game);
+    //const spriteObj = buildSpriteFromCurrentRealm(game);
+    //const spriteObjPath = await exportSprite('local', spriteObj, game);
 
-    addAndSwitchSpriteTool(spriteObjPath, game);
+    //addAndSwitchSpriteTool(spriteObjPath, game);
   });
 
   game.tools.options = options;

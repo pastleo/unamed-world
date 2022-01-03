@@ -74,3 +74,39 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
     image.src = src;
   });
 }
+
+// @ts-ignore
+export const supportOffscreenCanvas = typeof OffscreenCanvas === 'function';
+
+interface OffscreenCanvasConvertToBlobOptions {
+  type?: 'image/png' | 'image/jpeg' | 'image/webp';
+  quality?: number;
+}
+export interface OffscreenCanvas extends HTMLCanvasElement {
+  convertToBlob: (options?: OffscreenCanvasConvertToBlobOptions) => Promise<Blob>;
+  transferControlToOffscreen: () => OffscreenCanvas;
+}
+
+export function makeOffscreenCanvas(oriCanvas: HTMLCanvasElement) {
+  const canvas = oriCanvas as OffscreenCanvas;
+  if (!canvas.convertToBlob) {
+    canvas.convertToBlob = ({ type, quality } = {}) => new Promise(resolve => {
+      canvas.toBlob(resolve, type, quality)
+    });
+  }
+
+  return canvas;
+}
+
+/**
+ * convert blob to base64-encoded data with preceding data url declaration
+ */
+export function readAsDataURL(blob: Blob): Promise<string> {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(reader.result as string);
+    }
+    reader.readAsDataURL(blob);
+  });
+}

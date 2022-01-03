@@ -1,3 +1,5 @@
+import type * as Comlink from 'comlink';
+
 export function createWorkerNextValueFn<T>(): [notifyNewValue: (value: T) => void, nextValue: () => Promise<T>] {
   const values: T[] = [];
   let nextValuePromiseFn: [(value: T) => void, () => void];
@@ -56,4 +58,13 @@ export function createListenToWorkerFn<T>(workerNextValueFn: () => Promise<T>):
       enabled = false;
     };
   };
+}
+
+export function emulateComlinkRemote<T>(RPCs: T): Comlink.Remote<T> {
+  return Object.fromEntries(
+    Object.entries(RPCs).map(
+      ([name, fn]) => ([name, async (...arg: any[]) => await fn(...arg)])
+    )
+  ) as Comlink.Remote<T>
+
 }
