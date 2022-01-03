@@ -4,7 +4,7 @@ import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Game } from '../game';
 
 import { EntityRef } from '../utils/ecs';
-import { warnIfNotPresent } from '../utils/utils';
+import { assertPresentOrWarn } from '../utils/utils';
 
 export interface SubObjModelRenderComponent {
   threeObj: THREE.Object3D;
@@ -13,7 +13,7 @@ export interface SubObjModelRenderComponent {
 export function addModelToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   const subObjComponents = game.ecs.getEntityComponents(subObjEntity);
   const subObj = subObjComponents.get('subObj');
-  if (warnIfNotPresent(subObj)) return;
+  if (assertPresentOrWarn([subObj], 'subObj/modelRender.addModelToScene: subObj component not found')) return;
   const objModel = game.ecs.getComponent(subObj.obj, 'obj/model');
   if (!objModel) return;
 

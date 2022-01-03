@@ -5,7 +5,7 @@ import type { GameEntityComponents } from '../gameECS';
 
 import type { AttributeArrays } from './renderAttribute';
 
-import { Vec2, Vec3, warnIfNotPresent, vecCopyToThree } from '../utils/utils';
+import { Vec2, Vec3, assertPresentOrWarn, vecCopyToThree } from '../utils/utils';
 import { createCanvas2d } from '../utils/web';
 
 import { CHUNK_SIZE, DRAW_CANVAS_SIZE } from '../consts';
@@ -24,7 +24,7 @@ const textureCache = new Map<string, THREE.Texture>();
 
 export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents, chunkIJ: Vec2, attributeArrays: AttributeArrays, game: Game) {
   const chunk = chunkEntityComponents.get('chunk');
-  if (warnIfNotPresent(chunk)) return;
+  if (assertPresentOrWarn([chunk], 'chunk/render.addChunkMeshToScene: chunk component not found')) return;
   let chunkRender = chunkEntityComponents.get('chunk/render');
 
   const geometry = new THREE.BufferGeometry();

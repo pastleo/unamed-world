@@ -51,7 +51,7 @@ export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmC
       const chunk = ecs.getComponent(chunkEntity, 'chunk');
       return chunk.persistance || chunk.subObjs.length > 0
     }).map(([chunkIJ, chunkEntity]) => ([
-      chunkIJ, ecs.getSid(chunkEntity),
+      chunkIJ, ecs.addSid(chunkEntity),
     ])),
     backgrounds,
     spawnLocation,

@@ -7,7 +7,7 @@ import { moveSubObj, detectCollision } from './subObj';
 import { ObjEntityComponents, getOrBaseObjEntityComponents } from '../obj/obj';
 
 import { EntityRef } from '../utils/ecs';
-import { Vec2, sub, add, length, multiply, vec3To2, clamp, warnIfNotPresent } from '../utils/utils';
+import { Vec2, sub, add, length, multiply, vec3To2, clamp, assertPresentOrWarn } from '../utils/utils';
 
 import { START_MOVING_DISTANCE, STOP_MOVING_DISTANCE } from '../consts';
 
@@ -92,7 +92,7 @@ function movableRange(
 ): number {
   const subObjComponent = subObj.get('subObj');
   const subObjWalking = subObj.get('subObj/walking');
-  if (warnIfNotPresent(subObjComponent, subObjWalking)) return;
+  if (assertPresentOrWarn([subObjComponent, subObjWalking], 'subObj/walking.movableRange: subObj or walking components is not found')) return;
   const objWalkable = obj.get('obj/walkable');
   const objSprite = obj.get('obj/sprite');
 

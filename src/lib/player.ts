@@ -11,7 +11,7 @@ import { setCameraPosition, setCameraLocation, setCameraY } from './camera';
 import { triggerRealmGeneration } from './realm';
 import { broadcastMyself } from './network';
 
-import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, warnIfNotPresent } from './utils/utils';
+import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, assertPresentOrWarn } from './utils/utils';
 
 import { MAX_DISTANCE_BETWEEN_PLAYER } from './consts';
 
@@ -67,7 +67,7 @@ export function jumpOnRealm(game: Game) {
 
 export function jumpOffRealm(game: Game) {
   const oriSubObjComponents = game.ecs.getEntityComponents(game.player.subObjEntity);
-  if (warnIfNotPresent(oriSubObjComponents)) return;
+  if (assertPresentOrWarn([oriSubObjComponents], 'player.jumpOffRealm: subObj of player not found')) return;
 
   destroySubObj(oriSubObjComponents.entity, game);
 }

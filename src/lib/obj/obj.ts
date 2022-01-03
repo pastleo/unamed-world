@@ -37,8 +37,8 @@ export function getObjEntity(objPath: ObjPath, ecs: GameECS): EntityRef {
   return ecs.fromSid(objPath);
 }
 
-export function getObjPath(objEntity: EntityRef, ecs: GameECS): ObjPath {
-  return ecs.getSid(objEntity);
+export function getObjPath(objEntity: EntityRef, ecs: GameECS, assertExist: boolean = true): ObjPath | null {
+  return ecs.getPrimarySid(objEntity, assertExist);
 }
 
 export const packedObjComponentType = ss.object({

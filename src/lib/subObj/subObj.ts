@@ -8,7 +8,7 @@ import { addSpriteToScene, updateSpriteTexture, updateSpritePosition, removeSpri
 import { addModelToScene, updateModelPosition, removeModel } from './modelRender';
 
 import { EntityRef, Sid, entityEqual } from '../utils/ecs';
-import { Vec2, Vec3, length, add, sub, warnIfNotPresent } from '../utils/utils';
+import { Vec2, Vec3, length, add, sub } from '../utils/utils';
 
 import { EnsureSS, packedSubObjComponentType, subObjStateType } from '../utils/superstructTypes';
 
@@ -28,7 +28,6 @@ export interface SubObjComponent {
 
 export function createSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
   const located = locatedArg ?? locateOrCreateChunkCell(position, game);
-  if (warnIfNotPresent(located)) return;
   const { cellIJ, chunkIJ } = located;
 
   const subObjEntity = existingSubObjEntity ?? game.ecs.allocate();
@@ -154,7 +153,7 @@ export type PackedSubObjComponent = EnsureSS<PackedSubObjComponentDef, typeof pa
 export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubObjComponent {
   const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = subObjComponent;
   return {
-    obj: ecs.getSid(obj),
+    obj: ecs.getPrimarySid(obj, true),
     position, rotation, groundAltitude, state, cellIJ, chunkIJ,
   }
 }

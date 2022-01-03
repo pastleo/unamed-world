@@ -18,7 +18,7 @@ import { addSubObjToScene, destroySubObj } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
-import { Vec2, warnIfNotPresent } from './utils/utils';
+import { Vec2, assertPresentOrWarn } from './utils/utils';
 import { listenToWorkerNextValue } from './utils/worker';
 import Map2D from './utils/map2d';
 
@@ -80,7 +80,7 @@ export function resetRealm(game: Game) {
   game.scene.background = texture;
 
   (async () => {
-    await game.realm.worker.load(getObjPath(game.realm.currentObj, game.ecs));
+    await game.realm.worker.load(getObjPath(game.realm.currentObj, game.ecs, false));
     await game.realm.worker.triggerRealmGeneration([0, 0]);
   })();
 }
@@ -115,7 +115,7 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
       } : {})
     }, game);
   } else {
-    if (warnIfNotPresent(cellEntries)) return;
+    if (assertPresentOrWarn([cellEntries], `realm.handleNextGeneratedChunk: new chunk (${chunkIJ.join(', ')}) should have cellEntries`)) return;
     const chunkEntity = createChunk({
       chunkIJ,
       textureUrl,

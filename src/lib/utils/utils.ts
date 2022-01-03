@@ -138,10 +138,13 @@ export function smooth(ratio: number, exponentA: number = 4, exponentB: number =
   return 0.5 * Math.pow(2 * ratio, exponentA);
 }
 
-export function warnIfNotPresent(...values: any[]) {
+export function assertPresentOrWarn(values: any[], notPresentMessage: string) {
   if (values.findIndex(v => v === null || v === undefined || v === false) >= 0) {
-    console.warn('values should not be false, null or undefined, caller should be upper level in call stack, values:', values)
-    return true; // for caller to if (warnIfNotPresent(...)) return;
+    console.group('assertPresentOrWarn');
+    console.warn(notPresentMessage)
+    console.warn('values should not be false, null or undefined:', values)
+    console.groupEnd();
+    return true; // for caller to if (assertPresentOrWarn(...)) return;
   }
   return false;
 }

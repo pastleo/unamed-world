@@ -1,6 +1,7 @@
 import * as ss from 'superstruct';
 
 import type { Game } from './game';
+import type { GameECS } from './gameECS';
 import {
   LATEST_REALM_JSON_VERSION, LATEST_SPRITE_JSON_VERSION,
 } from './migration';
@@ -75,8 +76,8 @@ export const packedSpriteJsonType = ss.object({
 });
 export type PackedSpriteJson = ss.Infer<typeof packedSpriteJsonType>;
 
-export function packSprite(objSprite: EntityRef, game: Game): PackedSpriteJson {
-  const objSpriteComponents = game.ecs.getEntityComponents(objSprite);
+export function packSprite(objSprite: EntityRef, ecs: GameECS): PackedSpriteJson {
+  const objSpriteComponents = ecs.getEntityComponents(objSprite);
   const packedObj = packObj(objSpriteComponents.get('obj'));
   const packedObjSprite = packObjSprite(objSpriteComponents.get('obj/sprite'));
   const packedObjWalkable = packObjWalkable(objSpriteComponents.get('obj/walkable'));

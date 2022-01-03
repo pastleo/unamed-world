@@ -17,7 +17,7 @@ import { ObjPath } from './obj/obj';
 import { addSubObjToScene } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
-import { warnIfNotPresent } from './utils/utils';
+import { assertPresentOrWarn } from './utils/utils';
 import { createJsonBlob, downloadJson } from './utils/web';
 
 export interface ResourceManager {
@@ -51,7 +51,7 @@ export async function importRealm(realmObjPath: ObjPath, json: any): Promise<Pac
 export async function exportRealm(method: ExportObjMethod, game: Game): Promise<ObjPath> {
   const objRealmJson = packRealm(game);
   const realmObjPath = await exportObjJson(method, objRealmJson, game);
-  game.ecs.setSid(game.realm.currentObj, realmObjPath);
+  game.ecs.addSid(game.realm.currentObj, realmObjPath, true);
 
   return realmObjPath;
 }
@@ -72,9 +72,9 @@ export async function importSprite(realmObjPath: ObjPath, json: any): Promise<Pa
 export async function exportSprite(method: ExportObjMethod, objSprite: EntityRef, game: Game): Promise<ObjPath> {
   const objSpriteComponents = game.ecs.getEntityComponents(objSprite);
 
-  const objSpriteJson = packSprite(objSprite, game);
+  const objSpriteJson = packSprite(objSprite, game.ecs);
   const spriteObjPath = await exportObjJson(method, objSpriteJson, game);
-  game.ecs.setSid(objSpriteComponents.entity, spriteObjPath);
+  game.ecs.addSid(objSpriteComponents.entity, spriteObjPath, true);
 
   return spriteObjPath;
 }
@@ -89,7 +89,10 @@ export async function fetchObjJson(objPath: ObjPath, game: Game, devObjPostfix: 
   } else {
     const devPath = `dev-objs/${objPath.replace(/^\//, '')}${devObjPostfix}.json`;
     const response = await fetch(devPath);
-    if (warnIfNotPresent(response.ok)) return;
+    if (!response.ok) {
+      console.warn(`resource.fetchObjJson: fetching '${devPath}' failed`, response);
+      return null;
+    }
     json = await response.json();
   }
 
@@ -97,7 +100,7 @@ export async function fetchObjJson(objPath: ObjPath, game: Game, devObjPostfix: 
 }
 
 export async function requireForSubObj(subObjEntityRequiring: EntityRef, objEntity: EntityRef, game: Game) {
-  const objPath = game.ecs.getSid(objEntity);
+  const objPath = game.ecs.getPrimarySid(objEntity);
   const obj = game.ecs.getComponent(objEntity, 'obj');
   if (obj) return; // already required
 
@@ -115,7 +118,7 @@ export async function requireForSubObj(subObjEntityRequiring: EntityRef, objEnti
   if (!json && game.network.roomName) {
     json = await reqSprite(objPath, game);
   }
-  if (warnIfNotPresent(json)) return;
+  if (assertPresentOrWarn([json], 'resource.requireForSubObj: json not fetched')) return;
   const jsonValidated = await importSprite(objPath, json);
 
   loadPackedSprite(objPath, jsonValidated, game.ecs);

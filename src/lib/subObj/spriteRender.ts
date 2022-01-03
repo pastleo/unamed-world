@@ -7,7 +7,7 @@ import type { SubObjComponent } from './subObj';
 import type { ObjSpriteComponent } from '../obj/sprite';
 
 import { EntityRef } from '../utils/ecs';
-import { mod, warnIfNotPresent } from '../utils/utils';
+import { mod, assertPresentOrWarn } from '../utils/utils';
 
 export interface SubObjSpriteRenderComponent {
   sprite: THREE.Sprite;
@@ -16,10 +16,10 @@ export interface SubObjSpriteRenderComponent {
 export function addSpriteToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   const subObjComponents = game.ecs.getEntityComponents(subObjEntity);
   const subObj = subObjComponents.get('subObj');
-  if (warnIfNotPresent(subObj)) return;
+  if (assertPresentOrWarn([subObj], 'subObj/spriteRender.addSpriteToScene: subObj component not found')) return;
 
   const objSprite = getOrBaseSprite(subObj.obj, game.ecs);
-  if (warnIfNotPresent(objSprite)) return;
+  if (assertPresentOrWarn([objSprite], 'subObj/spriteRender.addSpriteToScene: objSprite component not found')) return;
 
   let subObjSpriteRender = subObjComponents.get('subObj/spriteRender');
   if (subObjSpriteRender) {
@@ -57,7 +57,7 @@ export function updateSpritePosition(subObjEntity: EntityRef, game: Game) {
   if (!subObjSpriteRender) return;
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   const objSprite = getOrBaseSprite(subObj.obj, game.ecs);
-  if (warnIfNotPresent(subObj, objSprite)) return;
+  if (assertPresentOrWarn([subObj, objSprite], 'subObj/spriteRender.updateSpritePosition: subObj or objSprite component not found')) return;
 
   subObjSpriteRender.sprite.position.x = subObj.position[0];
   subObjSpriteRender.sprite.position.y = subObj.position[1] + subObj.groundAltitude + objSprite.tall * 0.5;
@@ -73,7 +73,7 @@ export function updateSpriteTexture(
   if (!subObjSpriteRender) return;
   const subObj = subObjArg ?? game.ecs.getComponent(subObjEntity, 'subObj');
   const objSprite = objSpriteArg ?? getOrBaseSprite(subObj.obj, game.ecs);
-  if (warnIfNotPresent(subObj)) return;
+  if (assertPresentOrWarn([subObj], 'subObj/spriteRender.updateSpritePosition: subObj component not found')) return;
 
   const texture = subObjSpriteRender.sprite.material.map;
 

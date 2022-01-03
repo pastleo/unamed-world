@@ -462,7 +462,7 @@ function castPin(coordsPixel: Vec2, inputType: InputType, game: Game) {
   if (!realmIntersect) return;
 
   const newSubObj = game.ecs.allocate();
-  const sid = game.ecs.getSid(newSubObj);
+  const sid = game.ecs.getOrAddPrimarySid(newSubObj);
   const action: AddSubObjAction = {
     type: 'subObj-add',
     sid, obj: 'pin',
@@ -481,7 +481,7 @@ function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
   if (!realmIntersect || !spriteObjAsTool) return;
 
   const newSubObj = game.ecs.allocate();
-  const sid = game.ecs.getSid(newSubObj);
+  const sid = game.ecs.getOrAddPrimarySid(newSubObj);
   const action: AddSubObjAction = {
     type: 'subObj-add',
     sid, obj: spriteObjPath,

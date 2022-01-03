@@ -188,7 +188,7 @@ export function broadcastMyself(game: Game) {
     type: 'ping',
     roomName: game.network.roomName,
     position: playerSubObj.position,
-    playerObj: game.ecs.getSid(game.player.objEntity),
+    playerObj: game.ecs.getPrimarySid(game.player.objEntity, true),
     ...(playerWalking.moveRelative ? {
       moveTarget: getMoveTarget(player),
     } : {}),
@@ -255,7 +255,7 @@ function handleReqObj(fromMember: Peer, message: ReqObjMessage, game: Game) {
 
   if (
     message.objType === 'realm' &&
-    game.ecs.getSid(game.realm.currentObj) === message.objPath
+    game.ecs.getPrimarySid(game.realm.currentObj) === message.objPath
   ) {
     found = true;
   } else {
@@ -296,7 +296,7 @@ function handleReqSprite(fromMember: Peer, message: ReqSpriteMessage, game: Game
     type: 'res-sprite',
     reqId: message.reqId,
     roomName: game.network.roomName,
-    sprite: packSprite(objSprite, game),
+    sprite: packSprite(objSprite, game.ecs),
   }
 
   game.network.unamedNetwork.broadcast(game.network.roomName, resMessage, [fromMember.peerId]);
@@ -309,7 +309,7 @@ function handlePing(fromMember: Peer, message: PingMessage, game: Game) {
   }
 
   const subObj = game.ecs.getComponent(member, 'subObj');
-  if (game.ecs.getSid(subObj?.obj) !== message.playerObj) {
+  if (game.ecs.getPrimarySid(subObj?.obj) !== message.playerObj) {
     destroySubObj(member, game);
     member = addMemberSprite(fromMember.peerId, message.playerObj, message.position, game);
   }

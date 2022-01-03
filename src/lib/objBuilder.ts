@@ -109,7 +109,7 @@ export function buildSpriteFromCurrentRealm(game: Game): EntityRef {
     },
     tall: 1,
     radius: 0.5,
-    srcRealmObjPath: game.ecs.getSid(game.realm.currentObj),
+    srcRealmObjPath: game.ecs.getPrimarySid(game.realm.currentObj, true),
   });
   newObjSpriteComponents.set('obj/walkable', {
     speed: 4,

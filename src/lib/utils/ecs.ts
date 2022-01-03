@@ -1,5 +1,5 @@
 import * as ss from 'superstruct';
-import { randomStr } from './utils';
+import { randomStr, assertPresentOrWarn } from './utils';
 
 class ECS<ComponentMapT extends Record<string, any>> {
   private entities: Entity[] = [];
@@ -16,7 +16,7 @@ class ECS<ComponentMapT extends Record<string, any>> {
       return [index, entity.generation];
     } else {
       const generation = 0;
-      const index = this.entities.push({ generation, alive: true }) - 1;
+      const index = this.entities.push({ generation, alive: true, sids: [] }) - 1;
       return [index, generation];
     }
   }
@@ -28,10 +28,10 @@ class ECS<ComponentMapT extends Record<string, any>> {
     if (!entity) return false;
 
     entity.alive = false;
-    if (entity.sid) {
-      this.sids.delete(entity.sid);
-      delete entity.sid;
-    }
+    entity.sids.forEach(sid => {
+      this.sids.delete(sid);
+    });
+    entity.sids = [];
     this.freeIndices.push(index);
 
     // garbage collect
@@ -71,33 +71,42 @@ class ECS<ComponentMapT extends Record<string, any>> {
     return new EntityComponents(ref, this);
   }
 
-  getSid(ref: EntityRef): Sid | null {
-    const entity = this.getEntity(ref);
-    if (!entity) return null;
-    if (entity.sid) return entity.sid;
-    entity.sid = randomStr();
-    this.sids.set(entity.sid, ref);
-    return entity.sid;
-  }
-
-  setSid(ref: EntityRef, newSid: Sid) {
-    const entity = this.getEntity(ref);
-    if (!entity) return;
-    this.sids.set(newSid, ref);
-    if (entity.sid) {
-      this.sids.delete(entity.sid);
+  getPrimarySid(ref: EntityRef, assertExist: boolean = false): Sid | null {
+    const primarySid = this.getEntity(ref)?.sids[0];
+    if (assertExist && !primarySid) {
+      console.warn('ECS.getPrimarySid: asserted but no Sid related or valid entity found');
+      return null;
     }
-    entity.sid = newSid;
+    return primarySid;
   }
 
-  fromSid(sid: Sid, noAllocation: boolean = false): EntityRef {
+  getOrAddPrimarySid(ref: EntityRef): Sid | null {
+    const entity = this.getEntity(ref);
+    if (assertPresentOrWarn([entity], 'ECS.getOrAddPrimarySid: valid entity not found')) {
+      return null;
+    }
+    if (entity.sids.length <= 0) {
+      return this.genAddSidToEntity(entity, ref);
+    }
+    return entity.sids[0];
+  }
+
+  addSid(ref: EntityRef, assignedSid: Sid = null, makePrimary: boolean = false): Sid | null {
+    const entity = this.getEntity(ref);
+    if (assertPresentOrWarn([entity], 'ECS.addSid: valid entity not found')) {
+      return null;
+    }
+    return this.genAddSidToEntity(entity, ref, assignedSid, makePrimary);
+  }
+
+  fromSid(sid: Sid, noAllocation: boolean = false): EntityRef | null {
     let ref = this.sids.get(sid);
     if (!this.getEntity(ref) && !noAllocation) {
       ref = this.allocate();
-      this.entities[ref[0]].sid = sid; // just allocated, directly access should be fine
+      this.entities[ref[0]].sids = [sid];
       this.sids.set(sid, ref);
     }
-    return ref;
+    return ref || null;
   }
 
   private getEntity(ref: EntityRef): Entity | null {
@@ -119,6 +128,17 @@ class ECS<ComponentMapT extends Record<string, any>> {
 
     return componentGenerationalArray;
   }
+
+  private genAddSidToEntity(entity: Entity, ref: EntityRef, assignedSid: Sid = null, makePrimary: boolean = false): Sid | null {
+    const sid: Sid = assignedSid || randomStr();
+    this.sids.set(sid, ref);
+    if (makePrimary) {
+      entity.sids.unshift(sid);
+    } else {
+      entity.sids.push(sid);
+    }
+    return sid;
+  }
 }
 
 export default ECS;
@@ -126,7 +146,7 @@ export default ECS;
 interface Entity {
   generation: number;
   alive: boolean;
-  sid?: string;
+  sids: string[]; // first one as primary
 }
 
 export type EntityRef = [index: number, generation: number];
