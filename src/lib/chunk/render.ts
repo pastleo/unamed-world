@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
-import { Game } from '../game';
-import { GameEntityComponents } from '../gameECS';
+import type { Game } from '../game';
+import type { GameEntityComponents } from '../gameECS';
 
-import { AttributeArrays } from './renderAttribute';
+import type { AttributeArrays } from './renderAttribute';
 
-import { Vec2, warnIfNotPresent } from '../utils/utils';
+import { Vec2, Vec3, assertPresentOrWarn, vecCopyToThree } from '../utils/utils';
 import { createCanvas2d } from '../utils/web';
 
 import { CHUNK_SIZE, DRAW_CANVAS_SIZE } from '../consts';
@@ -24,7 +24,7 @@ const textureCache = new Map<string, THREE.Texture>();
 
 export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents, chunkIJ: Vec2, attributeArrays: AttributeArrays, game: Game) {
   const chunk = chunkEntityComponents.get('chunk');
-  if (warnIfNotPresent(chunk)) return;
+  if (assertPresentOrWarn([chunk], 'chunk/render.addChunkMeshToScene: chunk component not found')) return;
   let chunkRender = chunkEntityComponents.get('chunk/render');
 
   const geometry = new THREE.BufferGeometry();
@@ -75,10 +75,16 @@ export function addChunkMeshToScene(chunkEntityComponents: GameEntityComponents,
 }
 
 function addMeshToScene(chunkRender: ChunkRenderComponent, chunkIJ: Vec2, game: Game) {
-  chunkRender.mesh.position.x = chunkIJ[0] * CHUNK_SIZE;
-  chunkRender.mesh.position.z = chunkIJ[1] * CHUNK_SIZE;
+  vecCopyToThree(
+    calcChunkMeshPosition(chunkIJ),
+    chunkRender.mesh.position,
+  );
   chunkRender.mesh.renderOrder = -1;
   game.scene.add(chunkRender.mesh);
+}
+
+export function calcChunkMeshPosition(chunkIJ: Vec2): Vec3 {
+  return [chunkIJ[0] * CHUNK_SIZE, 0, chunkIJ[1] * CHUNK_SIZE];
 }
 
 export function editChunkCanvas2d(

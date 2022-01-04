@@ -1,27 +1,34 @@
 import * as THREE from 'three';
 
-import { Game } from '../game';
-import { SubObjComponent } from './subObj';
-import { ObjSpriteComponent } from '../obj/sprite';
-import { getObjOrBaseComponents } from '../sprite';
+import type { Game } from '../game';
+import { getOrBaseSprite } from '../builtInObj';
+import { cameraRotationY } from '../camera';
+
+import type { SubObjComponent } from './subObj';
+import type { ObjSpriteComponent } from '../obj/sprite';
 
 import { EntityRef } from '../utils/ecs';
-import { mod, warnIfNotPresent } from '../utils/utils';
+import { radToDeg, normalizeDeg, assertPresentOrWarn } from '../utils/utils';
 
 export interface SubObjSpriteRenderComponent {
   sprite: THREE.Sprite;
 }
 
-export function addOrRefreshSpriteToScene(subObjEntity: EntityRef, game: Game) {
+export function addSpriteToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   const subObjComponents = game.ecs.getEntityComponents(subObjEntity);
   const subObj = subObjComponents.get('subObj');
-  if (warnIfNotPresent(subObj)) return;
-  const objSprite = getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');;
-  if (warnIfNotPresent(objSprite)) return;
+  if (assertPresentOrWarn([subObj], 'subObj/spriteRender.addSpriteToScene: subObj component not found')) return;
+
+  const objSprite = getOrBaseSprite(subObj.obj, game.ecs);
+  if (assertPresentOrWarn([objSprite], 'subObj/spriteRender.addSpriteToScene: objSprite component not found')) return;
 
   let subObjSpriteRender = subObjComponents.get('subObj/spriteRender');
   if (subObjSpriteRender) {
-    subObjSpriteRender.sprite.removeFromParent();
+    if (refresh) {
+      subObjSpriteRender.sprite.removeFromParent();
+    } else {
+      return;
+    }
   }
 
   const texture = game.loader.load(objSprite.spritesheet);
@@ -50,8 +57,8 @@ export function updateSpritePosition(subObjEntity: EntityRef, game: Game) {
   const subObjSpriteRender = game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
   if (!subObjSpriteRender) return;
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
-  const objSprite = getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');;
-  if (warnIfNotPresent(subObj, objSprite)) return;
+  const objSprite = getOrBaseSprite(subObj.obj, game.ecs);
+  if (assertPresentOrWarn([subObj, objSprite], 'subObj/spriteRender.updateSpritePosition: subObj or objSprite component not found')) return;
 
   subObjSpriteRender.sprite.position.x = subObj.position[0];
   subObjSpriteRender.sprite.position.y = subObj.position[1] + subObj.groundAltitude + objSprite.tall * 0.5;
@@ -66,15 +73,15 @@ export function updateSpriteTexture(
   const subObjSpriteRender = subObjSpriteRenderArg ?? game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
   if (!subObjSpriteRender) return;
   const subObj = subObjArg ?? game.ecs.getComponent(subObjEntity, 'subObj');
-  const objSprite = objSpriteArg ?? getObjOrBaseComponents(subObj.obj, game.ecs).get('obj/sprite');
-  if (warnIfNotPresent(subObj)) return;
+  const objSprite = objSpriteArg ?? getOrBaseSprite(subObj.obj, game.ecs);
+  if (assertPresentOrWarn([subObj], 'subObj/spriteRender.updateSpritePosition: subObj component not found')) return;
 
   const texture = subObjSpriteRender.sprite.material.map;
 
   const animation = objSprite.stateAnimations[subObj.state] || objSprite.stateAnimations.normal;
-  const viewedRotationDeg = mod(Math.floor(
-    (subObj.rotation[1] + (game?.camera.cameraBase.rotation.y || 0)) / Math.PI * 180
-  ), 360);
+  const cameraYDeg = radToDeg(cameraRotationY(game?.camera));
+  const spriteRotationYDeg = radToDeg(subObj.rotation[1]);
+  const viewedRotationDeg = normalizeDeg(cameraYDeg - spriteRotationYDeg);
 
   if (viewedRotationDeg > 5 && viewedRotationDeg < 175) {
     setTextureRepeat(texture, objSprite, false);
@@ -97,7 +104,7 @@ export function updateSpriteTexture(
 
 export function removeSprite(subObjEntity: EntityRef, game: Game) {
   const subObjSpriteRender = game.ecs.getComponent(subObjEntity, 'subObj/spriteRender');
-  if (warnIfNotPresent(subObjSpriteRender)) return;
+  if (!subObjSpriteRender) return;
 
   subObjSpriteRender.sprite.removeFromParent();
 }

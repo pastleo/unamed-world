@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Game } from './game';
+import type { Game } from './game';
 import { Vec2, Vec3, length, sub, multiply, threeToVec3, vecCopyTo, vec2To3, vecAddToThree } from './utils/utils';
 
 import {
@@ -102,9 +102,14 @@ export function adjCameraDistance(distanceDelta: number, camera: Camera): void {
   }
 }
 
+export function cameraRotationY(camera: Camera): number {
+  return camera?.cameraBase.rotation.y || 0
+}
+
 export function vecAfterCameraRotation(vec: Vec2, camera: Camera): Vec2 {
-  const cos = Math.cos(camera.cameraBase.rotation.y);
-  const sin = Math.sin(camera.cameraBase.rotation.y);
+  const rotationY = cameraRotationY(camera);
+  const cos = Math.cos(rotationY);
+  const sin = Math.sin(rotationY);
   return [
     vec[0] * cos - vec[1] * sin,
     vec[0] * sin + vec[1] * cos,

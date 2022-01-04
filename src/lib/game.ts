@@ -5,20 +5,22 @@ import { getChunk } from './chunk/chunk';
 
 import { GameECS, init as initECS } from './gameECS';
 import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
-import { SpriteManager, init as initSpriteManager, createBaseSpriteObj } from './sprite';
+import { createBuiltInObjs } from './builtInObj';
 import { changeRealm } from './update';
 
 import { Networking, init as initNetworking } from './network';
 import {
-  StorageManager, init as initStorageManager, start as startStorageManager,
-} from './storage';
+  ResourceManager, init as initResourceManager, start as startResourceManager,
+} from './resource';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
 import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
+import type { ObjBuilder } from './objBuilder';
+import { Cache, init as initCache } from './cache';
 
-import { Vec2 } from './utils/utils';
+import type { Vec2 } from './utils/utils';
 
 import { DBG_MODE } from './dbg';
 
@@ -30,16 +32,18 @@ export interface Game {
   scene: THREE.Scene;
   camera: Camera;
   realm: Realm;
-  spriteManager: SpriteManager;
   player: Player;
   tools: Tools;
-  ipfs: IPFS;
-  storage: StorageManager;
+  resource: ResourceManager;
   network: Networking;
-  input: Input,
+  input: Input;
+  cache: Cache;
   time: number;
 
   loader: THREE.TextureLoader;
+
+  ipfs?: IPFS;
+  objBuilder?: ObjBuilder;
 }
 
 export async function setup(): Promise<Game> {
@@ -51,30 +55,29 @@ export async function setup(): Promise<Game> {
   const game: Game = {
     ecs,
     renderer,
-    scene: new THREE.Scene,
+    scene: new THREE.Scene(),
     camera: initCamera(),
     realm: initRealm(ecs),
-    spriteManager: initSpriteManager(),
     player: createPlayer(ecs),
     tools: createTools(),
-    ipfs: null,
-    storage: initStorageManager(),
+    resource: initResourceManager(),
     network: initNetworking(),
     input: createInput(),
+    cache: initCache(),
     time: 0,
     loader: new THREE.TextureLoader(),
   }
 
-  createBaseSpriteObj(game.ecs);
   document.body.appendChild(renderer.domElement);
 
+  createBuiltInObjs(game.ecs);
   addRealmToScene(game);
   addCameraToScene(game);
   addPlayerToRealm(game);
   startTools(game);
   startListeners(game);
 
-  await startStorageManager(game);
+  await startResourceManager(game);
 
   changeRealm(game);
 

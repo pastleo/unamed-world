@@ -1,16 +1,16 @@
-import { Game } from './game';
+import type { Game } from './game';
 import { ChunkComponent, getChunk } from './chunk/chunk';
-import { updateSpriteTexture } from './subObj/spriteRender';
+import { updateSubObjDisplay } from './subObj/subObj';
 import { update as updatePlayer } from './player';
 import { update as updateInput } from './input';
 import { update as updateCamera, resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { switchRealm } from './realm';
 import { jumpOnRealm, jumpOffRealm } from './player';
-import { fetchObjJson, importRealm } from './storage';
+import { fetchObjJson, importRealm } from './resource';
 import { join, reqRealm, unpauseProcessingRuntimeMessages } from './network';
 
-import { EntityRef } from './utils/ecs';
+import type { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
 import { parseUrlHash } from './utils/web';
 
@@ -31,12 +31,15 @@ export async function changeRealm(game: Game) {
   const realmObjPath = parseUrlHash()[''];
   if (!realmObjPath) return
 
-  const memberExists = await join(realmObjPath, game);
+  const joinPromise = join(realmObjPath, game);
 
   let json = await fetchObjJson(realmObjPath, game, '-realm');
 
-  if (!json && memberExists) {
-    json = await reqRealm(game);
+  if (!json) {
+    const memberExists = await joinPromise;
+    if (memberExists) {
+      json = await reqRealm(game);
+    }
   }
 
   const jsonValidated = await importRealm(realmObjPath, json);
@@ -69,5 +72,5 @@ function updateChunk(_chunkIJ: Vec2, chunk: ChunkComponent, tDiff: number, game:
 
 function updateSubObj(subObj: EntityRef, tDiff: number, game: Game) {
   updateWalking(subObj, tDiff, game);
-  updateSpriteTexture(subObj, game);
+  updateSubObjDisplay(subObj, game);
 }

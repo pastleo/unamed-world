@@ -1,20 +1,20 @@
-import * as ss from 'superstruct';
-
-import { Game } from '../game';
-import { GameECS, GameEntityComponents } from '../gameECS';
-import { requireObjSprite, getObjOrBaseComponents } from '../sprite';
+import type { Game } from '../game';
+import type { GameECS, GameEntityComponents } from '../gameECS';
+import { requireForSubObj } from '../resource';
+import { getOrBaseSprite } from '../builtInObj';
 
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
-import { addOrRefreshSpriteToScene, updateSpritePosition, removeSprite } from './spriteRender';
+import { addSpriteToScene, updateSpriteTexture, updateSpritePosition, removeSprite } from './spriteRender';
+import { addModelToScene, updateModelPosition, removeModel } from './modelRender';
 
-import { EntityRef, sidType, entityEqual } from '../utils/ecs';
-import { Vec2, Vec3, vec2Type, vec3Type, length, add, sub, warnIfNotPresent } from '../utils/utils';
+import { EntityRef, Sid, entityEqual } from '../utils/ecs';
+import { Vec2, Vec3, length, add, sub } from '../utils/utils';
 
-export const subObjStateType = ss.union([ss.literal('normal'), ss.literal('walking'), ss.string()]);
-export type SubObjState = ss.Infer<typeof subObjStateType>;
+import { EnsureSS, packedSubObjComponentType, subObjStateType } from '../utils/superstructTypes';
 
 export type SubObjEntityComponents = GameEntityComponents;
 
+export type SubObjState = EnsureSS<'normal' | 'walking' | string, typeof subObjStateType>;
 export interface SubObjComponent {
   obj: EntityRef;
   position: Vec3;
@@ -26,14 +26,13 @@ export interface SubObjComponent {
   chunkIJ: Vec2;
 }
 
-export function createSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
+export function createSubObj(obj: EntityRef, position: Vec3, rotation: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
   const located = locatedArg ?? locateOrCreateChunkCell(position, game);
-  if (warnIfNotPresent(located)) return;
   const { cellIJ, chunkIJ } = located;
 
   const subObjEntity = existingSubObjEntity ?? game.ecs.allocate();
   game.ecs.setComponent(subObjEntity, 'subObj', {
-    obj, position, rotation: [0, 0, 0],
+    obj, position, rotation,
     mounted: false,
     groundAltitude: calcAltitudeAt(position, located, game),
     state: 'normal',
@@ -41,23 +40,43 @@ export function createSubObj(obj: EntityRef, position: Vec3, game: Game, located
   });
 
   located.chunk.subObjs.push(subObjEntity);
-  addOrRefreshSubObjToScene(subObjEntity, game);
+  addSubObjToScene(subObjEntity, game);
 
   return subObjEntity;
 }
 
-export function addOrRefreshSubObjToScene(subObjEntity: EntityRef, game: Game) {
-  requireObjSprite(subObjEntity, game.ecs.getComponent(subObjEntity, 'subObj').obj, game);
+export function addSubObjToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  const obj = game.ecs.getComponent(subObj.obj, 'obj');
+  requireForSubObj(subObjEntity, subObj.obj, game);
 
-  // all possible subObj render systems:
-  addOrRefreshSpriteToScene(subObjEntity, game);
+  if (obj) {
+    // all possible subObj render systems:
+    switch (obj.subObjType) {
+      case 'sprite':
+        addSpriteToScene(subObjEntity, game, refresh);
+        break;
+      case 'mesh':
+        removeSprite(subObjEntity, game);
+        addModelToScene(subObjEntity, game, refresh);
+        break;
+    }
+  } else {
+    addSpriteToScene(subObjEntity, game, refresh);
+  }
 
   updateSubObjPosition(subObjEntity, game);
+}
+
+export function updateSubObjDisplay(subObjEntity: EntityRef, game: Game) {
+  // all possible subObj render systems:
+  updateSpriteTexture(subObjEntity, game);
 }
 
 export function updateSubObjPosition(subObjEntity: EntityRef, game: Game) {
   // all possible subObj render systems:
   updateSpritePosition(subObjEntity, game);
+  updateModelPosition(subObjEntity, game);
 }
 
 export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
@@ -89,6 +108,7 @@ export function destroySubObj(subObjEntity: EntityRef, game: Game) {
 
   // all possible subObj render systems:
   removeSprite(subObjEntity, game);
+  removeModel(subObjEntity, game);
 
   game.ecs.deallocate(subObjEntity);
 }
@@ -106,34 +126,34 @@ export function detectCollision(subObjEntity: EntityRef, chunkIJ: Vec2, game: Ga
     ))
   )).filter(
     sObjEntity => {
-      //const sObjSprite = getObjOrBaseComponents(sObjEntity, game.ecs).get('obj/sprite');
+      //const sObjSprite = getOrBaseSprite(sObjEntity, game.ecs);
       //return sObjSprite.collision && !entityEqual(sObjEntity, subObj.entity)
       return !entityEqual(sObjEntity, subObj.entity)
     }
   ).filter(
     sObjEntity => {
       const sObj = game.ecs.getComponent(sObjEntity, 'subObj');
-      const sObjSprite = getObjOrBaseComponents(sObj.obj, game.ecs).get('obj/sprite');
+      const sObjSprite = getOrBaseSprite(sObj.obj, game.ecs);
       return (sObjSprite.radius + objSprite.radius) > length(sub(sObj.position, position))
     }
   );
 }
 
-export const packedSubObjComponentType = ss.object({
-  obj: sidType,
-  position: vec3Type,
-  rotation: vec3Type,
-  groundAltitude: ss.number(),
-  state: subObjStateType,
-  cellIJ: vec2Type,
-  chunkIJ: vec2Type,
-});
-export type PackedSubObjComponent = ss.Infer<typeof packedSubObjComponentType>;
+interface PackedSubObjComponentDef {
+  obj: Sid;
+  position: Vec3;
+  rotation: Vec3;
+  groundAltitude: number;
+  state: SubObjState;
+  cellIJ: Vec2;
+  chunkIJ: Vec2;
+}
+export type PackedSubObjComponent = EnsureSS<PackedSubObjComponentDef, typeof packedSubObjComponentType>;
 
 export function pack(subObjComponent: SubObjComponent, ecs: GameECS): PackedSubObjComponent {
   const { obj, position, rotation, groundAltitude, state, cellIJ, chunkIJ } = subObjComponent;
   return {
-    obj: ecs.getSid(obj),
+    obj: ecs.getPrimarySid(obj, true),
     position, rotation, groundAltitude, state, cellIJ, chunkIJ,
   }
 }

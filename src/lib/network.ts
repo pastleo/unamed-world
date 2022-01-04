@@ -2,16 +2,16 @@ import UnamedNetwork, { Room, Peer } from 'unamed-network';
 
 import debug from 'debug';
 
-import { Game } from './game';
-import { PackedRealmJson, PackedSpriteJson, packRealm, packSprite } from './storage';
+import type { Game } from './game';
+import { PackedRealmJson, PackedSpriteJson, packRealm, packSprite } from './resourcePacker';
 
 import { ObjPath, getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
 import { locateOrCreateChunkCell } from './chunk/chunk';
 import { initSubObjWalking, getMoveTarget, setMoveTo } from './subObj/walking';
-import { Action, ChunkAction, processAction } from './action';
+import { Action, processAction } from './action';
 
-import { EntityRef, Sid } from './utils/ecs';
+import type { EntityRef, Sid } from './utils/ecs';
 import { Vec3, Vec2, randomStr } from './utils/utils';
 
 import { UNAMED_NETWORK_CONFIG, UNAMED_NETWORK_KNOWN_SERVICE_ADDRS } from '../env';
@@ -188,7 +188,7 @@ export function broadcastMyself(game: Game) {
     type: 'ping',
     roomName: game.network.roomName,
     position: playerSubObj.position,
-    playerObj: game.ecs.getSid(game.player.objEntity),
+    playerObj: game.ecs.getPrimarySid(game.player.objEntity, true),
     ...(playerWalking.moveRelative ? {
       moveTarget: getMoveTarget(player),
     } : {}),
@@ -255,7 +255,7 @@ function handleReqObj(fromMember: Peer, message: ReqObjMessage, game: Game) {
 
   if (
     message.objType === 'realm' &&
-    game.ecs.getSid(game.realm.currentObj) === message.objPath
+    game.ecs.getPrimarySid(game.realm.currentObj) === message.objPath
   ) {
     found = true;
   } else {
@@ -296,7 +296,7 @@ function handleReqSprite(fromMember: Peer, message: ReqSpriteMessage, game: Game
     type: 'res-sprite',
     reqId: message.reqId,
     roomName: game.network.roomName,
-    sprite: packSprite(objSprite, game),
+    sprite: packSprite(objSprite, game.ecs),
   }
 
   game.network.unamedNetwork.broadcast(game.network.roomName, resMessage, [fromMember.peerId]);
@@ -309,7 +309,7 @@ function handlePing(fromMember: Peer, message: PingMessage, game: Game) {
   }
 
   const subObj = game.ecs.getComponent(member, 'subObj');
-  if (game.ecs.getSid(subObj?.obj) !== message.playerObj) {
+  if (game.ecs.getPrimarySid(subObj?.obj) !== message.playerObj) {
     destroySubObj(member, game);
     member = addMemberSprite(fromMember.peerId, message.playerObj, message.position, game);
   }
@@ -359,7 +359,7 @@ function addMemberSprite(peerId: string, playerObj: string, position: Vec3, game
   const objSid = playerObj || 'base';
   const spriteObj = getObjEntity(objSid, game.ecs);
   const located = locateOrCreateChunkCell(position, game);
-  const member = createSubObj(spriteObj, position, game, located);
+  const member = createSubObj(spriteObj, position, [0, 0, 0], game, located);
   const subObj = game.ecs.getComponent(member, 'subObj');
   subObj.mounted = true;
   game.network.members.set(peerId, member);

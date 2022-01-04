@@ -1,14 +1,13 @@
 import { Game } from '../game';
 import { GameEntityComponents } from '../gameECS';
-import { getObjOrBaseComponents } from '../sprite';
 
-import { ObjEntityComponents } from '../obj/obj';
 import { SubObjEntityComponents } from '../subObj/subObj';
 import { locateOrCreateChunkCell, getOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { moveSubObj, detectCollision } from './subObj';
+import { ObjEntityComponents, getOrBaseObjEntityComponents } from '../obj/obj';
 
 import { EntityRef } from '../utils/ecs';
-import { Vec2, sub, add, length, multiply, vec3To2, clamp, warnIfNotPresent } from '../utils/utils';
+import { Vec2, sub, add, length, multiply, vec3To2, clamp, assertPresentOrWarn } from '../utils/utils';
 
 import { START_MOVING_DISTANCE, STOP_MOVING_DISTANCE } from '../consts';
 
@@ -33,7 +32,7 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
   const subObjWalking = subObj.get('subObj/walking');
 
   if (subObjWalking?.moving) {
-    const obj = getObjOrBaseComponents(subObjComponent.obj, game.ecs);
+    const obj = getOrBaseObjEntityComponents(subObjComponent.obj, game.ecs);
     const movingRange = movableRange(subObj, obj, tDiff, game);
 
     if (movingRange > 0) {
@@ -44,7 +43,7 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
       multiply(subObjWalking.moveRelative, 1 - progressGoingToMake, subObjWalking.moveRelative);
       subObjWalking.moveRelativeDistance = length(subObjWalking.moveRelative);
 
-      subObjComponent.rotation[1] = Math.PI - Math.atan2(movingVec[0], movingVec[1]);
+      subObjComponent.rotation[1] = Math.atan2(movingVec[0], movingVec[1]) + Math.PI;
     }
 
     if (movingRange <= 0 || subObjWalking.moveRelativeDistance < STOP_MOVING_DISTANCE) {
@@ -93,7 +92,7 @@ function movableRange(
 ): number {
   const subObjComponent = subObj.get('subObj');
   const subObjWalking = subObj.get('subObj/walking');
-  if (warnIfNotPresent(subObjComponent, subObjWalking)) return;
+  if (assertPresentOrWarn([subObjComponent, subObjWalking], 'subObj/walking.movableRange: subObj or walking components is not found')) return;
   const objWalkable = obj.get('obj/walkable');
   const objSprite = obj.get('obj/sprite');
 

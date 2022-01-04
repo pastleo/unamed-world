@@ -1,6 +1,6 @@
-import { Game } from './game';
-import { GameECS } from './gameECS';
-import { EntityRef } from './utils/ecs';
+import type { Game } from './game';
+import type { GameECS } from './gameECS';
+import type { EntityRef } from './utils/ecs';
 
 import { getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
@@ -11,7 +11,7 @@ import { setCameraPosition, setCameraLocation, setCameraY } from './camera';
 import { triggerRealmGeneration } from './realm';
 import { broadcastMyself } from './network';
 
-import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, warnIfNotPresent } from './utils/utils';
+import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, assertPresentOrWarn } from './utils/utils';
 
 import { MAX_DISTANCE_BETWEEN_PLAYER } from './consts';
 
@@ -35,7 +35,7 @@ export function create(ecs: GameECS): Player {
 export function addToRealm(game: Game, initPosition: Vec3 = [0, 0, 0]) {
   const located = locateOrCreateChunkCell(initPosition, game);
 
-  const subObj = createSubObj(game.player.objEntity, initPosition, game, located, game.player.subObjEntity);
+  const subObj = createSubObj(game.player.objEntity, initPosition, [0, 0, 0], game, located, game.player.subObjEntity);
   mountSubObj(subObj, game);
 }
 
@@ -67,7 +67,7 @@ export function jumpOnRealm(game: Game) {
 
 export function jumpOffRealm(game: Game) {
   const oriSubObjComponents = game.ecs.getEntityComponents(game.player.subObjEntity);
-  if (warnIfNotPresent(oriSubObjComponents)) return;
+  if (assertPresentOrWarn([oriSubObjComponents], 'player.jumpOffRealm: subObj of player not found')) return;
 
   destroySubObj(oriSubObjComponents.entity, game);
 }

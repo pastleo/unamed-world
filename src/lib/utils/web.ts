@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export function parseUrlHash(): Record<string, string> {
   if (typeof window === 'undefined') return {};
 
@@ -63,4 +65,48 @@ export function createCanvas2d(width: number, height: number): CanvasRenderingCo
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   return ctx;
+}
+
+// @ts-ignore
+export const supportOffscreenCanvas = typeof OffscreenCanvas === 'function';
+
+interface OffscreenCanvasConvertToBlobOptions {
+  type?: 'image/png' | 'image/jpeg' | 'image/webp';
+  quality?: number;
+}
+export interface OffscreenCanvas extends HTMLCanvasElement {
+  convertToBlob: (options?: OffscreenCanvasConvertToBlobOptions) => Promise<Blob>;
+  transferControlToOffscreen: () => OffscreenCanvas;
+}
+
+export function makeOffscreenCanvas(oriCanvas: HTMLCanvasElement) {
+  const canvas = oriCanvas as OffscreenCanvas;
+  if (!canvas.convertToBlob) {
+    canvas.convertToBlob = ({ type, quality } = {}) => new Promise(resolve => {
+      canvas.toBlob(resolve, type, quality)
+    });
+  }
+
+  return canvas;
+}
+
+export function loadImageBitmap(src: string): Promise<ImageBitmap> {
+  return new Promise(resolve => {
+    const loader = new THREE.ImageBitmapLoader();
+    loader.setOptions({ imageOrientation: 'flipY' });
+    loader.load(src, resolve);
+  });
+}
+
+/**
+ * convert blob to base64-encoded data with preceding data url declaration
+ */
+export function readAsDataURL(blob: Blob): Promise<string> {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(reader.result as string);
+    }
+    reader.readAsDataURL(blob);
+  });
 }

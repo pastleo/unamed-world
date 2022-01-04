@@ -5,7 +5,7 @@ import { sha256 } from 'multiformats/hashes/sha2'
 
 import debug from 'debug';
 
-import { Game } from './game';
+import type { Game } from './game';
 
 const logger = {
   start: debug('ipfs-start'),

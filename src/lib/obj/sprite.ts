@@ -1,11 +1,13 @@
 import * as ss from 'superstruct';
-import { GameECS } from '../gameECS';
+import type { GameECS } from '../gameECS';
 
 import { ObjPath, objPathType } from './obj';
-import { SubObjState, subObjStateType } from '../subObj/subObj';
+import type { SubObjState } from '../subObj/subObj';
 
 import { EntityRef } from '../utils/ecs';
-import { Vec2, vec2Type, InferSSOptional } from '../utils/utils';
+import { Vec2, vec2Type } from '../utils/utils';
+
+import { InferSSOptional, subObjStateType } from '../utils/superstructTypes';
 
 export interface ObjSpriteComponent {
   spritesheet: string;

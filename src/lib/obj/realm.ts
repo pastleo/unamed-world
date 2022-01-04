@@ -2,8 +2,10 @@ import * as ss from 'superstruct';
 import type { GameECS } from '../gameECS';
 
 import { EntityRef, sidType } from '../utils/ecs';
-import { Vec2, vec2Type, InferSSOptional } from '../utils/utils';
+import { Vec2, vec2Type } from '../utils/utils';
 import Map2D, { map2DEntriesType } from '../utils/map2d';
+
+import type { InferSSOptional } from '../utils/superstructTypes';
 
 import { BASE_REALM_BACKGROUND } from '../consts';
 
@@ -49,7 +51,7 @@ export function pack(objRealm: ObjRealmComponent, ecs: GameECS): PackedObjRealmC
       const chunk = ecs.getComponent(chunkEntity, 'chunk');
       return chunk.persistance || chunk.subObjs.length > 0
     }).map(([chunkIJ, chunkEntity]) => ([
-      chunkIJ, ecs.getSid(chunkEntity),
+      chunkIJ, ecs.addSid(chunkEntity),
     ])),
     backgrounds,
     spawnLocation,

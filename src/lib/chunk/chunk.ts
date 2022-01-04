@@ -1,12 +1,12 @@
 import * as ss from 'superstruct';
 import { Required } from 'utility-types';
 
-import { Game } from '../game';
-import { GameECS, GameEntityComponents } from '../gameECS';
+import type { Game } from '../game';
+import type { GameECS, GameEntityComponents } from '../gameECS';
 
 import {
   Vec2, Vec3,
-  vec2Type, mod, warnIfNotPresent, add,
+  vec2Type, mod, assertPresentOrWarn, add,
   sub, multiply, clamp, step, smooth,
 } from '../utils/utils';
 import { EntityRef, sidType, entityEqual } from '../utils/ecs';
@@ -36,7 +36,7 @@ type CreateChunkFn = (chunkIJ: Vec2) => ChunkComponent;
 
 export function createChunk(chunk: ChunkComponent, realmEntity: EntityRef, ecs: GameECS): EntityRef {
   const chunks = ecs.getComponent(realmEntity, 'obj/realm')?.chunks;
-  if (warnIfNotPresent(chunks)) return null;
+  if (assertPresentOrWarn([chunks], 'chunk/chunk.createChunk: realm.chunks not valid')) return null;
 
   const chunkEntity = ecs.allocate();
   ecs.setComponent(chunkEntity, 'chunk', chunk);
@@ -59,10 +59,7 @@ export function locateOrCreateChunkCell(
     console.warn('locateOrCreateChunkCell: position has NaN:', position);
     return null;
   }
-  const chunkIJ = [
-    Math.floor((position[0] + CHUNK_SIZE / 2) / CHUNK_SIZE),
-    Math.floor((position[2] + CHUNK_SIZE / 2) / CHUNK_SIZE),
-  ] as Vec2;
+  const chunkIJ = locateChunkIJ(position);
 
   const chunk = getOrCreateChunk(chunkIJ, game.realm.currentObj, game.ecs, createChunkFn);
   
@@ -79,9 +76,16 @@ export function locateOrCreateChunkCell(
   }
 }
 
+export function locateChunkIJ(position: Vec3): Vec2 {
+  return [
+    Math.floor((position[0] + CHUNK_SIZE / 2) / CHUNK_SIZE),
+    Math.floor((position[2] + CHUNK_SIZE / 2) / CHUNK_SIZE),
+  ];
+}
+
 export function getChunkEntityComponents(chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS): GameEntityComponents {
   const chunks = ecs.getComponent(realmEntity, 'obj/realm')?.chunks;
-  if (warnIfNotPresent(chunks)) return null;
+  if (assertPresentOrWarn([chunks], 'chunk/chunk.getChunkEntityComponents: realm.chunks not valid')) return null;
 
   let chunkEntity = chunks.get(chunkIJ[0], chunkIJ[1]);
   return ecs.getEntityComponents(chunkEntity);
@@ -124,7 +128,7 @@ export function getOrCreateChunkCell(
   const [chunkIJ, cellIJ] = correctChunkCellIJ(chunkIJSrc, cellIJSrc);
 
   const chunk = getOrCreateChunk(chunkIJ, realmEntity, ecs, createChunkFn);
-  if (warnIfNotPresent(chunk)) return null;
+  if (assertPresentOrWarn([chunk], 'chunk/chunk.getOrCreateChunkCell: chunk from getOrCreateChunk not valid')) return null;
 
   return chunk.cells.get(...cellIJ);
 }
@@ -182,7 +186,7 @@ export function calcCellLocation(located: Located): Vec2 {
 
 export function mergeChunk(chunkSrc: Required<Partial<ChunkComponent>, 'chunkIJ'>, game: Game) {
   const chunkEntityComponents = getChunkEntityComponents(chunkSrc.chunkIJ, game.realm.currentObj, game.ecs);
-  if (warnIfNotPresent(chunkEntityComponents)) return;
+  if (assertPresentOrWarn([chunkEntityComponents], 'chunk/chunk.mergeChunk: chunkEntityComponents not valid')) return;
   const chunk = chunkEntityComponents.get('chunk');
   chunkEntityComponents.set('chunk', {
     ...chunk,
@@ -224,7 +228,7 @@ export function pack(chunk: ChunkComponent, ecs: GameECS): PackedChunkComponent 
     subObjs: subObjs.filter(
       subObjEntity => !ecs.getComponent(subObjEntity, 'subObj').mounted
     ).map(
-      subObjEntity => ecs.getSid(subObjEntity)
+      subObjEntity => ecs.addSid(subObjEntity)
     ),
     textureUrl,
     repeatable,

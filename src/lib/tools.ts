@@ -3,19 +3,20 @@ import Swiper, { Manipulation } from 'swiper';
 
 import 'swiper/css';
 
-import { Game } from './game';
-import { GameEntityComponents } from './gameECS';
+import type { Game } from './game';
+import type { GameEntityComponents } from './gameECS';
 import { mountSubObj, movePlayerTo, syncLocationToRealmSpawnLocation } from './player';
+import { cameraRotationY } from './camera';
 import { broadcastMyself } from './network';
 import { afterSaved } from './realm';
 import {
   ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction,
   dispatchAction,
 } from './action';
-import { buildSpriteFromCurrentRealm } from './sprite';
-import { exportRealm, exportSprite } from './storage';
+import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
+import { exportRealm, fetchAndLoadSprite } from './resource';
 
-import { ObjPath } from './obj/obj';
+import type { ObjPath } from './obj/obj';
 import {
   Located,
   getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
@@ -27,7 +28,7 @@ import { setUrlHash } from './utils/web';
 
 import '../styles/tools.css';
 
-export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | string;
+export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
 export interface Tools {
   activeTool: Tool;
   swiper: Swiper;
@@ -86,6 +87,7 @@ const TOOL_ICONS: Record<Tool, string> = {
   draw: '✍️',
   terrainAltitude: '↕️',
   options: '⚙️',
+  pin: '🚩',
 }
 const RAYCAST_CHUNK_RANGE = 4;
 
@@ -102,7 +104,7 @@ export function start(game: Game) {
 
   const toolItemTemplate = document.getElementById('tools-item-template') as HTMLTemplateElement;
 
-  const initTools = ['walk', 'draw', 'terrainAltitude', 'options'];
+  const initTools = ['walk', 'draw', 'terrainAltitude', 'pin', 'options'];
   const toolCount = initTools.length;
   
   document.getElementById('main-toolbox').style.width = `${toolCount * 10}rem`;
@@ -308,15 +310,18 @@ function ensureOptionsActivated(game: Game) {
 
     if (realmObjPath) {
       afterSaved(realmObjPath, game);
-      setUrlHash({ '': game.storage.savedRealmObjPath });
+      setUrlHash({ '': game.resource.savedRealmObjPath });
     }
   });
   genActionDOM.addEventListener('click', async () => {
     if (options.swiper.activeIndex !== 1) return;
+    await ensureObjBuilderStarted(game);
 
-    await exportRealm('local', game);
-    const spriteObj = buildSpriteFromCurrentRealm(game);
-    const spriteObjPath = await exportSprite('local', spriteObj, game);
+    const realmObjPath = await exportRealm('local', game);
+    const spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
+
+    const loadedObjSprite = await fetchAndLoadSprite(spriteObjPath, game);
+    if (!loadedObjSprite) return;
 
     addAndSwitchSpriteTool(spriteObjPath, game);
   });
@@ -342,6 +347,8 @@ export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game
       return castDraw(coordsPixel, inputType, game);
     case 'terrainAltitude':
       return castTerrainAltitude(coordsPixel, inputType, game);
+    case 'pin':
+      return castPin(coordsPixel, inputType, game);
   }
 
   if (game.tools.activeTool.startsWith('sprite/')) {
@@ -382,7 +389,7 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
   game.player.objEntity = nearBySubObj.obj;
   destroySubObj(game.player.subObjEntity, game);
-  const newSubObj = createSubObj(game.player.objEntity, subObj.position, game, located);
+  const newSubObj = createSubObj(game.player.objEntity, subObj.position, subObj.rotation, game, located);
   mountSubObj(newSubObj, game);
   broadcastMyself(game);
 }
@@ -450,6 +457,24 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
   terrainAltitude.selectedChunkCell = located;
 }
 
+function castPin(coordsPixel: Vec2, inputType: InputType, game: Game) {
+  if (inputType !== 'up') return;
+
+  const [realmIntersect] = rayCastRealm(coordsPixel, game);
+  if (!realmIntersect) return;
+
+  const newSubObj = game.ecs.allocate();
+  const sid = game.ecs.getOrAddPrimarySid(newSubObj);
+  const action: AddSubObjAction = {
+    type: 'subObj-add',
+    sid, obj: 'pin',
+    position: threeToVec3(realmIntersect.point),
+    rotation: [0, cameraRotationY(game.camera), 0],
+  }
+
+  dispatchAction(action, game);
+}
+
 function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
   if (inputType !== 'up') return;
 
@@ -459,15 +484,18 @@ function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
   if (!realmIntersect || !spriteObjAsTool) return;
 
   const newSubObj = game.ecs.allocate();
-  const sid = game.ecs.getSid(newSubObj);
+  const sid = game.ecs.getOrAddPrimarySid(newSubObj);
   const action: AddSubObjAction = {
     type: 'subObj-add',
     sid, obj: spriteObjPath,
     position: threeToVec3(realmIntersect.point),
+    rotation: [0, cameraRotationY(game.camera), 0],
   }
 
   dispatchAction(action, game);
 }
+
+
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {
   const chunkMeshes = rangeVec2s(game.player.chunkIJ, RAYCAST_CHUNK_RANGE).map(chunkIJ => (
