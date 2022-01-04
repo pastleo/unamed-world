@@ -19,7 +19,7 @@ import { addSubObjToScene, destroySubObj } from './subObj/subObj';
 import { EntityRef, entityEqual } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
 import { Vec2, assertPresentOrWarn } from './utils/utils';
-import { listenToWorkerNextValue } from './utils/worker';
+import { listenToWorkerValueStream } from './utils/worker';
 import Map2D from './utils/map2d';
 
 import { CHUNK_SIZE } from './consts';
@@ -65,7 +65,7 @@ export function addToScene(game: Game) {
   game.scene.add(game.realm.light.target);
   game.scene.add(game.realm.ambientLight);
 
-  listenToWorkerNextValue(game.realm.worker.nextGeneratedChunk, result => {
+  listenToWorkerValueStream(game.realm.worker.nextGeneratedChunk, result => {
     handleNextGeneratedChunk(result, game);
   });
 

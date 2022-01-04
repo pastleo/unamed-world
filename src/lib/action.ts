@@ -43,6 +43,7 @@ export interface AddSubObjAction extends Action {
   sid: Sid;
   obj: Sid;
   position: Vec3;
+  rotation: Vec3;
 }
 
 export function dispatchAction(action: Action, game: Game) {
@@ -109,5 +110,5 @@ function addSubObj(action: AddSubObjAction, game: Game) {
   const subObjEntity = game.ecs.fromSid(action.sid);
   const spriteObj = game.ecs.fromSid(action.obj);
   const located = locateOrCreateChunkCell(action.position, game);
-  createSubObj(spriteObj, action.position, game, located, subObjEntity);
+  createSubObj(spriteObj, action.position, action.rotation, game, located, subObjEntity);
 }

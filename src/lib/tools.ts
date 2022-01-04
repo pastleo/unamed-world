@@ -6,14 +6,15 @@ import 'swiper/css';
 import type { Game } from './game';
 import type { GameEntityComponents } from './gameECS';
 import { mountSubObj, movePlayerTo, syncLocationToRealmSpawnLocation } from './player';
+import { cameraRotationY } from './camera';
 import { broadcastMyself } from './network';
 import { afterSaved } from './realm';
 import {
   ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction,
   dispatchAction,
 } from './action';
-//import { buildSpriteFromCurrentRealm } from './objBuilder';
-import { exportRealm, exportSprite } from './resource';
+import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
+import { exportRealm, fetchAndLoadSprite } from './resource';
 
 import type { ObjPath } from './obj/obj';
 import {
@@ -314,12 +315,15 @@ function ensureOptionsActivated(game: Game) {
   });
   genActionDOM.addEventListener('click', async () => {
     if (options.swiper.activeIndex !== 1) return;
+    await ensureObjBuilderStarted(game);
 
-    await exportRealm('local', game);
-    //const spriteObj = buildSpriteFromCurrentRealm(game);
-    //const spriteObjPath = await exportSprite('local', spriteObj, game);
+    const realmObjPath = await exportRealm('local', game);
+    const spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
 
-    //addAndSwitchSpriteTool(spriteObjPath, game);
+    const loadedObjSprite = await fetchAndLoadSprite(spriteObjPath, game);
+    if (!loadedObjSprite) return;
+
+    addAndSwitchSpriteTool(spriteObjPath, game);
   });
 
   game.tools.options = options;
@@ -385,7 +389,7 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
   game.player.objEntity = nearBySubObj.obj;
   destroySubObj(game.player.subObjEntity, game);
-  const newSubObj = createSubObj(game.player.objEntity, subObj.position, game, located);
+  const newSubObj = createSubObj(game.player.objEntity, subObj.position, subObj.rotation, game, located);
   mountSubObj(newSubObj, game);
   broadcastMyself(game);
 }
@@ -456,8 +460,6 @@ function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game
 function castPin(coordsPixel: Vec2, inputType: InputType, game: Game) {
   if (inputType !== 'up') return;
 
-  //const spriteObjPath: ObjPath = game.tools.activeTool.replace(/^sprite\//, '');
-  //const spriteObjAsTool = game.ecs.fromSid(spriteObjPath);
   const [realmIntersect] = rayCastRealm(coordsPixel, game);
   if (!realmIntersect) return;
 
@@ -467,6 +469,7 @@ function castPin(coordsPixel: Vec2, inputType: InputType, game: Game) {
     type: 'subObj-add',
     sid, obj: 'pin',
     position: threeToVec3(realmIntersect.point),
+    rotation: [0, cameraRotationY(game.camera), 0],
   }
 
   dispatchAction(action, game);
@@ -486,6 +489,7 @@ function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
     type: 'subObj-add',
     sid, obj: spriteObjPath,
     position: threeToVec3(realmIntersect.point),
+    rotation: [0, cameraRotationY(game.camera), 0],
   }
 
   dispatchAction(action, game);

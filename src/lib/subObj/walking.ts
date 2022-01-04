@@ -43,7 +43,7 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
       multiply(subObjWalking.moveRelative, 1 - progressGoingToMake, subObjWalking.moveRelative);
       subObjWalking.moveRelativeDistance = length(subObjWalking.moveRelative);
 
-      subObjComponent.rotation[1] = Math.PI - Math.atan2(movingVec[0], movingVec[1]);
+      subObjComponent.rotation[1] = Math.atan2(movingVec[0], movingVec[1]) + Math.PI;
     }
 
     if (movingRange <= 0 || subObjWalking.moveRelativeDistance < STOP_MOVING_DISTANCE) {

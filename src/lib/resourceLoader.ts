@@ -1,3 +1,4 @@
+import localForage from 'localforage';
 import type { GameECS } from './gameECS';
 
 import type { PackedRealmJson, PackedSpriteJson } from './resourcePacker';
@@ -40,3 +41,4 @@ export function loadPackedSprite(objSpritePath: ObjPath, json: PackedSpriteJson,
 
   return objEntity;
 }
+

@@ -17,7 +17,7 @@ import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from '
 import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
-import { ObjBuilder, ensureStarted as ensureObjBuilderStarted } from './objBuilder';
+import type { ObjBuilder } from './objBuilder';
 import { Cache, init as initCache } from './cache';
 
 import type { Vec2 } from './utils/utils';
@@ -42,8 +42,8 @@ export interface Game {
 
   loader: THREE.TextureLoader;
 
-  ipfs: IPFS;
-  objBuilder: ObjBuilder;
+  ipfs?: IPFS;
+  objBuilder?: ObjBuilder;
 }
 
 export async function setup(): Promise<Game> {
@@ -66,9 +66,6 @@ export async function setup(): Promise<Game> {
     cache: initCache(),
     time: 0,
     loader: new THREE.TextureLoader(),
-
-    ipfs: null,
-    objBuilder: null,
   }
 
   document.body.appendChild(renderer.domElement);
@@ -81,7 +78,6 @@ export async function setup(): Promise<Game> {
   startListeners(game);
 
   await startResourceManager(game);
-  await ensureObjBuilderStarted(game);
 
   changeRealm(game);
 

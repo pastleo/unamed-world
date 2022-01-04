@@ -32,13 +32,16 @@ export function addModelToScene(subObjEntity: EntityRef, game: Game, refresh: bo
     threeObj = gltf.scene.clone(true);
   } else {
     threeObj = new THREE.Object3D();
+
     (async () => {
       const gltf = await loadGltf(objModel.glbUrl);
       game.cache.gltfs.set(objModel.glbUrl, gltf);
-      gltf.scene.position.copy(threeObj.position);
-      gltf.scene.rotation.copy(threeObj.rotation);
+
+      const loadedModel = gltf.scene.clone(true);
+      loadedModel.position.copy(threeObj.position);
+      loadedModel.rotation.copy(threeObj.rotation);
       threeObj.removeFromParent();
-      threeObj = gltf.scene;
+      threeObj = loadedModel;
       game.scene.add(threeObj);
     })();
   }

@@ -2,12 +2,13 @@ import * as THREE from 'three';
 
 import type { Game } from '../game';
 import { getOrBaseSprite } from '../builtInObj';
+import { cameraRotationY } from '../camera';
 
 import type { SubObjComponent } from './subObj';
 import type { ObjSpriteComponent } from '../obj/sprite';
 
 import { EntityRef } from '../utils/ecs';
-import { mod, assertPresentOrWarn } from '../utils/utils';
+import { radToDeg, normalizeDeg, assertPresentOrWarn } from '../utils/utils';
 
 export interface SubObjSpriteRenderComponent {
   sprite: THREE.Sprite;
@@ -78,9 +79,9 @@ export function updateSpriteTexture(
   const texture = subObjSpriteRender.sprite.material.map;
 
   const animation = objSprite.stateAnimations[subObj.state] || objSprite.stateAnimations.normal;
-  const viewedRotationDeg = mod(Math.floor(
-    (subObj.rotation[1] + (game?.camera.cameraBase.rotation.y || 0)) / Math.PI * 180
-  ), 360);
+  const cameraYDeg = radToDeg(cameraRotationY(game?.camera));
+  const spriteRotationYDeg = radToDeg(subObj.rotation[1]);
+  const viewedRotationDeg = normalizeDeg(cameraYDeg - spriteRotationYDeg);
 
   if (viewedRotationDeg > 5 && viewedRotationDeg < 175) {
     setTextureRepeat(texture, objSprite, false);

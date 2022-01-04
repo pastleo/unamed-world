@@ -1,12 +1,9 @@
 import * as THREE from 'three';
 import * as Comlink from 'comlink';
-import localForage from 'localforage';
 import debug from 'debug';
 
 import { GameECS, init as initECS } from '../lib/gameECS';
-import { PackedRealmJson, packSprite } from '../lib/resourcePacker';
-import { loadPackedRealm } from '../lib/resourceLoader';
-import { calcJsonCid } from '../lib/ipfs';
+import { switchRealmLocally, exportSpriteLocally } from '../lib/resource';
 
 import { ObjPath } from '../lib/obj/obj';
 import { createBaseRealm } from '../lib/obj/realm';
@@ -16,83 +13,46 @@ import { calcChunkMeshPosition } from '../lib/chunk/render';
 import { EntityRef } from '../lib/utils/ecs';
 import { Vec2, vecCopyToThree } from '../lib/utils/utils';
 import type { OffscreenCanvas } from '../lib/utils/web';
-import { makeOffscreenCanvas, loadImage, readAsDataURL } from '../lib/utils/web';
-import { emulateComlinkRemote } from '../lib/utils/worker';
+import { makeOffscreenCanvas, loadImageBitmap, readAsDataURL } from '../lib/utils/web';
+import { ReversedRPC, NextRequest, ResponseReq, createReversedRPC, emulateComlinkRemote } from '../lib/utils/worker';
 
 import { CHUNK_SIZE } from '../lib/consts';
 
 const log = debug('worker/objBuilder');
 
 export interface ObjBuilderRPCs {
-  useCanvas: (canvas: HTMLCanvasElement) => void;
   buildSpriteFromRealm: (objRealmPath: ObjPath) => Promise<ObjPath>;
-  drawSomething: () => Promise<string>;
-  logWorker: () => void;
+  nextRequestCanvas: NextRequest<CanvasRequest, HTMLCanvasElement>;
+  responseCanvas: ResponseReq<CanvasRequest, HTMLCanvasElement>;
 }
 
 interface ObjBuilderWorker {
-  canvas: OffscreenCanvas;
+  requestCanvas: ReversedRPC<CanvasRequest, HTMLCanvasElement>;
   ecs: GameECS;
   realmEntity: EntityRef;
 }
 
+interface CanvasRequest {
+  width: number;
+  height: number;
+}
+
 export function startWorker(exposeAsComlink: boolean): Comlink.Remote<ObjBuilderRPCs> {
   const ecs = initECS();
+  
+  const [requestCanvas, nextRequestCanvas, responseCanvas] = createReversedRPC<CanvasRequest, HTMLCanvasElement>();
 
   const worker: ObjBuilderWorker = {
-    canvas: null,
+    requestCanvas,
     realmEntity: createBaseRealm(ecs),
     ecs,
   };
 
   const objBuilderRPCs: ObjBuilderRPCs = {
-    useCanvas: canvas => {
-      worker.canvas = makeOffscreenCanvas(canvas);
-    },
-    buildSpriteFromRealm: async objRealmPath => {
-      await loadRealm(objRealmPath, worker);
-      const builtObjEntity = buildSpriteFromRealm(worker.realmEntity, worker);
-      const packedSpriteJson = packSprite(builtObjEntity, worker.ecs);
-      const realmObjPath = `/local/${await calcJsonCid(packedSpriteJson)}`;
-      await localForage.setItem(realmObjPath, packedSpriteJson);
-      return realmObjPath;
-    },
-    drawSomething: async () => {
-      var scene = new THREE.Scene();
-      var camera = new THREE.PerspectiveCamera( 75, worker.canvas.width / worker.canvas.height, 0.1, 1000 );
-
-      var renderer = new THREE.WebGLRenderer({ canvas: worker.canvas });
-
-      // offscreenCanvas cannot set width/height:
-      //renderer.setSize(512, 512);
-
-      var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-      var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-      var cube = new THREE.Mesh( geometry, material );
-      scene.add( cube );
-
-      camera.position.z = 5;
-
-      cube.rotation.x += Math.PI * 0.25;
-      cube.rotation.y += Math.PI * 0.25;
-
-      renderer.render( scene, camera );
-
-      const blob = await (renderer.domElement as OffscreenCanvas).convertToBlob();
-
-      //console.log(URL.createObjectURL(blob));
-      // new discovery in web!
-      // object URL is like:
-      // blob:http://localhost:8080/d91b83c1-71ce-4a4f-ad29-547748c94c63
-      // but this can point to a large blob/file
-      // docs: https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL
-      // to convert object URL back: https://stackoverflow.com/a/52410044
-     
-      return readAsDataURL(blob);
-    },
-    logWorker: () => {
-      console.log(worker);
-    }
+    buildSpriteFromRealm: objRealmPath => (
+      buildSpriteFromRealm(objRealmPath, worker)
+    ),
+    nextRequestCanvas, responseCanvas,
   }
 
   if (exposeAsComlink) {
@@ -108,34 +68,25 @@ if (typeof window === 'undefined') {
   startWorker(true);
 }
 
-async function loadRealm(objRealmPath: ObjPath, worker: ObjBuilderWorker) {
-  if (!objRealmPath) return;
+async function buildSpriteFromRealm(objRealmPath: ObjPath, worker: ObjBuilderWorker): Promise<ObjPath> {
+  log('buildSpriteFromRealm: starting loading realm');
+  const realmObj = await switchRealmLocally(objRealmPath, worker.realmEntity, worker.ecs);
+  if (!realmObj) return;
 
-  const json = await localForage.getItem<PackedRealmJson>(objRealmPath);
-  if (json) {
-    const prevChunks = worker.ecs.getComponent(worker.realmEntity, 'obj/realm').chunks;
-    prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
-      worker.ecs.deallocate(chunkEntity);
-    });
-    worker.ecs.deallocate(worker.realmEntity);
+  worker.realmEntity = realmObj;
 
-    worker.realmEntity = loadPackedRealm(objRealmPath, json, worker.ecs);
-  }
-}
-
-
-function buildSpriteFromRealm(realmObj: EntityRef, worker: ObjBuilderWorker): EntityRef {
   const newObjSprite = worker.ecs.allocate();
   const newObjSpriteComponents = worker.ecs.getEntityComponents(newObjSprite);
-  const chunkEntityComponents = getChunkEntityComponents([0, 0], realmObj, worker.ecs);
 
-  renderSpritesheet(realmObj, worker);
+  log('buildSpriteFromRealm: starting rendering spritesheet');
+  const spritesheet = await renderSpritesheet(realmObj, worker);
 
+  log('buildSpriteFromRealm: creating sprite obj components');
   newObjSpriteComponents.set('obj', {
     subObjType: 'sprite',
   });
   newObjSpriteComponents.set('obj/sprite', {
-    spritesheet: chunkEntityComponents.get('chunk').textureUrl, // TODO
+    spritesheet,
     colRow: [1, 1],
     stateAnimations: {
       normal: {
@@ -152,28 +103,39 @@ function buildSpriteFromRealm(realmObj: EntityRef, worker: ObjBuilderWorker): En
     maxClimbRad: Math.PI * 0.3,
   });
 
-  return newObjSpriteComponents.entity;
+  log('buildSpriteFromRealm: exportSpriteLocally...');
+  const objSpritePath = await exportSpriteLocally(newObjSpriteComponents.entity, worker.ecs);
+
+  log(`buildSpriteFromRealm: sprite obj exported as '${objSpritePath}'`);
+  return objSpritePath;
 }
 
-async function renderSpritesheet(realmObj: EntityRef, worker: ObjBuilderWorker) {
-  const left = -9;
-  const top = 1.5;
-  const bottom = 16.5;
-  const right = 16.5;
+async function renderSpritesheet(realmObj: EntityRef, worker: ObjBuilderWorker): Promise<string> {
+  const [rotationY, left, top, bottom, right] = calcSpriteCapArea(realmObj, worker);
 
-  const renderer = new THREE.WebGLRenderer({ canvas: worker.canvas, alpha: true });
-  const width = right - left;
-  const height = bottom - top;
-  renderer.setSize(width * 100, height * 100);
-  const camera = new THREE.OrthographicCamera(-width/2, width/2, -height/2, height/2);
+  const terrainWidth = right - left;
+  const terrainHeight = bottom - top;
+  const width = terrainWidth * 100;
+  const height = terrainHeight * 100;
+
+  const canvas = makeOffscreenCanvas(
+    await worker.requestCanvas({ width, height })
+  );
+
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+  const tmpScene = new THREE.Scene();
+
+  const cameraWrapper = new THREE.Object3D();
+  vecCopyToThree([(left + right) / 2, (top + bottom) / 2], cameraWrapper.position);
+  cameraWrapper.rotation.y = rotationY;
+  tmpScene.add(cameraWrapper);
+
+  const camera = new THREE.OrthographicCamera(-terrainWidth/2, terrainWidth/2, -terrainHeight/2, terrainHeight/2);
   camera.position.set(0, 10, 0);
   camera.lookAt(0, 0, 0);
   camera.scale.y = -1;
-  const cameraWrapper = new THREE.Object3D();
-  vecCopyToThree([(left + right) / 2, (top + bottom) / 2], cameraWrapper.position);
   cameraWrapper.add(camera);
-  const tmpScene = new THREE.Scene();
-  tmpScene.add(cameraWrapper);
+
   const planes = new THREE.Object3D();
   tmpScene.add(planes);
 
@@ -183,12 +145,15 @@ async function renderSpritesheet(realmObj: EntityRef, worker: ObjBuilderWorker) 
   const promises = Array(chunkIRight - chunkILeft + 1).fill(null).map((_, i) => chunkILeft + i).flatMap(chunkI => (
     Array(chunkJBottom - chunkJTop + 1).fill(null).map((_, j) => chunkJTop + j).map(async chunkJ => {
       const chunkIJ: Vec2 = [chunkI, chunkJ];
-      const chunk = getChunkEntityComponents(chunkIJ, realmObj, worker.ecs).get('chunk');
-      //chunkRender.mesh.visible = false;
+      const chunkComponents = getChunkEntityComponents(chunkIJ, realmObj, worker.ecs);
+      if (!chunkComponents) return;
+      const chunk = chunkComponents.get('chunk');
+      if (!chunk.textureUrl) return;
 
-      const image = await loadImage(chunk.textureUrl);
+      log(`loading chunk (${chunk.chunkIJ.join(', ')})`);
+      const image = await loadImageBitmap(chunk.textureUrl);
 
-      const texture = new THREE.Texture(image);
+      const texture = new THREE.CanvasTexture(image);
       texture.needsUpdate = true;
       const material = new THREE.MeshBasicMaterial({
         map: texture,
@@ -207,17 +172,59 @@ async function renderSpritesheet(realmObj: EntityRef, worker: ObjBuilderWorker) 
     })
   ));
 
-  await Promise.all(promises);
-
-  document.body.appendChild(
-    renderer.domElement
-  );
-  renderer.domElement.style.position = 'fixed';
-  renderer.domElement.style.top = '20px';
-  renderer.domElement.style.left = '20px';
-  renderer.domElement.style.width = '80vw';
-  renderer.domElement.style.height = 'auto';
+  try {
+    await Promise.all(promises);
+    log('all chunks added to tmpScene');
+  } catch (err) {
+    console.error(err);
+  }
 
   renderer.render(tmpScene, camera);
-  console.log('rendered');
+  const blob = await (renderer.domElement as OffscreenCanvas).convertToBlob();
+  return readAsDataURL(blob);
+}
+
+function calcSpriteCapArea(realmObj: EntityRef, worker: ObjBuilderWorker): [rotationY: number, left: number, top: number, bottom: number, right: number] {
+  const pinSubObjs = worker.ecs.getComponent(realmObj, 'obj/realm').chunks.entries().flatMap(([_chunkIJ, chunkEntity]) => {
+    const chunk = worker.ecs.getComponent(chunkEntity, 'chunk');
+    return chunk.subObjs.map(subObjEntity => (
+      worker.ecs.getComponent(subObjEntity, 'subObj')
+    )).filter(subObj => (
+      worker.ecs.getPrimarySid(subObj.obj, true) === 'pin'
+    ));
+  });
+  
+  if (pinSubObjs.length < 3) {
+    return [
+      0,
+      -CHUNK_SIZE / 2, -CHUNK_SIZE / 2,
+      CHUNK_SIZE / 2, CHUNK_SIZE / 2,
+    ]
+  }
+
+  const rotationY = pinSubObjs.reduce((sum, pin) => sum + pin.rotation[1], 0) / pinSubObjs.length;
+
+  //const cos = Math.cos(rotationY);
+  //const sin = Math.sin(rotationY);
+
+  let left = Infinity;
+  let top = Infinity;
+  let bottom = -Infinity;
+  let right = -Infinity;
+
+  pinSubObjs.forEach(pin => {
+    const x = pin.position[0];
+    const z = pin.position[2];
+
+    if (left > x) { left = x; }
+    if (right < x) { right = x; }
+    if (top > z) { top = z; }
+    if (bottom < z) { bottom = z; }
+  });
+
+  return [
+    rotationY,
+    left, top,
+    bottom, right,
+  ]
 }

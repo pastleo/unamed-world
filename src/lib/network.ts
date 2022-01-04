@@ -359,7 +359,7 @@ function addMemberSprite(peerId: string, playerObj: string, position: Vec3, game
   const objSid = playerObj || 'base';
   const spriteObj = getObjEntity(objSid, game.ecs);
   const located = locateOrCreateChunkCell(position, game);
-  const member = createSubObj(spriteObj, position, game, located);
+  const member = createSubObj(spriteObj, position, [0, 0, 0], game, located);
   const subObj = game.ecs.getComponent(member, 'subObj');
   subObj.mounted = true;
   game.network.members.set(peerId, member);

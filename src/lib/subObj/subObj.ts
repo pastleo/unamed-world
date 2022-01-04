@@ -26,13 +26,13 @@ export interface SubObjComponent {
   chunkIJ: Vec2;
 }
 
-export function createSubObj(obj: EntityRef, position: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
+export function createSubObj(obj: EntityRef, position: Vec3, rotation: Vec3, game: Game, locatedArg?: Located, existingSubObjEntity?: EntityRef): EntityRef {
   const located = locatedArg ?? locateOrCreateChunkCell(position, game);
   const { cellIJ, chunkIJ } = located;
 
   const subObjEntity = existingSubObjEntity ?? game.ecs.allocate();
   game.ecs.setComponent(subObjEntity, 'subObj', {
-    obj, position, rotation: [0, 0, 0],
+    obj, position, rotation,
     mounted: false,
     groundAltitude: calcAltitudeAt(position, located, game),
     state: 'normal',

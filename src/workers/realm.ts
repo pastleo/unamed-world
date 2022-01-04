@@ -1,12 +1,9 @@
 import * as Comlink from 'comlink';
-import localForage from 'localforage';
 import debug from 'debug';
 
 import { GameECS, init as initECS } from '../lib/gameECS';
-import type { PackedRealmJson } from '../lib/resourcePacker';
-import { loadPackedRealm } from '../lib/resourceLoader';
+import { switchRealmLocally } from '../lib/resource';
 
-import type { ObjPath } from '../lib/obj/obj';
 import { ObjRealmComponent, createBaseRealm } from '../lib/obj/realm';
 import { Cell, ChunkComponent, getChunk, getChunkCell } from '../lib/chunk/chunk';
 import { ChunkRenderAttributeComponent, AttributeArrays, chunkAttributeArrays } from '../lib/chunk/renderAttribute';
@@ -15,7 +12,7 @@ import type { EntityRef } from '../lib/utils/ecs';
 import { Vec2, rangeVec2s, add } from '../lib/utils/utils';
 import SetVec2 from '../lib/utils/setVec2';
 import Map2D from '../lib/utils/map2d';
-import { createWorkerNextValueFn } from '../lib/utils/worker';
+import { createWorkerValueStream } from '../lib/utils/worker';
 
 import { CHUNK_SIZE, REALM_CHUNK_AUTO_GENERATION_RANGE } from '../lib/consts';
 
@@ -46,7 +43,7 @@ interface RealmWorker {
 function startWorker() {
   const ecs = initECS();
 
-  const [notifyNewChunk, nextGeneratedChunk] = createWorkerNextValueFn<ChunkGenerationResult>();
+  const [notifyNewChunk, nextGeneratedChunk] = createWorkerValueStream<ChunkGenerationResult>();
 
   const worker: RealmWorker = {
     ecs, realmEntity: createBaseRealm(ecs),
@@ -56,7 +53,11 @@ function startWorker() {
 
   const realmRPCs: RealmRPCs = {
     load: async (objRealmPath) => {
-      await loadRealm(objRealmPath, worker);
+      const newRealmEntity = await switchRealmLocally(objRealmPath, worker.realmEntity, worker.ecs);
+      if (newRealmEntity) {
+        worker.realmEntity = newRealmEntity;
+        worker.generatingChunkQueue = [];
+      }
     },
     nextGeneratedChunk,
     triggerRealmGeneration: (centerChunkIJ) => {
@@ -70,21 +71,6 @@ function startWorker() {
 }
 
 startWorker();
-
-async function loadRealm(objRealmPath: ObjPath, worker: RealmWorker) {
-  if (!objRealmPath) return;
-
-  const json = await localForage.getItem<PackedRealmJson>(objRealmPath);
-  if (json) {
-    const prevChunks = worker.ecs.getComponent(worker.realmEntity, 'obj/realm').chunks;
-    prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
-      worker.ecs.deallocate(chunkEntity);
-    });
-
-    worker.generatingChunkQueue = [];
-    worker.realmEntity = loadPackedRealm(objRealmPath, json, worker.ecs);
-  }
-}
 
 const CELL_MIDDLE_PERCENTAGE_OFFSET = 1 / (CHUNK_SIZE * 2);
 function generateRealmChunk(centerChunkIJ: Vec2, range: number, worker: RealmWorker) {

@@ -6,6 +6,7 @@ import type { ObjBuilderRPCs } from '../workers/objBuilder';
 
 import type { OffscreenCanvas } from '../lib/utils/web';
 import { supportOffscreenCanvas } from '../lib/utils/web'
+import { listenToReversedRPC } from '../lib/utils/worker';
 
 export interface ObjBuilder {
   worker: Comlink.Remote<ObjBuilderRPCs>;
@@ -14,35 +15,36 @@ export interface ObjBuilder {
 export async function ensureStarted(game: Game): Promise<void> {
   if (game.objBuilder) return;
 
-  const canvas = document.createElement('canvas') as OffscreenCanvas;
-  canvas.width = 512;
-  canvas.height = 512;
-
-  let worker;
+  let worker: Comlink.Remote<ObjBuilderRPCs>;
   if (supportOffscreenCanvas) {
     worker = Comlink.wrap<ObjBuilderRPCs>(
       new Worker(new URL('../workers/objBuilder', import.meta.url))
-    );
-    const offscreenCanvas = canvas.transferControlToOffscreen();
-    await worker.useCanvas(
-      Comlink.transfer(offscreenCanvas, [offscreenCanvas as any])
     );
   } else {
     const { startWorker } = await import(
       /* webpackChunkName: 'objBuilder' */ '../workers/objBuilder'
     );
     worker = startWorker(false);
-    await worker.useCanvas(canvas);
-  }
-
-  (window as any).testOffscreenCanvas = async () => {
-    const res = await game.objBuilder.worker.drawSomething();
-    const img = document.createElement('img');
-    img.src = res;
-    document.body.appendChild(img);
   }
 
   game.objBuilder = {
     worker,
   }
+
+  listenToReversedRPC(
+    game.objBuilder.worker.nextRequestCanvas,
+    game.objBuilder.worker.responseCanvas,
+    async ({ width, height }) => {
+      const canvas = document.createElement('canvas') as OffscreenCanvas;
+      canvas.width = width;
+      canvas.height = height;
+
+      if (supportOffscreenCanvas) {
+        const offscreenCanvas = canvas.transferControlToOffscreen();
+        return Comlink.transfer(offscreenCanvas, [offscreenCanvas as any]);
+      } else {
+        return canvas;
+      }
+    }
+  );
 }

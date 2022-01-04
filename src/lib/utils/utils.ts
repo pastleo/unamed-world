@@ -149,6 +149,19 @@ export function assertPresentOrWarn(values: any[], notPresentMessage: string) {
   return false;
 }
 
+export function normalizeDeg(deg: number): number {
+  return mod(deg, 360);
+}
+/**
+ * also normalize to 0-360
+ */
+export function radToDeg(rad: number): number {
+  return normalizeDeg(rad / Math.PI * 180);
+}
+export function degToRad(deg: number): number {
+  return deg / 180 * Math.PI;
+}
+
 export const randomStr = () => Math.floor(Math.random() * Date.now()).toString(36);
 
 export type EqualOrNever<T, R> = T extends R ? (R extends T ? T : never) : never;

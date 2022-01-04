@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export function parseUrlHash(): Record<string, string> {
   if (typeof window === 'undefined') return {};
 
@@ -65,16 +67,6 @@ export function createCanvas2d(width: number, height: number): CanvasRenderingCo
   return ctx;
 }
 
-export function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise(resolve => {
-    const image = new Image();
-    image.onload = () => {
-      resolve(image);
-    };
-    image.src = src;
-  });
-}
-
 // @ts-ignore
 export const supportOffscreenCanvas = typeof OffscreenCanvas === 'function';
 
@@ -96,6 +88,14 @@ export function makeOffscreenCanvas(oriCanvas: HTMLCanvasElement) {
   }
 
   return canvas;
+}
+
+export function loadImageBitmap(src: string): Promise<ImageBitmap> {
+  return new Promise(resolve => {
+    const loader = new THREE.ImageBitmapLoader();
+    loader.setOptions({ imageOrientation: 'flipY' });
+    loader.load(src, resolve);
+  });
 }
 
 /**

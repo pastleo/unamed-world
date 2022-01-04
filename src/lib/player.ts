@@ -35,7 +35,7 @@ export function create(ecs: GameECS): Player {
 export function addToRealm(game: Game, initPosition: Vec3 = [0, 0, 0]) {
   const located = locateOrCreateChunkCell(initPosition, game);
 
-  const subObj = createSubObj(game.player.objEntity, initPosition, game, located, game.player.subObjEntity);
+  const subObj = createSubObj(game.player.objEntity, initPosition, [0, 0, 0], game, located, game.player.subObjEntity);
   mountSubObj(subObj, game);
 }
 

@@ -3,12 +3,13 @@ import localForage from 'localforage';
 import * as ss from 'superstruct';
 
 import type { Game } from './game';
+import type { GameECS } from './gameECS';
 import {
   PackedRealmJson, PackedSpriteJson,
   packedRealmJsonType, packedSpriteJsonType,
   packRealm, packSprite,
 } from './resourcePacker';
-import { loadPackedSprite } from './resourceLoader';
+import { loadPackedRealm, loadPackedSprite } from './resourceLoader';
 import { ensureIpfsStarted, calcJsonCid, fetchIpfsJson } from './ipfs';
 import { migrateRealmJson, migrateSpriteJson } from './migration';
 import { reqSprite } from './network';
@@ -46,7 +47,6 @@ export async function importRealm(realmObjPath: ObjPath, json: any): Promise<Pac
   await localForage.setItem(realmObjPath, jsonValidated);
   return jsonValidated;
 }
-
 
 export async function exportRealm(method: ExportObjMethod, game: Game): Promise<ObjPath> {
   const objRealmJson = packRealm(game);
@@ -113,19 +113,25 @@ export async function requireForSubObj(subObjEntityRequiring: EntityRef, objEnti
     waitingSubObjs.push(subObjEntityRequiring);
   }
 
+  const loadedObjSprite = await fetchAndLoadSprite(objPath, game);
+  if (!loadedObjSprite) return;
+
+  waitingSubObjs.forEach(subObj => {
+    addSubObjToScene(subObj, game, true);
+  });
+  game.resource.fetchingForSubObjs.delete(objPath);
+}
+
+export async function fetchAndLoadSprite(objPath: ObjPath, game: Game): Promise<EntityRef> {
   let json = await fetchObjJson(objPath, game, '-sprite');
 
   if (!json && game.network.roomName) {
     json = await reqSprite(objPath, game);
   }
-  if (assertPresentOrWarn([json], 'resource.requireForSubObj: json not fetched')) return;
+  if (assertPresentOrWarn([json], 'resource.requireForSubObj: json not fetched')) return null;
   const jsonValidated = await importSprite(objPath, json);
 
-  loadPackedSprite(objPath, jsonValidated, game.ecs);
-  waitingSubObjs.forEach(subObj => {
-    addSubObjToScene(subObj, game, true);
-  });
-  game.resource.fetchingForSubObjs.delete(objPath);
+  return loadPackedSprite(objPath, jsonValidated, game.ecs);
 }
 
 type ExportObjMethod = 'local' | 'download' | 'ipfs';
@@ -133,9 +139,7 @@ async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Pr
   let realmObjPath: ObjPath;
   switch (method) {
     case 'local':
-      realmObjPath = `/local/${await calcJsonCid(json)}`;
-
-      await localForage.setItem(realmObjPath, json);
+      realmObjPath = await exportObjJsonLocally(json);
       break;
     case 'ipfs':
       await ensureIpfsStarted(game);
@@ -148,4 +152,35 @@ async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Pr
   }
 
   return realmObjPath;
+}
+
+async function exportObjJsonLocally(json: any): Promise<ObjPath> {
+  const realmObjPath = `/local/${await calcJsonCid(json)}`;
+  await localForage.setItem(realmObjPath, json);
+  return realmObjPath;
+}
+
+export async function switchRealmLocally(objRealmPath: ObjPath, prevRealmEntity: EntityRef, ecs: GameECS): Promise<EntityRef | null> {
+  if (!objRealmPath) return null;
+
+  const json = await localForage.getItem<PackedRealmJson>(objRealmPath);
+  if (!json) return null;
+
+  const prevChunks = ecs.getComponent(prevRealmEntity, 'obj/realm').chunks;
+  prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
+    ecs.deallocate(chunkEntity);
+  });
+  ecs.deallocate(prevRealmEntity);
+
+  return loadPackedRealm(objRealmPath, json, ecs);
+}
+
+export async function exportSpriteLocally(objSprite: EntityRef, ecs: GameECS): Promise<ObjPath> {
+  const objSpriteComponents = ecs.getEntityComponents(objSprite);
+
+  const objSpriteJson = packSprite(objSprite, ecs);
+  const spriteObjPath = await exportObjJsonLocally(objSpriteJson);
+  ecs.addSid(objSpriteComponents.entity, spriteObjPath, true);
+
+  return spriteObjPath;
 }
