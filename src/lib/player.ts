@@ -81,6 +81,8 @@ export function update(_tDiff: number, game: Game) {
   if (subObjWalking.moving) {
     updateCameraLocation(game);
     setCameraY(subObjSpriteRender.sprite.position.y, game);
+
+    game.ui.setCnt(subObjSpriteRender.sprite.position.x);
   }
   if (subObj.chunkIJ[0] !== player.chunkIJ[0] || subObj.chunkIJ[1] !== player.chunkIJ[1]) {
     player.chunkIJ = subObj.chunkIJ;

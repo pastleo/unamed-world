@@ -1,0 +1,9 @@
+#ui-main-toolbox {
+  position: fixed;
+  bottom: 0;
+  height: 10rem;
+
+  transition: transform 0.33s;
+  transform-origin: bottom;
+  transform: scale(0.5);
+}

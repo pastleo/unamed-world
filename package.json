@@ -22,6 +22,8 @@
     "isomorphic-webcrypto": "https://github.com/pastleo/isomorphic-webcrypto/releases/download/2.3.8-without-rn/isomorphic-webcrypto-without-rn.tar.gz",
     "localforage": "^1.10.0",
     "multiformats": "^9.4.10",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
     "style-loader": "^3.3.1",
     "superstruct": "^0.15.3",
     "swiper": "^7.3.1",
@@ -33,6 +35,8 @@
   },
   "devDependencies": {
     "@swc/core": "^1.2.114",
+    "@types/react": "^17.0.38",
+    "@types/react-dom": "^17.0.11",
     "browserslist": "^4.18.1",
     "copy-webpack-plugin": "^10.0.0",
     "html-webpack-plugin": "^5.5.0",

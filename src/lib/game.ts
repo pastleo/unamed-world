@@ -14,6 +14,7 @@ import {
 } from './resource';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
+import { UIManager, create as createUI, start as startUI } from './ui/ui';
 import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
@@ -33,6 +34,7 @@ export interface Game {
   camera: Camera;
   realm: Realm;
   player: Player;
+  ui: UIManager;
   tools: Tools;
   resource: ResourceManager;
   network: Networking;
@@ -59,6 +61,7 @@ export async function setup(): Promise<Game> {
     camera: initCamera(),
     realm: initRealm(ecs),
     player: createPlayer(ecs),
+    ui: createUI(),
     tools: createTools(),
     resource: initResourceManager(),
     network: initNetworking(),
@@ -70,6 +73,7 @@ export async function setup(): Promise<Game> {
 
   document.body.appendChild(renderer.domElement);
 
+  startUI(game);
   createBuiltInObjs(game.ecs);
   addRealmToScene(game);
   addCameraToScene(game);
