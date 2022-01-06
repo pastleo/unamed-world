@@ -1,23 +1,23 @@
-import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Manipulation } from 'swiper';
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 
 import type { Game } from '../game';
-
 import type { Tool } from '../tools';
 
-import '../../styles/ui/main-toolbox.css';
+import MainToolbox from './mainToolbox';
+import TopTools from './topTools';
 
-const { useState, useEffect, useMemo } = React;
+import 'swiper/css';
 
 export interface UIManager {
-  setCnt: (cnt: number) => void;
+  setToolsBoxActiveIndex: (index: number) => void;
+  setToolsBoxTools: (tools: Tool[]) => void;
 }
 
 export function create(): UIManager {
   return {
-    setCnt: null,
+    setToolsBoxActiveIndex: () => {},
+    setToolsBoxTools: () => {},
   };
 }
 
@@ -30,60 +30,36 @@ export async function start(game: Game) {
     const domRoot = document.createElement('div');
 
     ReactDOM.render(
-      <UI ui={game.ui} ready={resolve} />,
+      <UI game={game} onReady={resolve} />,
       domRoot,
     );
   });
-
-  game.ui.setCnt(10);
 }
 
-function UI({ ui, ready }: { ui: UIManager, ready: () => void }) {
-  const [cnt, setCnt] = useState(0);
+interface UIContextPayload {
+  game: Game;
+  tools: Tool[];
+  activeToolIndex: number;
+}
+
+export const UIContext = React.createContext<UIContextPayload>(null);
+
+function UI({ game, onReady }: { game: Game, onReady: () => void }) {
+  const [tools, setTools] = useState<Tool[]>(game.tools.toolsBox);
+  const [activeToolIndex, setActiveToolIndex] = useState(tools.indexOf(game.tools.activeTool));
 
   useEffect(() => {
-    ui.setCnt = setCnt;
-    ready();
+    game.ui.setToolsBoxTools = setTools;
+    game.ui.setToolsBoxActiveIndex = setActiveToolIndex;
+    onReady();
   }, []);
 
   return (
-    <>
-      <MainToolBox cnt={cnt} />
-    </>
+    <UIContext.Provider value={{
+      game, tools, activeToolIndex,
+    }}>
+      <MainToolbox />
+      <TopTools />
+    </UIContext.Provider>
   );
 }
-
-const TOOL_ICONS: Record<Tool, string> = {
-  walk: '🚶',
-  draw: '✍️',
-  terrainAltitude: '↕️',
-  options: '⚙️',
-  pin: '🚩',
-}
-
-function MainToolBox({ cnt }: { cnt: number }) {
-  const [tools, _setTools] = useState<Tool[]>(['walk', 'draw', 'terrainAltitude', 'pin', 'options']);
-  const mainToolboxDomRoot = useMemo(() => document.getElementById('ui-main-toolbox'), []);
-
-  return ReactDOM.createPortal(
-    <div>
-      <h1>hello portal, {cnt}</h1>
-      <Swiper
-        modules={[Manipulation]}
-        slidesPerView='auto'
-        loop
-        centeredSlides
-        slideToClickedSlide
-        loopAdditionalSlides={3}
-        onSlideChange={() => console.log('slide change')}
-        onSwiper={(swiper) => console.log(swiper)}
-      >
-        { tools.map(tool => (
-          <SwiperSlide key={tool}>{ TOOL_ICONS[tool] }</SwiperSlide>
-        )) }
-      </Swiper>
-    </div>,
-    mainToolboxDomRoot,
-  );
-}
-

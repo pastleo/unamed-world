@@ -13,6 +13,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "@types/three": "^0.131.0",
+    "classnames": "^2.3.1",
     "comlink": "^4.3.1",
     "console-panel": "^1.0.4",
     "css-loader": "^6.5.1",
