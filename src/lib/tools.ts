@@ -59,14 +59,27 @@ export function create(): Tools {
   }
 }
 
+function createDraw(): Draw {
+  return {
+    fillStyle: '#000000',
+    fillSize: 16,
+    eraser: false,
+    pickingColor: false,
+  }
+}
+
 export function start(_game: Game) {
 }
 
-export function setActiveTool(index: number, game: Game) {
+export function setActiveTool(indexOrTool: number | Tool, game: Game) {
+  const index = typeof indexOrTool === 'number' ? indexOrTool : (
+    game.tools.toolsBox.indexOf(indexOrTool)
+  );
+  if (index < 0 || index >= game.tools.toolsBox.length) return;
+
   const prevTool = game.tools.activeTool;
   game.tools.activeTool = game.tools.toolsBox[index];
-
-  game.ui.setToolsBoxActiveIndex(index);
+  game.ui.updateSelectedMainTool();
 
   switch(game.tools.activeTool) {
     case 'terrainAltitude':
@@ -81,31 +94,14 @@ export function setActiveTool(index: number, game: Game) {
   }
 }
 
-// WIP:
 function addAndSwitchSpriteTool(spriteAsTool: Tool, game: Game) {
   const spriteToolName: Tool = `sprite/${spriteAsTool}`;
   if (game.tools.toolsBox.indexOf(spriteToolName) !== -1) return;
 
-  const spriteObjComponents = game.ecs.getEntityComponents(game.ecs.fromSid(spriteAsTool));
-  const spriteThumb = spriteObjComponents.get('obj/sprite').spritesheet;
+  game.tools.toolsBox.splice(-1, 0, spriteToolName);
+  game.ui.updateSelectableMainTools();
 
-  const toolSlideTemplate = document.getElementById('tools-item-sprite-obj-template') as HTMLTemplateElement;
-  const toolSlideDOM = toolSlideTemplate.content.querySelector('.swiper-slide').cloneNode(true) as HTMLElement;
-  const thumbDOM = toolSlideDOM.querySelector('.sprite-obj-thumb') as HTMLImageElement;
-  thumbDOM.src = spriteThumb;
-
-  const toolsCount = game.tools.toolsBox.push(spriteToolName);
-  //game.tools.swiper.appendSlide(toolSlideDOM);
-  setActiveTool(toolsCount - 1, game);
-}
-
-function createDraw(): Draw {
-  return {
-    fillStyle: '#000000',
-    fillSize: 16,
-    eraser: false,
-    pickingColor: false,
-  }
+  setActiveTool(spriteToolName, game);
 }
 
 function ensureTerrainAltitudeActivated(game: Game) {

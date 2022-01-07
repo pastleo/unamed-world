@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useContext } from 'react';
+
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type SwiperCore from 'swiper';
+import { Mousewheel } from 'swiper';
 
 import { UIContext } from './ui';
 import { TopTool } from './topTools';
@@ -23,7 +25,8 @@ function Options() {
   return (
     <TopTool className='options' active={game.tools.activeTool === 'options'}>
       <Swiper
-        centeredSlides slideToClickedSlide
+        modules={[Mousewheel]}
+        centeredSlides slideToClickedSlide mousewheel
         initialSlide={optionIndex}
         slidesPerView='auto'
         onActiveIndexChange={() => {

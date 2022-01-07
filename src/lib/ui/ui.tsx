@@ -8,16 +8,18 @@ import MainToolbox from './mainToolbox';
 import TopTools from './topTools';
 
 import 'swiper/css';
+import 'swiper/css/manipulation';
+import 'swiper/css/mousewheel';
 
 export interface UIManager {
-  setToolsBoxActiveIndex: (index: number) => void;
-  setToolsBoxTools: (tools: Tool[]) => void;
+  updateSelectableMainTools: () => void;
+  updateSelectedMainTool: () => void;
 }
 
 export function create(): UIManager {
   return {
-    setToolsBoxActiveIndex: () => {},
-    setToolsBoxTools: () => {},
+    updateSelectableMainTools: () => {},
+    updateSelectedMainTool: () => {},
   };
 }
 
@@ -38,25 +40,29 @@ export async function start(game: Game) {
 
 interface UIContextPayload {
   game: Game;
-  tools: Tool[];
-  activeToolIndex: number;
+  selectableMainTools: Tool[];
+  selectedMainTool: string;
 }
 
 export const UIContext = React.createContext<UIContextPayload>(null);
 
 function UI({ game, onReady }: { game: Game, onReady: () => void }) {
-  const [tools, setTools] = useState<Tool[]>(game.tools.toolsBox);
-  const [activeToolIndex, setActiveToolIndex] = useState(tools.indexOf(game.tools.activeTool));
+  const [selectableMainTools, setSelectableMainTools] = useState<Tool[]>([...game.tools.toolsBox]);
+  const [selectedMainTool, setSelectedMainTool] = useState(game.tools.activeTool);
 
   useEffect(() => {
-    game.ui.setToolsBoxTools = setTools;
-    game.ui.setToolsBoxActiveIndex = setActiveToolIndex;
+    game.ui.updateSelectedMainTool = () => {
+      setSelectedMainTool(game.tools.activeTool);
+    };
+    game.ui.updateSelectableMainTools = () => {
+      setSelectableMainTools([...game.tools.toolsBox]);
+    };
     onReady();
   }, []);
 
   return (
     <UIContext.Provider value={{
-      game, tools, activeToolIndex,
+      game, selectableMainTools, selectedMainTool,
     }}>
       <MainToolbox />
       <TopTools />

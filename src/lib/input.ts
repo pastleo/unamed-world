@@ -87,6 +87,10 @@ export function startListeners(game: Game) {
       return setActiveTool(numberKey - 1, game);
     }
 
+    if (event.key === '`') {
+      return setActiveTool('options', game);
+    }
+
     input.keyPressed.add(event.key);
   }, false);
   window.addEventListener('keyup', event => {
