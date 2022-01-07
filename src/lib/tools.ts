@@ -20,7 +20,7 @@ import {
 } from './chunk/chunk';
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
-import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree } from './utils/utils';
+import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree, timeoutPromise } from './utils/utils';
 import { setUrlHash } from './utils/web';
 
 export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
@@ -322,32 +322,37 @@ function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.I
 }
 
 export async function castOptionSave(game: Game) {
-  // WIP
-  game.ui.modal.showModal();
+  if (!await game.ui.modal.confirm('Will Save and switch to the saved room / realm, proceed?')) return;
 
-  return
+  await game.ui.modal.pleaseWait('Saving...', async setMessage => {
+    const minSavingTime = timeoutPromise(1500);
 
-  if (!confirm('Will Save and switch to the saved room / realm, proceed?')) return;
-
-  game.realm.rmEditingWhileUpdateChunkTexture = true;
-  syncLocationToRealmSpawnLocation(game);
-  const realmObjPath = await exportRealm('local', game);
-  game.realm.rmEditingWhileUpdateChunkTexture = false;
-
-  if (realmObjPath) {
-    afterSaved(realmObjPath, game);
-    setUrlHash({ '': game.resource.savedRealmObjPath });
-  }
+    game.realm.rmEditingWhileUpdateChunkTexture = true;
+    syncLocationToRealmSpawnLocation(game);
+    const realmObjPath = await exportRealm('local', game);
+    game.realm.rmEditingWhileUpdateChunkTexture = false;
+    
+    if (realmObjPath) {
+      await minSavingTime;
+      setMessage('Switching to saved realm...');
+      afterSaved(realmObjPath, game);
+      setUrlHash({ '': game.resource.savedRealmObjPath });
+    }
+  });
 }
 
 export async function castOptionBuild(game: Game) {
-  await ensureObjBuilderStarted(game);
+  let spriteObjPath, loadedObjSprite;
 
-  const realmObjPath = await exportRealm('local', game);
-  const spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
+  await game.ui.modal.pleaseWait('Building...', async () => {
+    await ensureObjBuilderStarted(game);
 
-  const loadedObjSprite = await fetchAndLoadSprite(spriteObjPath, game);
+    const realmObjPath = await exportRealm('local', game);
+    spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
+
+    loadedObjSprite = await fetchAndLoadSprite(spriteObjPath, game);
+  });
+
   if (!loadedObjSprite) return;
-
   addAndSwitchSpriteTool(spriteObjPath, game);
 }
