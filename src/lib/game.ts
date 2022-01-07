@@ -14,7 +14,7 @@ import {
 } from './resource';
 
 import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
-import { UIManager, create as createUI, start as startUI } from './ui/ui';
+import { UI, create as createUI, start as startUI } from './ui/ui';
 import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
 import { Camera, init as initCamera, addToScene as addCameraToScene } from './camera';
@@ -34,7 +34,7 @@ export interface Game {
   camera: Camera;
   realm: Realm;
   player: Player;
-  ui: UIManager;
+  ui: UI;
   tools: Tools;
   resource: ResourceManager;
   network: Networking;

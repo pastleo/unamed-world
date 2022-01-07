@@ -6,20 +6,25 @@ import type { Tool } from '../tools';
 
 import MainToolbox from './mainToolbox';
 import TopTools from './topTools';
+import ModalManager, { UIModal, create as createUIModal } from './modal';
+
+import { usePromise } from './hooks';
 
 import 'swiper/css';
 import 'swiper/css/manipulation';
 import 'swiper/css/mousewheel';
 
-export interface UIManager {
+export interface UI {
   updateSelectableMainTools: () => void;
   updateSelectedMainTool: () => void;
+  modal: UIModal;
 }
 
-export function create(): UIManager {
+export function create(): UI {
   return {
     updateSelectableMainTools: () => {},
     updateSelectedMainTool: () => {},
+    modal: createUIModal(),
   };
 }
 
@@ -32,10 +37,12 @@ export async function start(game: Game) {
     const domRoot = document.createElement('div');
 
     ReactDOM.render(
-      <UI game={game} onReady={resolve} />,
+      <UIRoot game={game} onReady={resolve} />,
       domRoot,
     );
   });
+
+  // UI ready
 }
 
 interface UIContextPayload {
@@ -46,10 +53,11 @@ interface UIContextPayload {
 
 export const UIContext = React.createContext<UIContextPayload>(null);
 
-function UI({ game, onReady }: { game: Game, onReady: () => void }) {
+function UIRoot({ game, onReady }: { game: Game, onReady: () => void }) {
   const [selectableMainTools, setSelectableMainTools] = useState<Tool[]>([...game.tools.toolsBox]);
   const [selectedMainTool, setSelectedMainTool] = useState(game.tools.activeTool);
 
+  const [modalManagerReadyPromise, onModalManagerReady] = usePromise<void>([]);
   useEffect(() => {
     game.ui.updateSelectedMainTool = () => {
       setSelectedMainTool(game.tools.activeTool);
@@ -57,7 +65,10 @@ function UI({ game, onReady }: { game: Game, onReady: () => void }) {
     game.ui.updateSelectableMainTools = () => {
       setSelectableMainTools([...game.tools.toolsBox]);
     };
-    onReady();
+
+    Promise.all([
+      modalManagerReadyPromise,
+    ]).then(onReady);
   }, []);
 
   return (
@@ -66,6 +77,7 @@ function UI({ game, onReady }: { game: Game, onReady: () => void }) {
     }}>
       <MainToolbox />
       <TopTools />
+      <ModalManager onReady={onModalManagerReady} />
     </UIContext.Provider>
   );
 }

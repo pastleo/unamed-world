@@ -322,6 +322,11 @@ function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.I
 }
 
 export async function castOptionSave(game: Game) {
+  // WIP
+  game.ui.modal.showModal();
+
+  return
+
   if (!confirm('Will Save and switch to the saved room / realm, proceed?')) return;
 
   game.realm.rmEditingWhileUpdateChunkTexture = true;

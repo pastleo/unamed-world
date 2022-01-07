@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 
 export function useDelayedState<T>(initState: T, delay: number): [state: T, delayedState: T, setState: (newState: T) => void] {
   const [state, setState] = useState<T>(initState);
@@ -29,4 +29,15 @@ export function useRefWithDelayedSetter<T>(initValue: T, timeout: number): [ref:
   }, []);
 
   return [ref, setValueLatter];
+}
+
+export function usePromise<T>(deps: React.DependencyList): [promise: Promise<T>, resolveOfPromise: (resolved: T) => void] {
+  return useMemo(() => {
+    let resolveTmp;
+    const promise = new Promise<T>(resolve => {
+      resolveTmp = resolve;
+    });
+
+    return [promise, resolveTmp];
+  }, deps);
 }
