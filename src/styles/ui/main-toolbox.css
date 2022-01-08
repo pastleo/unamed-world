@@ -1,0 +1,39 @@
+.main-toolbox {
+  position: fixed;
+  bottom: 0;
+  left: 50vw;
+  width: 50rem;
+  margin-left: -25rem;
+
+  transition: transform 0.33s;
+  transform-origin: bottom;
+  transform: scale(0.5);
+}
+.main-toolbox.zoom {
+  transform: scale(1);
+}
+
+.main-toolbox .swiper {
+  height: 10rem;
+  max-width: 100vw;
+}
+
+.main-toolbox .swiper .swiper-slide {
+  width: 10rem;
+  user-select: none;
+
+  text-align: center;
+  font-size: 3rem;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.main-toolbox .swiper .swiper-slide.swiper-slide-active {
+  text-shadow: 0 0 10px white;
+}
+
+.main-toolbox .swiper .swiper-slide .sprite-obj-thumb {
+  max-width: 80%;
+  max-height: 80%;
+}

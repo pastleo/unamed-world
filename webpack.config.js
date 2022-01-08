@@ -17,7 +17,7 @@ export default () => {
     module: {
       rules: [
         {
-          test: /\.(ts)|(js)$/,
+          test: /\.t|jsx?$/,
           exclude: /node_modules/,
           use: {
             loader: 'swc-loader',
@@ -25,8 +25,6 @@ export default () => {
               jsc: {
                 parser: {
                   syntax: 'typescript',
-                  tsx: false,
-                  decorators: false,
                 }
               },
               env: {
@@ -42,7 +40,7 @@ export default () => {
       ]
     },
     resolve: {
-      extensions: ['.ts', '.js', '.json'],
+      extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
     },
     output: {
       filename: productionMode ? '[name].[contenthash].js' : '[name].js',

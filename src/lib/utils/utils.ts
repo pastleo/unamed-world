@@ -164,4 +164,10 @@ export function degToRad(deg: number): number {
 
 export const randomStr = () => Math.floor(Math.random() * Date.now()).toString(36);
 
+export function timeoutPromise(timeout: number): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(resolve, timeout);
+  });
+}
+
 export type EqualOrNever<T, R> = T extends R ? (R extends T ? T : never) : never;

@@ -1,0 +1,73 @@
+.top-tools-container {}
+
+.top-tool {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: -10rem;
+  transition: top 0.5s;
+}
+.top-tool.active {
+  top: 0;
+}
+
+.draw-tool .swiper {
+  height: 8rem;
+}
+
+.draw-tool .swiper .swiper-slide {
+  width: 8rem;
+  user-select: none;
+
+  text-align: center;
+  font-size: 3rem;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.draw-tool .swiper .swiper-slide.swiper-slide-active {
+  text-shadow: 0 0 10px white;
+}
+
+.draw-tool input[type=color] {
+  width: 2rem;
+  height: 2rem;
+  box-sizing: content-box;
+  border-radius: 1rem;
+  border: transparent solid 3px;
+  background: #efefef;
+}
+
+.draw-tool input[type=color]:disabled {
+  opacity: 0.6;
+}
+.draw-tool .misc-panel {
+  display: flex;
+  justify-content: center;
+  padding: 0 25vw;
+}
+.draw-tool .misc-panel .draw-size {
+  flex: 1;
+  max-width: 20rem;
+  transform: scale(1.5);
+}
+
+.options .swiper {
+  height: 8rem;
+}
+
+.options .swiper .swiper-slide {
+  width: 8rem;
+  user-select: none;
+
+  text-align: center;
+  font-size: 3rem;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.options .swiper .swiper-slide.swiper-slide-active {
+  text-shadow: 0 0 10px white;
+}
