@@ -1,0 +1,49 @@
+.thumb {
+  display: block;
+  flex: 1;
+  height: 100%;
+  position: relative;
+}
+.thumb.active {
+  background: radial-gradient(circle, rgb(255 255 255 / 32%) 0%, rgba(255,255,255,0) 70%);
+}
+.thumb button {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  padding: 0;
+  font-size: 3rem;
+}
+.thumb.active button {
+  text-shadow: 0 0 10px white;
+}
+
+.thumb .thumb-img-bg {
+  position: absolute;
+  inset: 20%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.thumb.clicked button, .thumb.clicked .thumb-img-bg {
+  animation: clicked 500ms;
+}
+
+@keyframes clicked {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.75); }
+  100% { transform: scale(1); }
+}
+
+.thumb .badge {
+  position: absolute;
+  top: 16%;
+  right: 16%;
+  font-size: 1rem;
+  pointer-events: none;
+}

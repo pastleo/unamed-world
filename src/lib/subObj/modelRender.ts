@@ -25,29 +25,26 @@ export function addModelToScene(subObjEntity: EntityRef, game: Game, refresh: bo
       return;
     }
   }
+  subObjModelRender = { threeObj: new THREE.Object3D() };
 
-  let threeObj: THREE.Object3D;
   let gltf: GLTF = game.cache.gltfs.get(objModel.glbUrl);
   if (gltf) {
-    threeObj = gltf.scene.clone(true);
+    subObjModelRender.threeObj = gltf.scene.clone(true);
   } else {
-    threeObj = new THREE.Object3D();
-
     (async () => {
       const gltf = await loadGltf(objModel.glbUrl);
       game.cache.gltfs.set(objModel.glbUrl, gltf);
 
-      const loadedModel = gltf.scene.clone(true);
-      loadedModel.position.copy(threeObj.position);
-      loadedModel.rotation.copy(threeObj.rotation);
-      threeObj.removeFromParent();
-      threeObj = loadedModel;
-      game.scene.add(threeObj);
+      const loadedClonedModel = gltf.scene.clone(true);
+      loadedClonedModel.position.copy(subObjModelRender.threeObj.position);
+      loadedClonedModel.rotation.copy(subObjModelRender.threeObj.rotation);
+      subObjModelRender.threeObj.removeFromParent();
+      subObjModelRender.threeObj = loadedClonedModel;
+      game.scene.add(loadedClonedModel);
     })();
   }
-  game.scene.add(threeObj);
+  game.scene.add(subObjModelRender.threeObj);
 
-  subObjModelRender = { threeObj };
   game.ecs.setComponent(subObjEntity, 'subObj/modelRender', subObjModelRender);
 }
 

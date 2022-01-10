@@ -11,7 +11,7 @@ import {
   dispatchAction,
 } from './action';
 import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
-import { exportRealm, fetchAndLoadSprite } from './resource';
+import { exportRealm, addSavedObj } from './resource';
 
 import type { ObjPath } from './obj/obj';
 import {
@@ -21,7 +21,6 @@ import {
 import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
 
 import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree, timeoutPromise } from './utils/utils';
-import { setUrlHash } from './utils/web';
 
 export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
 export interface Tools {
@@ -94,14 +93,32 @@ export function setActiveTool(indexOrTool: number | Tool, game: Game) {
   }
 }
 
-function addAndSwitchSpriteTool(spriteAsTool: Tool, game: Game) {
+export async function addAndSwitchSpriteTool(spriteAsTool: Tool, game: Game) {
   const spriteToolName: Tool = `sprite/${spriteAsTool}`;
   if (game.tools.toolsBox.indexOf(spriteToolName) !== -1) return;
 
-  game.tools.toolsBox.splice(-1, 0, spriteToolName);
+  if (!await game.ui.modal.confirm('Will build and add sprite into toolbox')) return;
+
+  await game.ui.modal.pleaseWait('Building...', async () => {
+    await timeoutPromise(500 + 1000 * Math.random());
+
+    game.tools.toolsBox.splice(-1, 0, spriteToolName);
+    game.ui.updateSelectableMainTools();
+
+    setActiveTool(spriteToolName, game);
+  });
+}
+
+export async function rmSpriteTool(spriteAsTool: Tool, game: Game) {
+  const spriteToolName: Tool = `sprite/${spriteAsTool}`;
+  const index = game.tools.toolsBox.indexOf(spriteToolName);
+  if (index === -1) return;
+  if (!await game.ui.modal.confirm('This sprite is already built, remove from toolbox?')) return;
+
+  game.tools.toolsBox.splice(index, 1);
   game.ui.updateSelectableMainTools();
 
-  setActiveTool(spriteToolName, game);
+  await game.ui.modal.alert('Removed from toolbox.');
 }
 
 function ensureTerrainAltitudeActivated(game: Game) {
@@ -321,38 +338,33 @@ function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.I
   return intersects[0];
 }
 
-export async function castOptionSave(game: Game) {
-  if (!await game.ui.modal.confirm('Will Save and switch to the saved room / realm, proceed?')) return;
+export async function castOptionSave(game: Game, recordIndexToOverwrite?: number) {
+  const message = typeof recordIndexToOverwrite === 'number' ? (
+    'Will OVERWRITE selected record, proceed?'
+  ) : (
+    'Will Save as new record, proceed?'
+  );
+  if (!await game.ui.modal.confirm(message)) return;
 
-  await game.ui.modal.pleaseWait('Saving...', async setMessage => {
-    const minSavingTime = timeoutPromise(1500);
+  const objBuilderStarted = ensureObjBuilderStarted(game);
+
+  await game.ui.modal.pleaseWait('Saving...', async _setMessage => {
+    const savingMinWait = timeoutPromise(1500);
 
     game.realm.rmEditingWhileUpdateChunkTexture = true;
     syncLocationToRealmSpawnLocation(game);
     const realmObjPath = await exportRealm('local', game);
     game.realm.rmEditingWhileUpdateChunkTexture = false;
-    
-    if (realmObjPath) {
-      await minSavingTime;
-      setMessage('Switching to saved realm...');
-      afterSaved(realmObjPath, game);
-      setUrlHash({ '': game.resource.savedRealmObjPath });
-    }
+
+    if (!realmObjPath) return;
+
+    await objBuilderStarted;
+    const spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
+
+    if (!spriteObjPath) return;
+
+    afterSaved(realmObjPath, game);
+    await savingMinWait;
+    await addSavedObj(realmObjPath, spriteObjPath, game, recordIndexToOverwrite);
   });
-}
-
-export async function castOptionBuild(game: Game) {
-  let spriteObjPath, loadedObjSprite;
-
-  await game.ui.modal.pleaseWait('Building...', async () => {
-    await ensureObjBuilderStarted(game);
-
-    const realmObjPath = await exportRealm('local', game);
-    spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
-
-    loadedObjSprite = await fetchAndLoadSprite(spriteObjPath, game);
-  });
-
-  if (!loadedObjSprite) return;
-  addAndSwitchSpriteTool(spriteObjPath, game);
 }

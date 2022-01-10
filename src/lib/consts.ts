@@ -27,3 +27,5 @@ export const BASE_REALM_BACKGROUND = [
 export const DRAW_CANVAS_SIZE = 512;
 
 export const ACTION_BROADCAST_INTIVAL = 50;
+
+export const SAVED_OBJ_PATHS_STORAGE_NAME = 'SAVED_OBJ_PATHS';

@@ -1,0 +1,28 @@
+.options .swiper {
+  height: 8rem;
+}
+
+.options .swiper .swiper-slide {
+  width: 8rem;
+  user-select: none;
+
+  text-align: center;
+  font-size: 3rem;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.options .swiper .swiper-slide.swiper-slide-active {
+  text-shadow: 0 0 10px white;
+}
+
+.record-actions {
+  transition: margin-top 500ms, opacity 500ms;
+  margin-top: -8rem;
+  opacity: 0;
+}
+.record-actions.show {
+  margin-top: 0rem;
+  opacity: 1;
+}
