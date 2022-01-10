@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect, useContext } from 'react';
 import ReactModal from 'react-modal';
 
 import classnames from 'classnames';
@@ -9,42 +9,12 @@ import { timeoutPromise } from '../utils/utils';
 import '../../styles/ui/modal.css';
 
 export interface UIModal {
-  ensureNotInUse<T>(fn: () => Promise<T>): Promise<T>;
   alert: (message: string) => Promise<void>;
   confirm: (message: string) => Promise<boolean>;
   pleaseWait<T>(
     message: string,
-    fn: (setMessage: (updatingMessage: string) => void) => Promise<T>,
+    fn: (setMessage: (updatingMessage: string) => void) => T | Promise<T>,
   ): Promise<T>;
-}
-
-export function create(): UIModal {
-  const queueToUse: (() => void)[] = [];
-  let inUse = false;
-
-  const uiModal: UIModal = {
-    ensureNotInUse: async fn => {
-      if (inUse) {
-        await new Promise<void>(resolve => {
-          queueToUse.push(resolve);
-        });
-      }
-      inUse = true;
-      const result = await fn();
-      const next = queueToUse.shift();
-      if (next) {
-        next();
-      } else {
-        inUse = false;
-      }
-      return result;
-    },
-    alert: () => new Promise(() => {}),
-    confirm: () => new Promise(() => {}),
-    pleaseWait: () => new Promise(() => {}),
-  };
-
-  return uiModal;
 }
 
 interface ModalContent {
@@ -55,8 +25,8 @@ interface ModalContent {
 }
 const MIN_PLEASE_WAIT_DURATION = 2000;
 
-function ModalManager({ onReady }: { onReady: () => void }) {
-  const { game } = useContext(UIContext);
+function ModalManager() {
+  const { game, maybeReady } = useContext(UIContext);
 
   const [isOpen, setIsOpen] = useState(false);
   const [opacity, setOpacity] = useState(0);
@@ -65,55 +35,55 @@ function ModalManager({ onReady }: { onReady: () => void }) {
     message: '', showOkButton: true, showCancelButton: false, fastAnimation: false,
   });
 
-  const callerResolve = useRef<(v: any) => void>(() => {});
-  const callerResolveValue = useRef<any>(null);
+  const closeResolve = useRef<(v: any) => void>(() => {});
+  const closeResolveValue = useRef<any>(null);
+  const openModalWithClosedPromise: () => Promise<any> = useCallback(() => new Promise(resolve => {
+    closeResolve.current = resolve;
+    setIsOpen(true);
+  }), []);
 
+  const ensureNotInUse = useEnsureNotInUse();
   useEffect(() => {
     ReactModal.setAppElement(game.renderer.domElement);
-
-    game.ui.modal.alert = message => game.ui.modal.ensureNotInUse(() => {
-      setModalState({
-        message, showOkButton: true, showCancelButton: false, fastAnimation: false,
-      });
-      setIsOpen(true);
-      return new Promise(resolve => {
-        callerResolve.current = resolve;
-      });
-    });
-    game.ui.modal.confirm = message => game.ui.modal.ensureNotInUse(() => {
-      setModalState({
-        message, showOkButton: true, showCancelButton: true, fastAnimation: false,
-      });
-      setIsOpen(true);
-      return new Promise(resolve => {
-        callerResolve.current = resolve;
-      });
-    });
-    game.ui.modal.pleaseWait = (message, fn) => game.ui.modal.ensureNotInUse(async () => {
-      setModalState({
-        message, showOkButton: false, showCancelButton: false, fastAnimation: true,
-      });
-      setIsOpen(true);
-      let result;
-      const minWaitTime = timeoutPromise(MIN_PLEASE_WAIT_DURATION);
-
-      try {
-        result = await fn(updatingMessage => {
-          setModalState({
-            message: updatingMessage,
-            showOkButton: false, showCancelButton: false, fastAnimation: true,
-          });
+    game.ui.modal = {
+      alert: message => (ensureNotInUse as EnsureNotInUse<void>)(() => {
+        setModalState({
+          message, showOkButton: true, showCancelButton: false, fastAnimation: false,
         });
-        await minWaitTime;
-      } catch (err) {
-        console.warn('ModalManager: catched err in pleaseWait', err);
-      } finally {
-        setIsOpen(false);
-      }
-      return result;
-    });
+        return openModalWithClosedPromise();
+      }),
+      confirm: message => (ensureNotInUse as EnsureNotInUse<boolean>)(() => {
+        setModalState({
+          message, showOkButton: true, showCancelButton: true, fastAnimation: false,
+        });
+        return openModalWithClosedPromise();
+      }),
+      pleaseWait: (message, fn) => (ensureNotInUse as EnsureNotInUse<any>)(async () => {
+        setModalState({
+          message, showOkButton: false, showCancelButton: false, fastAnimation: true,
+        });
+        setIsOpen(true);
+        const minWaitTime = timeoutPromise(MIN_PLEASE_WAIT_DURATION);
+        const closedPromise = openModalWithClosedPromise();
 
-    onReady();
+        try {
+          closeResolveValue.current = await fn(updatingMessage => {
+            setModalState({
+              message: updatingMessage,
+              showOkButton: false, showCancelButton: false, fastAnimation: true,
+            });
+          });
+          await minWaitTime;
+        } catch (err) {
+          console.warn('ModalManager: catched err in pleaseWait', err);
+        } finally {
+          setIsOpen(false);
+        }
+        return closedPromise;
+      }),
+    };
+
+    maybeReady();
   }, []);
 
   useEffect(() => {
@@ -134,8 +104,8 @@ function ModalManager({ onReady }: { onReady: () => void }) {
         setOpacity(1);
       }}
       onAfterClose={() => {
-        if (!callerResolve.current) return;
-        callerResolve.current(callerResolveValue.current);
+        if (!closeResolve.current) return;
+        closeResolve.current(closeResolveValue.current);
       }}
       closeTimeoutMS={500}
     >
@@ -150,7 +120,7 @@ function ModalManager({ onReady }: { onReady: () => void }) {
           <div className='btn-groups'>
             { modalState.showOkButton && (
               <button className='btn ok-btn' onClick={() => {
-                callerResolveValue.current = true;
+                closeResolveValue.current = true;
                 setIsOpen(false);
               }}>
                 OK
@@ -158,7 +128,7 @@ function ModalManager({ onReady }: { onReady: () => void }) {
             ) }
             { modalState.showCancelButton && (
               <button className='btn cancel-btn' onClick={() => {
-                callerResolveValue.current = false;
+                closeResolveValue.current = false;
                 setIsOpen(false);
               }}>
                 Cancel
@@ -177,3 +147,28 @@ function ModalManager({ onReady }: { onReady: () => void }) {
 }
 
 export default ModalManager;
+
+type EnsureNotInUse<T> = (fn: () => Promise<T>) => Promise<T>;
+function useEnsureNotInUse<T>(): EnsureNotInUse<T> {
+  return useMemo(() => {
+    const queueToUse: (() => void)[] = [];
+    let inUse = false;
+
+    return async fn => {
+      if (inUse) {
+        await new Promise<void>(resolve => {
+          queueToUse.push(resolve);
+        });
+      }
+      inUse = true;
+      const result = await fn();
+      const next = queueToUse.shift();
+      if (next) {
+        next();
+      } else {
+        inUse = false;
+      }
+      return result;
+    }
+  }, []);
+}

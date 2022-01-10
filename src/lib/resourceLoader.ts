@@ -42,3 +42,10 @@ export function loadPackedSprite(objSpritePath: ObjPath, json: PackedSpriteJson,
   return objEntity;
 }
 
+export function isObjSpriteRequired(objEntityOrPath: EntityRef | ObjPath, ecs: GameECS): [required: boolean, objPath: ObjPath, objEntity: EntityRef] {
+  const objPath = typeof objEntityOrPath === 'string' ? objEntityOrPath : ecs.getPrimarySid(objEntityOrPath);
+  const objEntity = typeof objEntityOrPath === 'string' ? ecs.fromSid(objEntityOrPath) : objEntityOrPath;
+  const obj = ecs.getComponent(objEntity, 'obj');
+  if (obj) return [true, objPath, objEntity]; // already required
+  return [false, objPath, null];
+}

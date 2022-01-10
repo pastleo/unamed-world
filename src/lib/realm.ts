@@ -142,9 +142,7 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
       !entityEqual(prevChunkComponents.entity, chunkEntityComponents.entity)
     ) {
       prevChunkComponents.get('chunk').subObjs.forEach(subObjEntity => {
-        if (chunk.subObjs.findIndex(sObj => entityEqual(sObj, subObjEntity)) === -1) {
-          destroySubObj(subObjEntity, game);
-        }
+        destroySubObj(subObjEntity, game);
       });
 
       removeChunkMeshFromScene(prevChunkComponents);

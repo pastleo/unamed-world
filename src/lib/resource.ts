@@ -9,7 +9,7 @@ import {
   packedRealmJsonType, packedSpriteJsonType,
   packRealm, packSprite,
 } from './resourcePacker';
-import { loadPackedRealm, loadPackedSprite } from './resourceLoader';
+import { loadPackedRealm, loadPackedSprite, isObjSpriteRequired } from './resourceLoader';
 import { ensureIpfsStarted, calcJsonCid, fetchIpfsJson } from './ipfs';
 import { migrateRealmJson, migrateSpriteJson } from './migration';
 import { reqSprite } from './network';
@@ -21,18 +21,27 @@ import { EntityRef, entityEqual } from './utils/ecs';
 import { assertPresentOrWarn } from './utils/utils';
 import { createJsonBlob, downloadJson } from './utils/web';
 
+import { SAVED_OBJ_PATHS_STORAGE_NAME } from './consts';
+
 export interface ResourceManager {
   fetchingForSubObjs: Map<ObjPath, EntityRef[]>;
   savedRealmObjPath?: ObjPath;
+  savedObjRecords: SavedObjRecord[];
+}
+export interface SavedObjRecord {
+  realmObjPath: ObjPath;
+  spriteObjPath: ObjPath;
 }
 
 export function init(): ResourceManager {
   return {
     fetchingForSubObjs: new Map(),
+    savedObjRecords: [],
   }
 }
 
-export async function start(_game: Game): Promise<void> {
+export async function start(game: Game): Promise<void> {
+  game.resource.savedObjRecords = await localForage.getItem(SAVED_OBJ_PATHS_STORAGE_NAME) || [];
 }
 
 export async function importRealm(realmObjPath: ObjPath, json: any): Promise<PackedRealmJson> {
@@ -99,10 +108,19 @@ export async function fetchObjJson(objPath: ObjPath, game: Game, devObjPostfix: 
   return json;
 }
 
-export async function requireForSubObj(subObjEntityRequiring: EntityRef, objEntity: EntityRef, game: Game) {
-  const objPath = game.ecs.getPrimarySid(objEntity);
-  const obj = game.ecs.getComponent(objEntity, 'obj');
-  if (obj) return; // already required
+export async function requireSprite(objEntityOrPath: EntityRef | ObjPath, game: Game): Promise<EntityRef> {
+  const [isRequired, objPath, objEntity] = isObjSpriteRequired(objEntityOrPath, game.ecs);
+  if (isRequired) return objEntity;
+
+  const loadedObjSprite = await fetchAndLoadSprite(objPath, game);
+  if (!loadedObjSprite) return null;
+
+  return loadedObjSprite;
+}
+
+export async function requireSpriteForSubObj(subObjEntityRequiring: EntityRef, objEntity: EntityRef, game: Game) {
+  const [isRequired, objPath] = isObjSpriteRequired(objEntity, game.ecs);
+  if (isRequired) return;
 
   let waitingSubObjs = game.resource.fetchingForSubObjs.get(objPath);
   if (!waitingSubObjs) {
@@ -183,4 +201,35 @@ export async function exportSpriteLocally(objSprite: EntityRef, ecs: GameECS): P
   ecs.addSid(objSpriteComponents.entity, spriteObjPath, true);
 
   return spriteObjPath;
+}
+
+export async function addSavedObj(realmObjPath: ObjPath, spriteObjPath: ObjPath, game: Game, recordIndexToOverwrite?: number) {
+  let savedRecordIndex;
+  if (typeof recordIndexToOverwrite === 'number') {
+    game.resource.savedObjRecords[recordIndexToOverwrite] = {
+      realmObjPath, spriteObjPath,
+    };
+    savedRecordIndex = recordIndexToOverwrite;
+  } else {
+    game.resource.savedObjRecords.push({
+      realmObjPath, spriteObjPath,
+    });
+    savedRecordIndex = game.resource.savedObjRecords.length - 1;
+  }
+
+  await updateSavedRecords(game);
+  game.ui.options.setSelectedSavedObjRecords(savedRecordIndex);
+}
+
+export async function rmSavedObj(recordIndex: number, game: Game) {
+  game.resource.savedObjRecords.splice(recordIndex, 1);
+
+  // TODO: garbage collect maybe?
+
+  await updateSavedRecords(game);
+}
+
+async function updateSavedRecords(game: Game) {
+  await localForage.setItem(SAVED_OBJ_PATHS_STORAGE_NAME, game.resource.savedObjRecords);
+  game.ui.options.updateSavedObjRecords();
 }

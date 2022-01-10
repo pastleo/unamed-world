@@ -7,9 +7,11 @@ import { Manipulation, Mousewheel } from 'swiper';
 
 import classnames from 'classnames';
 
-import { UIContext } from './ui';
 import { Tool, setActiveTool } from '../tools';
-import { useRefWithDelayedSetter } from './hooks';
+import { UIContext } from './ui';
+
+import Thumb from './thumb';
+import { useRefWithDelayedSetter, useSpriteObjThumbnail } from './hooks';
 
 import '../../styles/ui/main-toolbox.css';
 
@@ -31,6 +33,7 @@ function MainToolbox() {
     return domPortal;
   }, []);
 
+  const [show, setShow] = useState(false);
   const [touchMoving, setTouchMoving] = useState(false);
   const swiper = useRef<SwiperCore>();
   const [isPreventedByUI, setPreventedByUILatter] = useRefWithDelayedSetter(false, 50);
@@ -48,9 +51,13 @@ function MainToolbox() {
     swiper.current.slideToLoop(index);
   }, [selectedMainTool]);
 
+  useEffect(() => {
+    setShow(true);
+  }, []);
+
   return ReactDOM.createPortal(
     <div
-      className={classnames('main-toolbox', { zoom: touchMoving })}
+      className={classnames('main-toolbox', { zoom: touchMoving, show })}
       onWheelCapture={() => {
         isPreventedByUI.current = true;
         setPreventedByUILatter(false);
@@ -93,20 +100,17 @@ function MainToolbox() {
 export default MainToolbox;
 
 function ToolThumbnail({ tool }: { tool: Tool }) {
-  const { game } = useContext(UIContext);
+  const { game, selectedMainTool } = useContext(UIContext);
 
-  const thumbnail = useMemo(() => {
+  const spriteObjPath = useMemo(() => {
     if (tool.startsWith('sprite/')) {
-      const spriteAsTool = tool.replace(/^sprite\//, '');
-      const spriteObjComponents = game.ecs.getEntityComponents(game.ecs.fromSid(spriteAsTool));
-      const spriteThumb = spriteObjComponents.get('obj/sprite').spritesheet;
-      return <img className='sprite-obj-thumb' src={spriteThumb} />
+      return tool.replace(/^sprite\//, '');
     }
+    return '';
+  }, []);
 
-    return TOOL_ICONS[tool];
-  }, [tool]);
+  const emoji = spriteObjPath ? '⚪' : TOOL_ICONS[tool];
+  const imgSrc = spriteObjPath ? useSpriteObjThumbnail(spriteObjPath, game) : null;
 
-  return <>
-    { thumbnail }
-  </>;
+  return <Thumb emoji={emoji} imgSrc={imgSrc} active={selectedMainTool === tool} />
 }

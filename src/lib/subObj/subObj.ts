@@ -1,6 +1,6 @@
 import type { Game } from '../game';
 import type { GameECS, GameEntityComponents } from '../gameECS';
-import { requireForSubObj } from '../resource';
+import { requireSpriteForSubObj } from '../resource';
 import { getOrBaseSprite } from '../builtInObj';
 
 import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
@@ -48,7 +48,7 @@ export function createSubObj(obj: EntityRef, position: Vec3, rotation: Vec3, gam
 export function addSubObjToScene(subObjEntity: EntityRef, game: Game, refresh: boolean = false) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   const obj = game.ecs.getComponent(subObj.obj, 'obj');
-  requireForSubObj(subObjEntity, subObj.obj, game);
+  requireSpriteForSubObj(subObjEntity, subObj.obj, game);
 
   if (obj) {
     // all possible subObj render systems:

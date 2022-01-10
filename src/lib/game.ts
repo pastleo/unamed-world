@@ -73,7 +73,6 @@ export async function setup(): Promise<Game> {
 
   document.body.appendChild(renderer.domElement);
 
-  startUI(game);
   createBuiltInObjs(game.ecs);
   addRealmToScene(game);
   addCameraToScene(game);
@@ -82,6 +81,7 @@ export async function setup(): Promise<Game> {
   startListeners(game);
 
   await startResourceManager(game);
+  await startUI(game);
 
   changeRealm(game);
 

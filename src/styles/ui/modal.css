@@ -44,10 +44,12 @@
 
 .modal .modal-glow-top {
   background: linear-gradient(0deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
+  background-repeat: no-repeat;
   background-position: top;
 }
 .modal .modal-glow-bottom {
   background: linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%);
+  background-repeat: no-repeat;
   background-position: bottom;
 }
 

@@ -1,5 +1,9 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 
+import type { Game } from '../game';
+import type { ObjPath } from '../obj/obj';
+import { requireSprite } from '../resource';
+
 export function useDelayedState<T>(initState: T, delay: number): [state: T, delayedState: T, setState: (newState: T) => void] {
   const [state, setState] = useState<T>(initState);
   const [delayedState, setDelayedState] = useState(state);
@@ -40,4 +44,19 @@ export function usePromise<T>(deps: React.DependencyList): [promise: Promise<T>,
 
     return [promise, resolveTmp];
   }, deps);
+}
+
+export function useSpriteObjThumbnail(spriteObjPath: ObjPath, game: Game): string {
+  const [imgSrc, setImgSrc] = useState('');
+  useEffect(() => {
+    (async () => {
+      const objEntity = await requireSprite(spriteObjPath, game);
+      const sprite = game.ecs.getComponent(objEntity, 'obj/sprite');
+
+      if (!sprite) return;
+      setImgSrc(sprite.spritesheet);
+    })();
+  }, []);
+
+  return imgSrc;
 }
