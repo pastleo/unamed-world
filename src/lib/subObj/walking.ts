@@ -1,7 +1,7 @@
 import { Game } from '../game';
 import { GameEntityComponents } from '../gameECS';
 
-import { SubObjEntityComponents } from '../subObj/subObj';
+import { SubObjEntityComponents, makeSubObjFacingRelative } from '../subObj/subObj';
 import { locateOrCreateChunkCell, getOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { moveSubObj, detectCollision } from './subObj';
 import { ObjEntityComponents, getOrBaseObjEntityComponents } from '../obj/obj';
@@ -43,7 +43,7 @@ export function update(subObjEntity: EntityRef, tDiff: number, game: Game) {
       multiply(subObjWalking.moveRelative, 1 - progressGoingToMake, subObjWalking.moveRelative);
       subObjWalking.moveRelativeDistance = length(subObjWalking.moveRelative);
 
-      subObjComponent.rotation[1] = Math.atan2(movingVec[0], movingVec[1]) + Math.PI;
+      makeSubObjFacingRelative(movingVec, subObjComponent);
     }
 
     if (movingRange <= 0 || subObjWalking.moveRelativeDistance < STOP_MOVING_DISTANCE) {

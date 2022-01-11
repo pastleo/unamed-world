@@ -36,6 +36,10 @@ export function multiply<T extends Vec2 | Vec3>(v: T, scalar: number, dstVArg?: 
   return dstV;
 }
 
+export function reverseY(vec: Vec2): Vec2 {
+  return [vec[0], -vec[1]];
+}
+
 export function vec3To2(v: Vec3, dst: Vec2 = [0, 0]): Vec2 {
   dst[0] = v[0];
   dst[1] = v[2];
@@ -160,6 +164,9 @@ export function radToDeg(rad: number): number {
 }
 export function degToRad(deg: number): number {
   return deg / 180 * Math.PI;
+}
+export function relativeToRad(v: Vec2): number {
+  return Math.atan2(v[0], v[1]) + Math.PI;
 }
 
 export const randomStr = () => Math.floor(Math.random() * Date.now()).toString(36);

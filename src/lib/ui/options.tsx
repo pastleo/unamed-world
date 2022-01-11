@@ -23,7 +23,7 @@ export interface UIOptions {
   setSelectedSavedObjRecords: (index: number) => void;
 }
 
-const FIXED_OPTION_SLIDES = 1;
+const FIXED_OPTION_SLIDES = 2;
 function Options() {
   const { game, selectedMainTool, selectableMainTools, maybeReady } = useContext(UIContext);
 
@@ -75,8 +75,19 @@ function Options() {
       >
         <SwiperSlide>
           <Thumb
-            emoji='💾'
+            emoji='📜'
             active={selectedOptionIndex === 0}
+            onClick={async () => {
+              if (!await game.ui.modal.confirm('Will switch to a new realm, unsaved process will be lost, proceed?')) return;
+              setUrlHash({ '': '' });
+              location.reload();
+            }}
+          />
+        </SwiperSlide>
+        <SwiperSlide>
+          <Thumb
+            emoji='💾'
+            active={selectedOptionIndex === 1}
             badge='↗'
             onClick={() => {
               castOptionSave(game);

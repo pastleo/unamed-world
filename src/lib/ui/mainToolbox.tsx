@@ -15,12 +15,15 @@ import { useRefWithDelayedSetter, useSpriteObjThumbnail } from './hooks';
 
 import '../../styles/ui/main-toolbox.css';
 
-const TOOL_ICONS: Record<Tool, string> = {
-  walk: '🚶',
+const TOOL_EMOJI: Record<Tool, string> = {
+  melee: '🚶',
   draw: '✍️',
   terrainAltitude: '↕️',
   options: '⚙️',
   pin: '🚩',
+}
+const TOOL_BADGE: Record<Tool, string> = {
+  melee: '✊',
 }
 
 function MainToolbox() {
@@ -109,8 +112,9 @@ function ToolThumbnail({ tool }: { tool: Tool }) {
     return '';
   }, []);
 
-  const emoji = spriteObjPath ? '⚪' : TOOL_ICONS[tool];
+  const emoji = spriteObjPath ? '⚪' : TOOL_EMOJI[tool];
+  const badge = spriteObjPath ? null : TOOL_BADGE[tool];
   const imgSrc = spriteObjPath ? useSpriteObjThumbnail(spriteObjPath, game) : null;
 
-  return <Thumb emoji={emoji} imgSrc={imgSrc} active={selectedMainTool === tool} />
+  return <Thumb emoji={emoji} badge={badge} imgSrc={imgSrc} active={selectedMainTool === tool} />
 }

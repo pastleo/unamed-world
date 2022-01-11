@@ -2,12 +2,12 @@ import * as THREE from 'three';
 
 import type { Game } from './game';
 import type { GameEntityComponents } from './gameECS';
-import { mountSubObj, movePlayerTo, syncLocationToRealmSpawnLocation } from './player';
-import { cameraRotationY } from './camera';
+import { mountSubObj, movePlayerAddRelative, movePlayerTo, syncLocationToRealmSpawnLocation, showMeleeRange } from './player';
+import { cameraRotationY, vecAfterCameraRotation } from './camera';
 import { broadcastMyself } from './network';
 import { afterSaved } from './realm';
 import {
-  ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction,
+  ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction, DamageSubObjAction,
   dispatchAction,
 } from './action';
 import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
@@ -18,11 +18,16 @@ import {
   Located,
   getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
 } from './chunk/chunk';
-import { detectCollision, destroySubObj, createSubObj } from './subObj/subObj';
+import { subObjInChunkRange, detectCollision, destroySubObj, createSubObj, makeSubObjFacing } from './subObj/subObj';
 
-import { Vec2, sub, rangeVec2s, length, vec3To2, threeToVec3, vecCopyToThree, timeoutPromise } from './utils/utils';
+import {
+  Vec2, sub, rangeVec2s, length, multiply,
+  vec3To2, threeToVec3, vecCopyToThree,
+  relativeToRad, timeoutPromise,
+} from './utils/utils';
+import { entityEqual } from './utils/ecs';
 
-export type Tool = 'walk' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
+export type Tool = 'melee' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
 export interface Tools {
   activeTool: Tool;
   toolsBox: Tool[];
@@ -50,8 +55,8 @@ const RAYCAST_CHUNK_RANGE = 4;
 
 export function create(): Tools {
   return {
-    activeTool: 'walk',
-    toolsBox: ['walk', 'draw', 'terrainAltitude', 'pin', 'options'],
+    activeTool: 'melee',
+    toolsBox: ['pin', 'melee', 'draw', 'terrainAltitude', 'options'],
     raycaster: new THREE.Raycaster(),
 
     draw: createDraw(),
@@ -102,7 +107,7 @@ export async function addAndSwitchSpriteTool(spriteAsTool: Tool, game: Game) {
   await game.ui.modal.pleaseWait('Building...', async () => {
     await timeoutPromise(500 + 1000 * Math.random());
 
-    game.tools.toolsBox.splice(-1, 0, spriteToolName);
+    game.tools.toolsBox.splice(0, 0, spriteToolName);
     game.ui.updateSelectableMainTools();
 
     setActiveTool(spriteToolName, game);
@@ -151,12 +156,11 @@ function hideTerrainAltitudeTool(game: Game) {
   game.tools.terrainAltitude.coneGroup.visible = false;
 }
 
-type InputType = 'down' | 'up' | 'move';
+type InputType = 'down' | 'up' | 'click' | 'dbclick';
 export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game) {
-
   switch (game.tools.activeTool) {
-    case 'walk':
-      return castWalkTo(coordsPixel, inputType, game);
+    case 'melee':
+      return castMelee(coordsPixel, inputType, game);
     case 'draw':
       return castDraw(coordsPixel, inputType, game);
     case 'terrainAltitude':
@@ -170,30 +174,51 @@ export function castMainTool(coordsPixel: Vec2, inputType: InputType, game: Game
   }
 }
 
-function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
-  if (inputType !== 'up') return;
+/**
+ * maybe will add inputType=hover in the future that move but not down
+ */
+type MoveInputType = 'move';
+export function castMainToolMove(coordsPixel: Vec2, movement: Vec2, inputType: MoveInputType, game: Game) {
+  switch (game.tools.activeTool) {
+    case 'melee':
+      return castMeleeMove(coordsPixel, movement, inputType, game);
+    case 'draw':
+      return castDrawMove(coordsPixel, movement, inputType, game);
+  }
+}
 
+function castMelee(coordsPixel: Vec2, inputType: InputType, game: Game) {
+  switch (inputType) {
+    case 'click':
+      return castMeleeClick(coordsPixel, game);
+    case 'dbclick':
+      return castMeleeDbClick(coordsPixel, game);
+  }
+}
+
+function castMeleeClick(coordsPixel: Vec2, game: Game) {
   const [intersect] = rayCastRealm(coordsPixel, game);
   if (!intersect) return;
 
   const location: Vec2 = [intersect.point.x, intersect.point.z];
 
-  const subObjComps = game.ecs.getEntityComponents(game.player.subObjEntity);
-  const subObj = subObjComps.get('subObj');
-  const objSprite = game.ecs.getComponent(subObj.obj, 'obj/sprite');
+  const playerSubObjComps = game.ecs.getEntityComponents(game.player.subObjEntity);
+  const playerSubObj = playerSubObjComps.get('subObj');
+  const objSprite = game.ecs.getComponent(playerSubObj.obj, 'obj/sprite');
 
-  const locationDistance = length(sub(location, vec3To2(subObj.position)));
+  const locationDistance = length(sub(location, vec3To2(playerSubObj.position)));
 
   if (locationDistance > objSprite.radius * 2) {
     return movePlayerTo(location, game);
   }
 
-  const located = locateOrCreateChunkCell(subObj.position, game);
-  const nearBySubObjs = detectCollision(subObjComps.entity, located.chunkIJ, game);
+  const located = locateOrCreateChunkCell(playerSubObj.position, game);
+  const nearBySubObjs = detectCollision(playerSubObjComps.entity, located.chunkIJ, game);
   if (nearBySubObjs.length <= 0) return;
 
   const nearBySubObj = game.ecs.getComponent(nearBySubObjs[0], 'subObj');
   const targetObjSprite = game.ecs.getComponent(nearBySubObj.obj, 'obj/sprite');
+  if (!targetObjSprite) return;
 
   const distanceBetweenSubObj = length(
     sub(vec3To2(nearBySubObj.position), location)
@@ -203,9 +228,58 @@ function castWalkTo(coordsPixel: Vec2, inputType: InputType, game: Game) {
 
   game.player.objEntity = nearBySubObj.obj;
   destroySubObj(game.player.subObjEntity, game);
-  const newSubObj = createSubObj(game.player.objEntity, subObj.position, subObj.rotation, game, located);
+  const newSubObj = createSubObj(game.player.objEntity, playerSubObj.position, playerSubObj.rotation, game, located);
   mountSubObj(newSubObj, game);
   broadcastMyself(game);
+}
+
+function castMeleeDbClick(coordsPixel: Vec2, game: Game) { // damage
+  const [intersect] = rayCastRealm(coordsPixel, game);
+  if (!intersect) return;
+
+  const location: Vec2 = [intersect.point.x, intersect.point.z];
+
+  const playerSubObjComps = game.ecs.getEntityComponents(game.player.subObjEntity);
+  const playerSubObj = playerSubObjComps.get('subObj');
+  const radius = game.ecs.getComponent(playerSubObj.obj, 'obj/sprite')?.radius || 0.5;
+
+  makeSubObjFacing(location, playerSubObj);
+  showMeleeRange(game);
+  const located = locateOrCreateChunkCell(playerSubObj.position, game);
+
+  subObjInChunkRange(located.chunkIJ, 1, game).filter(subObjEntity => (
+    !entityEqual(subObjEntity, game.player.subObjEntity)
+  )).filter(subObjEntity => {
+    const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+    const subObjRadius = game.ecs.getComponent(subObj.obj, 'obj/sprite')?.radius || 0.5;
+    const relativeLocation = sub(vec3To2(subObj.position), vec3To2(playerSubObj.position));
+    const distance = length(relativeLocation);
+    const directionRad = relativeToRad(relativeLocation);
+
+    return (
+      distance > (radius - subObjRadius) &&
+      distance < (radius * 1.5 + subObjRadius) &&
+      directionRad > (playerSubObj.rotation[1] - Math.PI / 4) &&
+      directionRad < (playerSubObj.rotation[1] + Math.PI / 4)
+    )
+  }).forEach(subObjEntity => {
+    const action: DamageSubObjAction = {
+      type: 'subObj-damage',
+      sid: game.ecs.getOrAddPrimarySid(subObjEntity),
+    }
+
+    dispatchAction(action, game);
+  });
+}
+
+function castMeleeMove(_coordsPixel: Vec2, movement: Vec2, _inputType: MoveInputType, game: Game) {
+  movePlayerAddRelative(
+    (multiply(
+      vecAfterCameraRotation(movement, game.camera),
+      0.01,
+    )),
+    game,
+  );
 }
 
 function castDraw(coordsPixel: Vec2, _inputType: InputType, game: Game) {
@@ -230,8 +304,12 @@ function castDraw(coordsPixel: Vec2, _inputType: InputType, game: Game) {
   dispatchAction(action, game);
 }
 
+function castDrawMove(coordsPixel: Vec2, _movement: Vec2, _inputType: MoveInputType, game: Game) {
+  castDraw(coordsPixel, /* dummy: */ 'down', game);
+}
+
 function castTerrainAltitude(coordsPixel: Vec2, inputType: InputType, game: Game) {
-  if (inputType !== 'up') return;
+  if (inputType !== 'click') return;
   const terrainAltitude = game.tools.terrainAltitude;
 
   if (terrainAltitude.selectedChunkCell) {
@@ -317,7 +395,29 @@ function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersec
       ?.get('chunk/render')
       ?.mesh,
     chunkEntityComponents,
-  ] as [THREE.Mesh, GameEntityComponents])).filter(([m, _]) => m);
+  ] as [THREE.Mesh, GameEntityComponents, ])).filter(([m, _]) => m);
+
+  const intersect = rayCast(coordsPixel, chunkMeshes.map(([m, _]) => m), game);
+  if (!intersect) return [null, null];
+
+  const [_, chunkEntityComponents] = chunkMeshes.find(([m, _]) => m.id === intersect.object.id);
+  return [intersect, chunkEntityComponents]
+}
+
+function rayCastSubObjs(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {
+  const chunkMeshes = rangeVec2s(game.player.chunkIJ, RAYCAST_CHUNK_RANGE).map(chunkIJ => (
+    getChunkEntityComponents(chunkIJ, game.realm.currentObj, game.ecs)
+  )).map(chunkEntityComponents => ([
+    chunkEntityComponents
+      ?.get('chunk/render')
+      ?.mesh,
+    chunkEntityComponents,
+  ] as [THREE.Mesh, GameEntityComponents, ])).filter(([m, _]) => m);
+
+  const objs = [
+    ...chunkMeshes.map(([m, _]) => m),
+
+  ];
 
   const intersect = rayCast(coordsPixel, chunkMeshes.map(([m, _]) => m), game);
   if (!intersect) return [null, null];

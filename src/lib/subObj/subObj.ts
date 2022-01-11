@@ -3,12 +3,12 @@ import type { GameECS, GameEntityComponents } from '../gameECS';
 import { requireSpriteForSubObj } from '../resource';
 import { getOrBaseSprite } from '../builtInObj';
 
-import { Located, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
+import { Located, getChunk, getOrCreateChunk, locateOrCreateChunkCell, calcAltitudeAt } from '../chunk/chunk';
 import { addSpriteToScene, updateSpriteTexture, updateSpritePosition, removeSprite } from './spriteRender';
 import { addModelToScene, updateModelPosition, removeModel } from './modelRender';
 
 import { EntityRef, Sid, entityEqual } from '../utils/ecs';
-import { Vec2, Vec3, length, add, sub } from '../utils/utils';
+import { Vec2, Vec3, vec3To2, length, add, sub, rangeVec2s, relativeToRad } from '../utils/utils';
 
 import { EnsureSS, packedSubObjComponentType, subObjStateType } from '../utils/superstructTypes';
 
@@ -100,6 +100,13 @@ export function moveSubObj(subObjEntity: EntityRef, vec: Vec2, game: Game) {
   }
 }
 
+export function makeSubObjFacing(location: Vec2, subObjComponent: SubObjComponent) {
+  makeSubObjFacingRelative(sub(location, vec3To2(subObjComponent.position)), subObjComponent);
+}
+export function makeSubObjFacingRelative(to: Vec2, subObjComponent: SubObjComponent) {
+  subObjComponent.rotation[1] = relativeToRad(to);
+}
+
 export function destroySubObj(subObjEntity: EntityRef, game: Game) {
   const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
   if (!subObj) return;
@@ -113,18 +120,21 @@ export function destroySubObj(subObjEntity: EntityRef, game: Game) {
   game.ecs.deallocate(subObjEntity);
 }
 
-export function detectCollision(subObjEntity: EntityRef, chunkIJ: Vec2, game: Game, newPosition?: Vec3) {
+export function subObjInChunkRange(chunkIJ: Vec2, chunkRange: number, game: Game): EntityRef[] {
+  return rangeVec2s(chunkIJ, chunkRange).map(ij => (
+    getChunk(ij, game.realm.currentObj, game.ecs)
+  )).filter(chunk => chunk).flatMap(chunk => (
+    chunk.subObjs
+  ))
+}
+
+export function detectCollision(subObjEntity: EntityRef, chunkIJ: Vec2, game: Game, newPosition?: Vec3): EntityRef[] {
   const subObj = game.ecs.getEntityComponents(subObjEntity);
   const subObjComponent = subObj.get('subObj');
   const objSprite = game.ecs.getComponent(subObjComponent.obj, 'obj/sprite');
   const position: Vec3 = newPosition || subObjComponent.position;
-  const [chunkI, chunkJ] = chunkIJ;
 
-  return [chunkI - 1, chunkI, chunkI + 1].flatMap(ci => (
-    [chunkJ - 1, chunkJ, chunkJ + 1].flatMap(cj => (
-      getOrCreateChunk([ci, cj], game.realm.currentObj, game.ecs).subObjs
-    ))
-  )).filter(
+  return subObjInChunkRange(chunkIJ, 1, game).filter(
     sObjEntity => {
       //const sObjSprite = getOrBaseSprite(sObjEntity, game.ecs);
       //return sObjSprite.collision && !entityEqual(sObjEntity, subObj.entity)
