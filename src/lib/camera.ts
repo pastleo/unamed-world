@@ -108,8 +108,8 @@ export function cameraRotationY(camera: Camera): number {
 
 export function vecAfterCameraRotation(vec: Vec2, camera: Camera): Vec2 {
   const rotationY = cameraRotationY(camera);
-  const cos = Math.cos(rotationY);
-  const sin = Math.sin(rotationY);
+  const cos = Math.cos(-rotationY);
+  const sin = Math.sin(-rotationY);
   return [
     vec[0] * cos - vec[1] * sin,
     vec[0] * sin + vec[1] * cos,

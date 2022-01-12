@@ -347,15 +347,19 @@ export function update(input: Input, tDiff: number, game: Game) {
   }
 
   if (game.input.keyPressed.has('s') || input.keyPressed.has('ArrowDown')) {
-    inputVec[1] -= tDiff;
-  } else if (game.input.keyPressed.has('w') || input.keyPressed.has('ArrowUp')) {
     inputVec[1] += tDiff;
+  } else if (game.input.keyPressed.has('w') || input.keyPressed.has('ArrowUp')) {
+    inputVec[1] -= tDiff;
   }
 
   if (inputVec[0] !== 0 || inputVec[1] !== 0) {
-    movePlayerAddRelative(reverseY(
-      multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01)
-    ), game);
+    movePlayerAddRelative(
+      vecAfterCameraRotation(
+        multiply(inputVec, 0.01),
+        game.camera,
+      ),
+      game,
+    );
   }
 }
 

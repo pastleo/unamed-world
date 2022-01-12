@@ -68,6 +68,18 @@ export function addSubObjToScene(subObjEntity: EntityRef, game: Game, refresh: b
   updateSubObjPosition(subObjEntity, game);
 }
 
+export function getThreeObj(subObjEntity: EntityRef, ecs: GameECS): THREE.Object3D {
+  const subObj = ecs.getComponent(subObjEntity, 'subObj');
+  const obj = ecs.getComponent(subObj.obj, 'obj');
+
+  switch (obj.subObjType) {
+    case 'sprite':
+      return ecs.getComponent(subObjEntity, 'subObj/spriteRender')?.sprite;
+    case 'mesh':
+      return ecs.getComponent(subObjEntity, 'subObj/modelRender')?.threeObj;
+  }
+}
+
 export function updateSubObjDisplay(subObjEntity: EntityRef, game: Game) {
   // all possible subObj render systems:
   updateSpriteTexture(subObjEntity, game);

@@ -18,14 +18,17 @@ import {
   Located,
   getChunkEntityComponents, locateOrCreateChunkCell, calcCellLocation,
 } from './chunk/chunk';
-import { subObjInChunkRange, detectCollision, destroySubObj, createSubObj, makeSubObjFacing } from './subObj/subObj';
+import {
+  SubObjComponent, getThreeObj,
+  subObjInChunkRange, destroySubObj, createSubObj, makeSubObjFacing,
+} from './subObj/subObj';
 
 import {
   Vec2, sub, rangeVec2s, length, multiply,
   vec3To2, threeToVec3, vecCopyToThree,
   relativeToRad, timeoutPromise,
 } from './utils/utils';
-import { entityEqual } from './utils/ecs';
+import { EntityRef, entityEqual } from './utils/ecs';
 
 export type Tool = 'melee' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
 export interface Tools {
@@ -197,36 +200,54 @@ function castMelee(coordsPixel: Vec2, inputType: InputType, game: Game) {
 }
 
 function castMeleeClick(coordsPixel: Vec2, game: Game) {
-  const [intersect] = rayCastRealm(coordsPixel, game);
-  if (!intersect) return;
+  const [intersectWithSubObj, subObjComponents] = rayCastSubObjs(coordsPixel, game);
 
-  const location: Vec2 = [intersect.point.x, intersect.point.z];
+  let location: Vec2;
+  let targetSubObj: GameEntityComponents;
+
+  if (intersectWithSubObj) {
+    location = vec3To2(subObjComponents.get('subObj').position);
+    targetSubObj = subObjComponents;
+  } else {
+    const [intersectWithRealm] = rayCastRealm(coordsPixel, game);
+    if (!intersectWithRealm) return;
+    location = [intersectWithRealm.point.x, intersectWithRealm.point.z];
+  }
 
   const playerSubObjComps = game.ecs.getEntityComponents(game.player.subObjEntity);
   const playerSubObj = playerSubObjComps.get('subObj');
-  const objSprite = game.ecs.getComponent(playerSubObj.obj, 'obj/sprite');
+  const playerObjSprite = game.ecs.getComponent(playerSubObj.obj, 'obj/sprite');
 
   const locationDistance = length(sub(location, vec3To2(playerSubObj.position)));
+  const playerRadius = playerObjSprite.radius || 0.5;
 
-  if (locationDistance > objSprite.radius * 2) {
+  if (locationDistance > playerRadius * 2) {
     return movePlayerTo(location, game);
   }
 
+  if (!targetSubObj) {
+    let currentDistance = Infinity;
+    subObjInChunkRange(game.player.chunkIJ, 1, game).filter(subObjEntity => (
+      !entityEqual(subObjEntity, game.player.subObjEntity)
+    )).map(subObjEntity => (
+      [game.ecs.getComponent(subObjEntity, 'subObj'), subObjEntity] as [SubObjComponent, EntityRef]
+    )).map(([subObj, subObjEntity]) => (
+      [length(sub(vec3To2(subObj.position), location)), subObj, subObjEntity] as [number, SubObjComponent, EntityRef]
+    )).forEach(([distance, _, subObjEntity]) => {
+      if (distance < playerRadius && distance < currentDistance) {
+        currentDistance = distance;
+        targetSubObj = game.ecs.getEntityComponents(subObjEntity);
+      }
+    });
+  }
+  if (!targetSubObj) return;
+
+  const targetObj = targetSubObj.get('subObj').obj;
+  if (!game.ecs.getComponent(targetObj, 'obj/sprite')) return;
+
+  // copying obj (targetObj) from targetSubObj:
   const located = locateOrCreateChunkCell(playerSubObj.position, game);
-  const nearBySubObjs = detectCollision(playerSubObjComps.entity, located.chunkIJ, game);
-  if (nearBySubObjs.length <= 0) return;
-
-  const nearBySubObj = game.ecs.getComponent(nearBySubObjs[0], 'subObj');
-  const targetObjSprite = game.ecs.getComponent(nearBySubObj.obj, 'obj/sprite');
-  if (!targetObjSprite) return;
-
-  const distanceBetweenSubObj = length(
-    sub(vec3To2(nearBySubObj.position), location)
-  );
-
-  if (distanceBetweenSubObj > targetObjSprite.radius) return;
-
-  game.player.objEntity = nearBySubObj.obj;
+  game.player.objEntity = targetObj;
   destroySubObj(game.player.subObjEntity, game);
   const newSubObj = createSubObj(game.player.objEntity, playerSubObj.position, playerSubObj.rotation, game, located);
   mountSubObj(newSubObj, game);
@@ -245,9 +266,8 @@ function castMeleeDbClick(coordsPixel: Vec2, game: Game) { // damage
 
   makeSubObjFacing(location, playerSubObj);
   showMeleeRange(game);
-  const located = locateOrCreateChunkCell(playerSubObj.position, game);
 
-  subObjInChunkRange(located.chunkIJ, 1, game).filter(subObjEntity => (
+  subObjInChunkRange(game.player.chunkIJ, 1, game).filter(subObjEntity => (
     !entityEqual(subObjEntity, game.player.subObjEntity)
   )).filter(subObjEntity => {
     const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
@@ -404,26 +424,26 @@ function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersec
   return [intersect, chunkEntityComponents]
 }
 
-function rayCastSubObjs(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {
-  const chunkMeshes = rangeVec2s(game.player.chunkIJ, RAYCAST_CHUNK_RANGE).map(chunkIJ => (
-    getChunkEntityComponents(chunkIJ, game.realm.currentObj, game.ecs)
-  )).map(chunkEntityComponents => ([
-    chunkEntityComponents
-      ?.get('chunk/render')
-      ?.mesh,
-    chunkEntityComponents,
-  ] as [THREE.Mesh, GameEntityComponents, ])).filter(([m, _]) => m);
+function rayCastSubObjs(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, subObjEntityComponents: GameEntityComponents] {
+  const subObjAndThrees = subObjInChunkRange(game.player.chunkIJ, 2, game).filter(subObjEntity => (
+    !entityEqual(subObjEntity, game.player.subObjEntity)
+  )).map(subObjEntity => (
+    [getThreeObj(subObjEntity, game.ecs), game.ecs.getEntityComponents(subObjEntity)] as [THREE.Object3D, GameEntityComponents]
+  ));
 
-  const objs = [
-    ...chunkMeshes.map(([m, _]) => m),
-
-  ];
-
-  const intersect = rayCast(coordsPixel, chunkMeshes.map(([m, _]) => m), game);
+  const intersect = rayCast(coordsPixel, subObjAndThrees.map(([m, _]) => m), game);
   if (!intersect) return [null, null];
 
-  const [_, chunkEntityComponents] = chunkMeshes.find(([m, _]) => m.id === intersect.object.id);
-  return [intersect, chunkEntityComponents]
+  const [_, subObjEntityComponents] = subObjAndThrees.find(([threeObj, _]) => {
+    if (threeObj.id === intersect.object.id) return true;
+    let found = false;
+    threeObj.traverse(obj => {
+      if (found) return;
+      found = obj.id === intersect.object.id;
+    });
+    return found;
+  });
+  return [intersect, subObjEntityComponents];
 }
 
 function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.Intersection {
@@ -434,7 +454,7 @@ function rayCast(coordsPixel: Vec2, objs: THREE.Object3D[], game: Game): THREE.I
 
   const raycaster = game.tools.raycaster;
   raycaster.setFromCamera({ x: coords[0], y: coords[1] }, game.camera.camera);
-  const intersects = raycaster.intersectObjects(objs);
+  const intersects = raycaster.intersectObjects(objs, true);
   return intersects[0];
 }
 
