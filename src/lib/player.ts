@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 import type { Game } from './game';
 import type { GameECS } from './gameECS';
 import type { EntityRef } from './utils/ecs';
@@ -11,7 +13,7 @@ import { setCameraPosition, setCameraLocation, setCameraY } from './camera';
 import { triggerRealmGeneration } from './realm';
 import { broadcastMyself } from './network';
 
-import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, assertPresentOrWarn } from './utils/utils';
+import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, vecCopyToThree, assertPresentOrWarn } from './utils/utils';
 
 import { MAX_DISTANCE_BETWEEN_PLAYER } from './consts';
 
@@ -19,6 +21,8 @@ export interface Player {
   objEntity: EntityRef;
   subObjEntity: EntityRef;
   chunkIJ: Vec2;
+
+  meleeRange?: THREE.Mesh;
 }
 
 export function create(ecs: GameECS): Player {
@@ -72,7 +76,7 @@ export function jumpOffRealm(game: Game) {
   destroySubObj(oriSubObjComponents.entity, game);
 }
 
-export function update(_tDiff: number, game: Game) {
+export function update(tDiff: number, game: Game) {
   const { player } = game;
   const subObj = game.ecs.getComponent(player.subObjEntity, 'subObj');
   const subObjSpriteRender = game.ecs.getComponent(player.subObjEntity, 'subObj/spriteRender');
@@ -85,6 +89,16 @@ export function update(_tDiff: number, game: Game) {
   if (subObj.chunkIJ[0] !== player.chunkIJ[0] || subObj.chunkIJ[1] !== player.chunkIJ[1]) {
     player.chunkIJ = subObj.chunkIJ;
     triggerRealmGeneration(player.chunkIJ, game);
+  }
+
+  if (game.player.meleeRange) {
+    const material = game.player.meleeRange.material as THREE.Material;
+
+    material.opacity -= tDiff * 0.001;
+    if (material.opacity <= 0) {
+      game.player.meleeRange.removeFromParent();
+      delete game.player.meleeRange;
+    }
   }
 }
 
@@ -109,6 +123,26 @@ export function movePlayerAddRelative(dVec: Vec2, game: Game) {
 export function syncLocationToRealmSpawnLocation(game: Game) {
   const realmObj = game.ecs.getComponent(game.realm.currentObj, 'obj/realm');
   realmObj.spawnLocation = getPlayerLocation(game);
+}
+
+export function showMeleeRange(game: Game) {
+  const subObj = game.ecs.getComponent(game.player.subObjEntity, 'subObj');
+  const obj = game.ecs.getComponent(game.player.objEntity, 'obj/sprite');
+  const radius = obj.radius || 0.5;
+
+  if (!game.player.meleeRange) {
+    const geometry = new THREE.RingGeometry(radius, radius * 2, 16, 1, 0, Math.PI / 2);
+    const material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true });
+    game.player.meleeRange = new THREE.Mesh(geometry, material);
+    game.player.meleeRange.rotation.x = -Math.PI / 2;
+    game.scene.add(game.player.meleeRange);
+  }
+
+  vecCopyToThree(subObj.position, game.player.meleeRange.position);
+  game.player.meleeRange.position.y += 0.01;
+  game.player.meleeRange.rotation.z = subObj.rotation[1] + Math.PI / 4;
+  const material = game.player.meleeRange.material as THREE.Material;
+  material.opacity = 0.4;
 }
 
 function maxDistanceBetweenPlayer(vec: Vec2 | null): Vec2 {

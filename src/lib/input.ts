@@ -1,11 +1,11 @@
 import type { Game } from './game';
 import { movePlayerAddRelative, syncLocationToRealmSpawnLocation } from './player';
-import { setActiveTool, castMainTool } from './tools';
+import { setActiveTool, castMainTool, castMainToolMove } from './tools';
 import { exportRealm, importRealm } from './resource';
 import { calcJsonCid } from './ipfs';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 
-import { Vec2, multiply, add, lengthSq } from './utils/utils';
+import { Vec2, multiply, add, reverseY, lengthSq } from './utils/utils';
 import { openJson, setUrlHash } from './utils/web';
 
 export interface Input {
@@ -14,9 +14,11 @@ export interface Input {
   mouseMoved: boolean;
   lastMouseCoord: Vec2;
   mouseTotalMovement: Vec2;
+  triggerMouseClickTimeout?: ReturnType<typeof setTimeout>;
   touched: boolean | 'multi';
   touchmove: boolean;
   touchCoord: Vec2;
+  triggerTouchClickTimeout?: ReturnType<typeof setTimeout>;
   penDown: boolean;
   pitchSq?: number;
   macTouchpadDetected: boolean;
@@ -25,6 +27,7 @@ export interface Input {
   gestureScale: number;
 }
 const MOUSE_BUTTONS: Input['mousedown'][] = ['left', 'middle', 'right'];
+const DOUBLE_CLICK_INTERVAL = 200;
 
 interface SafariGestureEvent extends Event {
   rotation: number;
@@ -88,6 +91,9 @@ export function startListeners(game: Game) {
     }
 
     if (event.key === '`') {
+      return setActiveTool('melee', game);
+    }
+    if (event.key === ':') {
       return setActiveTool('options', game);
     }
 
@@ -108,6 +114,8 @@ export function startListeners(game: Game) {
 
     if (input.mousedown === 'right') {
       game.renderer.domElement.requestPointerLock();
+    } else {
+      castMainTool(input.lastMouseCoord, 'down', game);
     }
   });
   game.renderer.domElement.addEventListener('mouseup', () => {
@@ -115,6 +123,17 @@ export function startListeners(game: Game) {
       switch (input.mousedown) {
         case 'left':
           castMainTool(input.lastMouseCoord, 'up', game);
+
+          if (input.triggerMouseClickTimeout) {
+            clearTimeout(input.triggerMouseClickTimeout);
+            delete input.triggerMouseClickTimeout;
+            castMainTool(input.lastMouseCoord, 'dbclick', game);
+          } else {
+            input.triggerMouseClickTimeout = setTimeout(() => {
+              delete input.triggerMouseClickTimeout;
+              castMainTool(input.lastMouseCoord, 'click', game);
+            }, DOUBLE_CLICK_INTERVAL);
+          }
           break;
         case 'middle':
           // use tool accordingly
@@ -161,7 +180,7 @@ export function startListeners(game: Game) {
       ) {
         input.mouseMoved = true;
         if (input.mousedown === 'left') {
-          castMainTool(input.lastMouseCoord, 'move', game);
+          castMainToolMove([offsetX, offsetY], movement, 'move', game);
         } else if (input.mousedown.startsWith('right')) {
           moveCameraAngle(
             multiply(input.mouseTotalMovement, 0.01),
@@ -196,6 +215,17 @@ export function startListeners(game: Game) {
 
     if (input.touched && !input.touchmove && !input.penDown) {
       castMainTool(input.touchCoord, 'up', game);
+
+      if (input.triggerTouchClickTimeout) {
+        clearTimeout(input.triggerTouchClickTimeout);
+        delete input.triggerTouchClickTimeout;
+        castMainTool(input.touchCoord, 'dbclick', game);
+      } else {
+        input.triggerTouchClickTimeout = setTimeout(() => {
+          delete input.triggerTouchClickTimeout;
+          castMainTool(input.touchCoord, 'click', game);
+        }, DOUBLE_CLICK_INTERVAL);
+      }
     }
     input.touched = false;
     input.touchmove = false;
@@ -239,20 +269,11 @@ export function startListeners(game: Game) {
     ) {
       input.touchmove = true;
 
-      if (game.tools.activeTool === 'walk') {
-        movePlayerAddRelative(
-          reverseY(multiply(
-            vecAfterCameraRotation(
-              [preOffsetX - offsetX, offsetY - preOffsetY],
-              game.camera
-            ),
-            0.01,
-          )),
-          game,
-        );
-      } else {
-        castMainTool(input.touchCoord, 'move', game);
-      }
+      castMainToolMove(
+        [offsetX, offsetY],
+        [preOffsetX - offsetX, preOffsetY - offsetY],
+        'move', game,
+      );
     }
   }, { passive: true });
 
@@ -326,21 +347,22 @@ export function update(input: Input, tDiff: number, game: Game) {
   }
 
   if (game.input.keyPressed.has('s') || input.keyPressed.has('ArrowDown')) {
-    inputVec[1] -= tDiff;
-  } else if (game.input.keyPressed.has('w') || input.keyPressed.has('ArrowUp')) {
     inputVec[1] += tDiff;
+  } else if (game.input.keyPressed.has('w') || input.keyPressed.has('ArrowUp')) {
+    inputVec[1] -= tDiff;
   }
 
   if (inputVec[0] !== 0 || inputVec[1] !== 0) {
-    movePlayerAddRelative(reverseY(
-      multiply(vecAfterCameraRotation(inputVec, game.camera), 0.01)
-    ), game);
+    movePlayerAddRelative(
+      vecAfterCameraRotation(
+        multiply(inputVec, 0.01),
+        game.camera,
+      ),
+      game,
+    );
   }
 }
 
-function reverseY(vec: Vec2): Vec2 {
-  return [vec[0], -vec[1]];
-}
 function touchOffset(touch: Touch, canvas: HTMLCanvasElement): Vec2 {
   return [touch.pageX - canvas.offsetLeft, touch.pageY - canvas.offsetTop];
 }

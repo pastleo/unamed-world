@@ -6,7 +6,7 @@ import {
   Cell, getChunkEntityComponents, getChunkAndCell, afterChunkChanged,
   locateOrCreateChunkCell,
 } from './chunk/chunk';
-import { createSubObj } from './subObj/subObj';
+import { createSubObj, destroySubObj } from './subObj/subObj';
 import { editChunkCanvas2d } from './chunk/render';
 
 import { Vec2, Vec3, rangeVec2s } from './utils/utils';
@@ -46,6 +46,11 @@ export interface AddSubObjAction extends Action {
   rotation: Vec3;
 }
 
+export interface DamageSubObjAction extends Action {
+  type: 'subObj-damage';
+  sid: Sid;
+}
+
 export function dispatchAction(action: Action, game: Game) {
   processAction(action, game);
   addActionToBroadcast(action, game);
@@ -59,6 +64,8 @@ export function processAction(action: Action, game: Game) {
       return adjustTerrain(action as ChunkTerrainAltitudeAction, game);
     case 'subObj-add':
       return addSubObj(action as AddSubObjAction, game);
+    case 'subObj-damage':
+      return damageSubObj(action as DamageSubObjAction, game);
     default:
       return console.warn('processChunkAction: unknown action', action);
   }
@@ -111,4 +118,10 @@ function addSubObj(action: AddSubObjAction, game: Game) {
   const spriteObj = game.ecs.fromSid(action.obj);
   const located = locateOrCreateChunkCell(action.position, game);
   createSubObj(spriteObj, action.position, action.rotation, game, located, subObjEntity);
+}
+
+function damageSubObj(action: DamageSubObjAction, game: Game) {
+  const subObjEntity = game.ecs.fromSid(action.sid);
+
+  destroySubObj(subObjEntity, game);
 }
