@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
+import localForage from 'localforage';
 import classnames from 'classnames';
 
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -6,7 +7,7 @@ import type SwiperCore from 'swiper';
 import { Mousewheel } from 'swiper';
 
 import { SavedObjRecord, rmSavedObj } from '../resource';
-import { castOptionSave, addAndSwitchSpriteTool, rmSpriteTool } from '../tools';
+import { castOptionSave, castOptionImport, addAndSwitchSpriteTool, rmSpriteTool } from '../tools';
 
 import { UIContext } from './ui';
 import { TopTool } from './topTools';
@@ -14,7 +15,7 @@ import Thumb from './thumb';
 
 import { useDelayedState, useSpriteObjThumbnail } from './hooks';
 import { timeoutPromise } from '../utils/utils';
-import { setUrlHash } from '../utils/web';
+import { setUrlHash, parseUrlHash, downloadJson } from '../utils/web';
 
 import '../../styles/ui/options.css';
 
@@ -23,11 +24,11 @@ export interface UIOptions {
   setSelectedSavedObjRecords: (index: number) => void;
 }
 
-const FIXED_OPTION_SLIDES = 2;
+const FIXED_OPTION_SLIDES = 3;
 function Options() {
   const { game, selectedMainTool, selectableMainTools, maybeReady } = useContext(UIContext);
 
-  const [optionIndex, selectedOptionIndex, setOptionIndex] = useDelayedState(0, 100);
+  const [optionIndex, selectedOptionIndex, setOptionIndex] = useDelayedState(2, 100);
   const swiper = useRef<SwiperCore>();
 
   const [recordActionIndex, selectedRecordActionIndex, setRecordActionIndex] = useDelayedState(0, 100);
@@ -75,8 +76,18 @@ function Options() {
       >
         <SwiperSlide>
           <Thumb
-            emoji='📜'
+            emoji='📂'
+            badge='🌐'
             active={selectedOptionIndex === 0}
+            onClick={() => {
+              castOptionImport(game);
+            }}
+          />
+        </SwiperSlide>
+        <SwiperSlide>
+          <Thumb
+            emoji='📜'
+            active={selectedOptionIndex === 1}
             onClick={async () => {
               if (!await game.ui.modal.confirm('Will switch to a new realm, unsaved process will be lost, proceed?')) return;
               setUrlHash({ '': '' });
@@ -87,7 +98,7 @@ function Options() {
         <SwiperSlide>
           <Thumb
             emoji='💾'
-            active={selectedOptionIndex === 1}
+            active={selectedOptionIndex === 2}
             badge='↗'
             onClick={() => {
               castOptionSave(game);
@@ -120,11 +131,17 @@ function Options() {
               emoji='🚪'
               active={selectedRecordActionIndex === 0}
               onClick={async () => {
-                if (!await game.ui.modal.confirm('Switch to selected realm?')) return;
-                game.ui.modal.pleaseWait('Switching to selected realm...', async () => {
-                  await timeoutPromise(500 + 1000 * Math.random());
-                  setUrlHash({ '': selectedRecord.realmObjPath });
-                });
+                const currentRealmObjPath = parseUrlHash()[''];
+                if (currentRealmObjPath === selectedRecord.realmObjPath) {
+                  if (!await game.ui.modal.confirm('Will reload realm, unsaved progress will be lost, proceed?')) return;
+                  location.reload();
+                } else {
+                  if (!await game.ui.modal.confirm('Switch to selected realm?')) return;
+                  game.ui.modal.pleaseWait('Switching to selected realm...', async () => {
+                    await timeoutPromise(500 + 1000 * Math.random());
+                    setUrlHash({ '': selectedRecord.realmObjPath });
+                  });
+                }
               }}
             />
           </SwiperSlide>
@@ -155,8 +172,21 @@ function Options() {
           </SwiperSlide>
           <SwiperSlide>
             <Thumb
-              emoji='❌'
+              emoji='📦'
+              badge='🔽'
               active={selectedRecordActionIndex === 3}
+              onClick={async () => {
+                const json = await localForage.getItem(selectedRecord.realmObjPath);
+                if (!json) return;
+                const cid = selectedRecord.realmObjPath.split('/').pop();
+                downloadJson(json, `realm-${cid}.json`);
+              }}
+            />
+          </SwiperSlide>
+          <SwiperSlide>
+            <Thumb
+              emoji='❌'
+              active={selectedRecordActionIndex === 4}
               onClick={async () => {
                 if (!await game.ui.modal.confirm('Will DELETE selected record, proceed?')) return;
                 await rmSavedObj(selectedRecordIndex, game);

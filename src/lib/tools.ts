@@ -11,7 +11,10 @@ import {
   dispatchAction,
 } from './action';
 import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
-import { exportRealm, addSavedObj } from './resource';
+import { exportRealm, importRealm, addSavedObj } from './resource';
+import { calcJsonCid } from './ipfs';
+
+import { openJson } from './utils/web';
 
 import type { ObjPath } from './obj/obj';
 import {
@@ -487,4 +490,26 @@ export async function castOptionSave(game: Game, recordIndexToOverwrite?: number
     await savingMinWait;
     await addSavedObj(realmObjPath, spriteObjPath, game, recordIndexToOverwrite);
   });
+}
+
+export async function castOptionImport(game: Game) {
+  const json = await openJson();
+  if (!json) return;
+  const objBuilderStarted = ensureObjBuilderStarted(game);
+
+  const success = await game.ui.modal.pleaseWait('Importing...', async () => {
+    const realmObjPath = `/local/${await calcJsonCid(json)}`;
+    const importedJson = await importRealm(realmObjPath, json);
+    if (!importedJson) return;
+
+    await objBuilderStarted;
+    const spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
+
+    afterSaved(realmObjPath, game);
+    await addSavedObj(realmObjPath, spriteObjPath, game);
+
+    return true;
+  });
+
+  game.ui.modal.alert(success ? 'Imported successfully' : 'Oops! This json maybe invalid');
 }

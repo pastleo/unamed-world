@@ -204,21 +204,20 @@ export async function exportSpriteLocally(objSprite: EntityRef, ecs: GameECS): P
 }
 
 export async function addSavedObj(realmObjPath: ObjPath, spriteObjPath: ObjPath, game: Game, recordIndexToOverwrite?: number) {
-  let savedRecordIndex;
-  if (typeof recordIndexToOverwrite === 'number') {
+  let index = typeof recordIndexToOverwrite === 'number' ? recordIndexToOverwrite : game.resource.savedObjRecords.findIndex(record => realmObjPath === record.realmObjPath);
+  if (index >= 0) {
     game.resource.savedObjRecords[recordIndexToOverwrite] = {
       realmObjPath, spriteObjPath,
     };
-    savedRecordIndex = recordIndexToOverwrite;
   } else {
     game.resource.savedObjRecords.push({
       realmObjPath, spriteObjPath,
     });
-    savedRecordIndex = game.resource.savedObjRecords.length - 1;
+    index = game.resource.savedObjRecords.length - 1;
   }
 
   await updateSavedRecords(game);
-  game.ui.options.setSelectedSavedObjRecords(savedRecordIndex);
+  game.ui.options.setSelectedSavedObjRecords(index);
 }
 
 export async function rmSavedObj(recordIndex: number, game: Game) {
