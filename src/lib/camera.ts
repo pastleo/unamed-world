@@ -6,6 +6,7 @@ import {
   INIT_CAMERA_ANGLE,
   MAX_CAMERA_ANGLE, MIN_CAMERA_ANGLE,
   MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE,
+  NEAR_CAMERA_DISTANCE, FAR_CAMERA_DISTANCE,
 } from './consts';
 
 export interface Camera {
@@ -14,6 +15,9 @@ export interface Camera {
   camera: THREE.PerspectiveCamera;
   cameraBase: THREE.Object3D;
   cameraAngleBase: THREE.Object3D;
+
+  zoomState?: 'started' | 'bouncing' | 'triggered';
+  zoomBouncingBack?: ReturnType<typeof setTimeout>;
 }
 
 export function init(): Camera {
@@ -38,24 +42,44 @@ export function addToScene(game: Game) {
 }
 
 export function update(tDiff: number, game: Game) {
-  if (!game.camera.moving) return;
+  updateCameraMoving(tDiff, game.camera);
+  updateCameraDistance(tDiff, game);
+}
+
+function updateCameraMoving(tDiff: number, camera: Camera) {
+  if (!camera.moving) return;
 
   const delta = sub(
-    game.camera.position,
+    camera.position,
     threeToVec3(
-      game.camera.cameraBase.position
+      camera.cameraBase.position
     )
   );
   const deltaLength = length(delta);
 
   if (deltaLength <= 0.0001) {
-    game.camera.moving = false;
+    camera.moving = false;
     return;
   }
   const frameMoveLength = calcMoveSpeed(deltaLength) * tDiff * 0.01;
 
   const moving = multiply(delta, frameMoveLength / deltaLength);
-  vecAddToThree(moving, game.camera.cameraBase.position);
+  vecAddToThree(moving, camera.cameraBase.position);
+}
+
+function updateCameraDistance(tDiff: number, game: Game) {
+  const { camera } = game;
+  if (camera.zoomState !== 'bouncing') return;
+
+  if (camera.camera.position.z < NEAR_CAMERA_DISTANCE) {
+    const d = NEAR_CAMERA_DISTANCE - camera.camera.position.z;
+    camera.camera.position.z += d < 0.01 ? d : d * tDiff * 0.003;
+  } else if (camera.camera.position.z > FAR_CAMERA_DISTANCE) {
+    const d = camera.camera.position.z - FAR_CAMERA_DISTANCE;
+    camera.camera.position.z -= d < 0.01 ? d : d * tDiff * 0.003;
+  } else if (camera.zoomState) {
+    delete camera.zoomState;
+  }
 }
 
 function calcMoveSpeed(deltaLength: number): number {
@@ -93,12 +117,52 @@ export function setCameraY(y: number, game: Game): void {
   game.camera.moving = true;
 }
 
-export function adjCameraDistance(distanceDelta: number, camera: Camera): void {
-  camera.camera.position.z += distanceDelta;
-  if (camera.camera.position.z <= MIN_CAMERA_DISTANCE) {
+type Zoom = undefined | 'in' | 'out';
+export function adjCameraDistance(distanceDelta: number, game: Game): Zoom {
+  const { camera } = game;
+
+  if (camera.zoomState === 'triggered') return;
+
+  let distanceDeltaAdjustment = 1;
+  if (camera.camera.position.z < NEAR_CAMERA_DISTANCE && distanceDelta < 0) {
+    distanceDeltaAdjustment += 4 * (NEAR_CAMERA_DISTANCE - camera.camera.position.z) * 0.5;
+  } else if (camera.camera.position.z > FAR_CAMERA_DISTANCE && distanceDelta > 0) {
+    distanceDeltaAdjustment += 4 * (camera.camera.position.z - FAR_CAMERA_DISTANCE) * 0.5;
+  }
+
+  if (distanceDeltaAdjustment > 1) {
+    camera.zoomState = 'started';
+    clearTimeout(camera.zoomBouncingBack);
+    camera.zoomBouncingBack = setTimeout(() => {
+      camera.zoomState = 'bouncing';
+    }, 1000);
+  }
+
+  camera.camera.position.z += distanceDelta / distanceDeltaAdjustment;
+
+  let zoom: Zoom;
+  if (camera.camera.position.z < MIN_CAMERA_DISTANCE) {
     camera.camera.position.z = MIN_CAMERA_DISTANCE;
-  } else if (camera.camera.position.z >= MAX_CAMERA_DISTANCE) {
+    zoom = 'in';
+  } else if (camera.camera.position.z > MAX_CAMERA_DISTANCE) {
     camera.camera.position.z = MAX_CAMERA_DISTANCE;
+    zoom = 'out';
+  }
+
+  if (zoom) {
+    clearTimeout(camera.zoomBouncingBack);
+    camera.zoomState = 'triggered';
+  }
+  return zoom;
+}
+
+export function castCameraZoomAnimation(zoom: Zoom, game: Game) {
+  if (zoom === 'in') {
+    game.camera.camera.position.z = MAX_CAMERA_DISTANCE * 2;
+    game.camera.zoomState = 'bouncing';
+  } else if (zoom === 'out') {
+    game.camera.camera.position.z = MIN_CAMERA_DISTANCE * 0.5;
+    game.camera.zoomState = 'bouncing';
   }
 }
 

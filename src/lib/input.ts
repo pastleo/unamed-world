@@ -241,7 +241,7 @@ export function startListeners(game: Game) {
 
           if (input.pitchSq) {
             const prePicthSq = input.pitchSq;
-            adjCameraDistance((prePicthSq - pitchSq) / 8000, game.camera);
+            adjCameraDistance((prePicthSq - pitchSq) / 8000, game.camera, 1.5);
           }
           input.pitchSq = pitchSq;
         }
@@ -292,7 +292,7 @@ export function startListeners(game: Game) {
       angleDelta[0] += event.deltaX / 100;
     }
 
-    adjCameraDistance(distanceDelta, game.camera);
+    adjCameraDistance(distanceDelta, game.camera, 5);
     moveCameraAngle(angleDelta, game.camera);
   }, { passive: true });
 
@@ -317,7 +317,7 @@ export function startListeners(game: Game) {
       [0, (input.gestureRotation - preRotation) * Math.PI / 180],
       game.camera,
     );
-    adjCameraDistance((preScale - input.gestureScale) * 20, game.camera);
+    adjCameraDistance((preScale - input.gestureScale) * 20, game.camera, 1.5);
   });
 }
 
