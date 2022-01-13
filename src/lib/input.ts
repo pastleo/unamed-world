@@ -57,6 +57,7 @@ export function startListeners(game: Game) {
       let realmObjPath;
       switch (event.key) {
         case 'S':
+          if (!await game.ui.modal.confirm('[UNSTABLE] Will save to IPFS and switch, process?')) return;
           event.preventDefault();
           syncLocationToRealmSpawnLocation(game);
           realmObjPath = await exportRealm('ipfs', game);
@@ -75,7 +76,7 @@ export function startListeners(game: Game) {
     if (event.key === '`') {
       return setActiveTool('melee', game);
     }
-    if (event.key === ':') {
+    if (event.key === 'Escape') {
       return setActiveTool('options', game);
     }
 

@@ -79,6 +79,7 @@ function UIRoot({ game, onReady }: { game: Game, onReady: () => void }) {
     };
     game.ui.updateSelectableMainTools = () => {
       setSelectableMainTools([...game.tools.toolsBox]);
+      game.ui.updateSelectedMainTool();
     };
 
     maybeReady();

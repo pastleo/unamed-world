@@ -1,10 +1,13 @@
 import * as THREE from 'three';
+import localForage from 'localforage';
 
 import type { Game } from './game';
 import type { GameEntityComponents } from './gameECS';
-import { mountSubObj, movePlayerAddRelative, movePlayerTo, syncLocationToRealmSpawnLocation, showMeleeRange } from './player';
+import {
+  changePlayerObj, movePlayerAddRelative, movePlayerTo,
+  syncLocationToRealmSpawnLocation, showMeleeRange,
+} from './player';
 import { cameraRotationY, vecAfterCameraRotation } from './camera';
-import { broadcastMyself } from './network';
 import { afterSaved } from './realm';
 import {
   ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction, DamageSubObjAction,
@@ -23,7 +26,7 @@ import {
 } from './chunk/chunk';
 import {
   SubObjComponent, getThreeObj,
-  subObjInChunkRange, destroySubObj, createSubObj, makeSubObjFacing,
+  subObjInChunkRange, makeSubObjFacing,
 } from './subObj/subObj';
 
 import {
@@ -33,10 +36,13 @@ import {
 } from './utils/utils';
 import { EntityRef, entityEqual } from './utils/ecs';
 
+import { USER_TOOLS_STORAGE_NAME } from './consts';
+
 export type Tool = 'melee' | 'draw' | 'terrainAltitude' | 'options' | 'pin' | string;
 export interface Tools {
   activeTool: Tool;
   toolsBox: Tool[];
+  userTools: Tool[];
   raycaster: THREE.Raycaster;
 
   draw: Draw;
@@ -58,11 +64,13 @@ interface TerrainAltitude {
 }
 
 const RAYCAST_CHUNK_RANGE = 4;
+const BUILTIN_TOOLS: Tool[] = ['pin', 'melee', 'draw', 'terrainAltitude', 'options'];
 
 export function create(): Tools {
   return {
     activeTool: 'melee',
-    toolsBox: ['pin', 'melee', 'draw', 'terrainAltitude', 'options'],
+    toolsBox: BUILTIN_TOOLS,
+    userTools: [],
     raycaster: new THREE.Raycaster(),
 
     draw: createDraw(),
@@ -78,7 +86,11 @@ function createDraw(): Draw {
   }
 }
 
-export function start(_game: Game) {
+export async function start(game: Game) {
+  const userTools = await localForage.getItem<Tool[]>(USER_TOOLS_STORAGE_NAME) || [];
+  game.tools.userTools = userTools;
+
+  await updateMainToolbox(game);
 }
 
 export function setActiveTool(indexOrTool: number | Tool, game: Game) {
@@ -106,16 +118,14 @@ export function setActiveTool(indexOrTool: number | Tool, game: Game) {
 
 export async function addAndSwitchSpriteTool(spriteAsTool: Tool, game: Game) {
   const spriteToolName: Tool = `sprite/${spriteAsTool}`;
-  if (game.tools.toolsBox.indexOf(spriteToolName) !== -1) return;
-
-  if (!await game.ui.modal.confirm('Will build and add sprite into toolbox')) return;
+  if (game.tools.userTools.indexOf(spriteToolName) !== -1) return;
 
   await game.ui.modal.pleaseWait('Building...', async () => {
     await timeoutPromise(500 + 1000 * Math.random());
 
-    game.tools.toolsBox.splice(0, 0, spriteToolName);
+    game.tools.userTools.push(spriteToolName);
+    await updateMainToolbox(game);
     game.ui.updateSelectableMainTools();
-
     setActiveTool(spriteToolName, game);
   });
 }
@@ -124,12 +134,18 @@ export async function rmSpriteTool(spriteAsTool: Tool, game: Game) {
   const spriteToolName: Tool = `sprite/${spriteAsTool}`;
   const index = game.tools.toolsBox.indexOf(spriteToolName);
   if (index === -1) return;
-  if (!await game.ui.modal.confirm('This sprite is already built, remove from toolbox?')) return;
 
-  game.tools.toolsBox.splice(index, 1);
+  game.tools.userTools.splice(index, 1);
+  await updateMainToolbox(game);
   game.ui.updateSelectableMainTools();
+}
 
-  await game.ui.modal.alert('Removed from toolbox.');
+async function updateMainToolbox(game: Game) {
+  game.tools.toolsBox = [
+    ...game.tools.userTools,
+    ...BUILTIN_TOOLS,
+  ];
+  localForage.setItem<Tool[]>(USER_TOOLS_STORAGE_NAME, game.tools.userTools);
 }
 
 function ensureTerrainAltitudeActivated(game: Game) {
@@ -245,16 +261,7 @@ function castMeleeClick(coordsPixel: Vec2, game: Game) {
   }
   if (!targetSubObj) return;
 
-  const targetObj = targetSubObj.get('subObj').obj;
-  if (!game.ecs.getComponent(targetObj, 'obj/sprite')) return;
-
-  // copying obj (targetObj) from targetSubObj:
-  const located = locateOrCreateChunkCell(playerSubObj.position, game);
-  game.player.objEntity = targetObj;
-  destroySubObj(game.player.subObjEntity, game);
-  const newSubObj = createSubObj(game.player.objEntity, playerSubObj.position, playerSubObj.rotation, game, located);
-  mountSubObj(newSubObj, game);
-  broadcastMyself(game);
+  changePlayerObj(targetSubObj.get('subObj').obj, game);
 }
 
 function castMeleeDbClick(coordsPixel: Vec2, game: Game) { // damage

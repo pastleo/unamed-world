@@ -13,7 +13,7 @@ import {
   ResourceManager, init as initResourceManager, start as startResourceManager,
 } from './resource';
 
-import { Player, create as createPlayer, addToRealm as addPlayerToRealm } from './player';
+import { Player, create as createPlayer, addToRealm as addPlayerToRealm, restorePlayerObj } from './player';
 import { UI, create as createUI, start as startUI } from './ui/ui';
 import { Tools, create as createTools, start as startTools } from './tools';
 import { Input, create as createInput, startListeners } from './input';
@@ -77,13 +77,14 @@ export async function setup(): Promise<Game> {
   addRealmToScene(game);
   addCameraToScene(game);
   addPlayerToRealm(game);
-  startTools(game);
   startListeners(game);
 
+  await startTools(game);
   await startResourceManager(game);
   await startUI(game);
 
   changeRealm(game);
+  restorePlayerObj(game);
 
   if (DBG_MODE) {
     (window as any).getChunk = (...ij: Vec2) => (

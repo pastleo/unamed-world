@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import localForage from 'localforage';
 
 import type { Game } from './game';
 import type { GameECS } from './gameECS';
@@ -8,6 +9,7 @@ import { getObjEntity } from './obj/obj';
 import { createSubObj, destroySubObj } from './subObj/subObj';
 import { locateOrCreateChunkCell } from './chunk/chunk';
 import { initSubObjWalking, setMoveTo, setMoveRelative } from './subObj/walking';
+import { requireSprite } from './resource';
 
 import { setCameraPosition, setCameraLocation, setCameraY } from './camera';
 import { triggerRealmGeneration } from './realm';
@@ -15,7 +17,7 @@ import { broadcastMyself } from './network';
 
 import { Vec2, Vec3, add, multiply, length, vec3To2, vec2To3, vecCopyToThree, assertPresentOrWarn } from './utils/utils';
 
-import { MAX_DISTANCE_BETWEEN_PLAYER } from './consts';
+import { MAX_DISTANCE_BETWEEN_PLAYER, PLAYER_OBJ_STORAGE_NAME } from './consts';
 
 export interface Player {
   objEntity: EntityRef;
@@ -43,24 +45,34 @@ export function addToRealm(game: Game, initPosition: Vec3 = [0, 0, 0]) {
   mountSubObj(subObj, game);
 }
 
+export async function restorePlayerObj(game: Game) {
+  const objPath = await localForage.getItem<string>(PLAYER_OBJ_STORAGE_NAME);
+  if (!objPath) return;
+
+  await requireSprite(objPath, game);
+  await changePlayerObj(game.ecs.fromSid(objPath), game);
+}
+
 export function getPlayerLocation(game: Game) {
   const subObj = game.ecs.getComponent(game.player.subObjEntity, 'subObj');
   return vec3To2(subObj.position);
 }
 
-export function mountSubObj(subObjEntity: EntityRef, game: Game) {
-  game.player.subObjEntity = subObjEntity;
-  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
-  game.player.objEntity = subObj.obj;
-  subObj.mounted = true;
+export async function changePlayerObj(targetObj: EntityRef, game: Game) {
+  if (!game.ecs.getComponent(targetObj, 'obj/sprite')) return; // now we require obj to be sprite
 
-  game.player.chunkIJ = subObj.chunkIJ;
-  const subObjRender = game.ecs.getComponent(game.player.subObjEntity, 'subObj/spriteRender');
-  setCameraPosition(
-    [subObj.position[0], subObjRender.sprite.position.y, subObj.position[2]],
-    game
-  );
-  initSubObjWalking(game.player.subObjEntity, game);
+  const playerSubObjComps = game.ecs.getEntityComponents(game.player.subObjEntity);
+  const playerSubObj = playerSubObjComps.get('subObj');
+
+  const located = locateOrCreateChunkCell(playerSubObj.position, game);
+  destroySubObj(game.player.subObjEntity, game);
+  const newSubObj = createSubObj(targetObj, playerSubObj.position, playerSubObj.rotation, game, located);
+  mountSubObj(newSubObj, game);
+
+  await Promise.all([
+    localForage.setItem(PLAYER_OBJ_STORAGE_NAME, game.ecs.getPrimarySid(targetObj)),
+    broadcastMyself(game),
+  ]);
 }
 
 export function jumpOnRealm(game: Game) {
@@ -143,6 +155,21 @@ export function showMeleeRange(game: Game) {
   game.player.meleeRange.rotation.z = subObj.rotation[1] + Math.PI / 4;
   const material = game.player.meleeRange.material as THREE.Material;
   material.opacity = 0.4;
+}
+
+function mountSubObj(subObjEntity: EntityRef, game: Game) {
+  game.player.subObjEntity = subObjEntity;
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  game.player.objEntity = subObj.obj;
+  subObj.mounted = true;
+
+  game.player.chunkIJ = subObj.chunkIJ;
+  const subObjRender = game.ecs.getComponent(game.player.subObjEntity, 'subObj/spriteRender');
+  setCameraPosition(
+    [subObj.position[0], subObjRender.sprite.position.y, subObj.position[2]],
+    game
+  );
+  initSubObjWalking(game.player.subObjEntity, game);
 }
 
 function maxDistanceBetweenPlayer(vec: Vec2 | null): Vec2 {

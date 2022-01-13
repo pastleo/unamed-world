@@ -152,11 +152,14 @@ function Options() {
                 selectedRecordIsAlreadyBuilt ? '✅' : ''
               }
               active={selectedRecordActionIndex === 1}
-              onClick={() => {
+              onClick={async () => {
                 if (selectedRecordIsAlreadyBuilt) {
-                  rmSpriteTool(selectedRecord.spriteObjPath, game);
+                  if (!await game.ui.modal.confirm('This sprite is already built, remove from toolbox?')) return;
+                  await rmSpriteTool(selectedRecord.spriteObjPath, game);
+                  await game.ui.modal.alert('Removed from toolbox.');
                 } else {
-                  addAndSwitchSpriteTool(selectedRecord.spriteObjPath, game);
+                  if (!await game.ui.modal.confirm('Will build and add sprite into toolbox')) return;
+                  await addAndSwitchSpriteTool(selectedRecord.spriteObjPath, game);
                 }
               }}
             />
@@ -188,7 +191,10 @@ function Options() {
               emoji='❌'
               active={selectedRecordActionIndex === 4}
               onClick={async () => {
-                if (!await game.ui.modal.confirm('Will DELETE selected record, proceed?')) return;
+                if (!await game.ui.modal.confirm(`Will DELETE selected record${selectedRecordIsAlreadyBuilt ? ' and related sprite tool' : ''}, proceed?`)) return;
+                if (selectedRecordIsAlreadyBuilt) {
+                  await rmSpriteTool(selectedRecord.spriteObjPath, game);
+                }
                 await rmSavedObj(selectedRecordIndex, game);
                 await game.ui.modal.alert('Record removed.');
               }}
