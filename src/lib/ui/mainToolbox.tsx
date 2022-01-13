@@ -20,7 +20,7 @@ const TOOL_EMOJI: Record<Tool, string> = {
   draw: '✍️',
   terrainAltitude: '↕️',
   options: '⚙️',
-  pin: '🚩',
+  pin: '♟️',
 }
 const TOOL_BADGE: Record<Tool, string> = {
   melee: '✊',
@@ -41,7 +41,7 @@ function MainToolbox() {
   const swiper = useRef<SwiperCore>();
   const [isPreventedByUI, setPreventedByUILatter] = useRefWithDelayedSetter(false, 50);
 
-  const initialSlide = useMemo(() => selectableMainTools.indexOf(selectedMainTool), []);
+  const slideIndex = selectableMainTools.indexOf(selectedMainTool);
 
   useEffect(() => {
     if (!swiper.current) return;
@@ -50,9 +50,8 @@ function MainToolbox() {
       return;
     }
 
-    const index = selectableMainTools.indexOf(selectedMainTool);
-    swiper.current.slideToLoop(index);
-  }, [selectedMainTool]);
+    swiper.current.slideToLoop(slideIndex);
+  }, [slideIndex]);
 
   useEffect(() => {
     setShow(true);
@@ -69,7 +68,7 @@ function MainToolbox() {
       <Swiper
         modules={[Manipulation, Mousewheel]}
         loop centeredSlides slideToClickedSlide mousewheel
-        initialSlide={initialSlide}
+        initialSlide={slideIndex}
         slidesPerView='auto'
         onTouchStart={() => {
           isPreventedByUI.current = true;

@@ -1,12 +1,11 @@
 import type { Game } from './game';
 import { movePlayerAddRelative, syncLocationToRealmSpawnLocation } from './player';
 import { setActiveTool, castMainTool, castMainToolMove } from './tools';
-import { exportRealm, importRealm } from './resource';
-import { calcJsonCid } from './ipfs';
+import { exportRealm } from './resource';
 import { moveCameraAngle, adjCameraDistance, vecAfterCameraRotation } from './camera';
 
-import { Vec2, multiply, add, reverseY, lengthSq } from './utils/utils';
-import { openJson, setUrlHash } from './utils/web';
+import { Vec2, multiply, add, lengthSq } from './utils/utils';
+import { setUrlHash } from './utils/web';
 
 export interface Input {
   keyPressed: Set<string>;
@@ -57,30 +56,14 @@ export function startListeners(game: Game) {
     if (event.ctrlKey) {
       let realmObjPath;
       switch (event.key) {
-        case 's':
-          event.preventDefault();
-          syncLocationToRealmSpawnLocation(game);
-          return await exportRealm('download', game);
-        case 'o':
-          event.preventDefault();
-          const json = await openJson();
-          if (json) {
-            realmObjPath = `/local/${await calcJsonCid(json)}`;
-            await importRealm(realmObjPath, json);
-            setUrlHash({ '': realmObjPath });
-          }
-          return;
         case 'S':
+          if (!await game.ui.modal.confirm('[UNSTABLE] Will save to IPFS and switch, process?')) return;
           event.preventDefault();
           syncLocationToRealmSpawnLocation(game);
           realmObjPath = await exportRealm('ipfs', game);
           if (realmObjPath) {
             setUrlHash({ '': realmObjPath });
           }
-          return;
-        case 'x':
-          event.preventDefault();
-          window.location.href = window.location.origin; // reset room
           return;
       }
     }
@@ -93,7 +76,7 @@ export function startListeners(game: Game) {
     if (event.key === '`') {
       return setActiveTool('melee', game);
     }
-    if (event.key === ':') {
+    if (event.key === 'Escape') {
       return setActiveTool('options', game);
     }
 

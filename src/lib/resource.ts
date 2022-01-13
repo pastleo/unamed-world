@@ -19,7 +19,7 @@ import { addSubObjToScene } from './subObj/subObj';
 
 import { EntityRef, entityEqual } from './utils/ecs';
 import { assertPresentOrWarn } from './utils/utils';
-import { createJsonBlob, downloadJson } from './utils/web';
+import { createJsonBlob } from './utils/web';
 
 import { SAVED_OBJ_PATHS_STORAGE_NAME } from './consts';
 
@@ -152,7 +152,7 @@ export async function fetchAndLoadSprite(objPath: ObjPath, game: Game): Promise<
   return loadPackedSprite(objPath, jsonValidated, game.ecs);
 }
 
-type ExportObjMethod = 'local' | 'download' | 'ipfs';
+export type ExportObjMethod = 'local' | 'ipfs';
 async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Promise<ObjPath> {
   let realmObjPath: ObjPath;
   switch (method) {
@@ -163,9 +163,6 @@ async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Pr
       await ensureIpfsStarted(game);
       const { path } = await game.ipfs.add(createJsonBlob(json));
       realmObjPath = `/ipfs/${path}`;
-      break;
-    case 'download':
-      downloadJson(json, `realm-${await calcJsonCid(json)}.json`);
       break;
   }
 
@@ -204,21 +201,20 @@ export async function exportSpriteLocally(objSprite: EntityRef, ecs: GameECS): P
 }
 
 export async function addSavedObj(realmObjPath: ObjPath, spriteObjPath: ObjPath, game: Game, recordIndexToOverwrite?: number) {
-  let savedRecordIndex;
-  if (typeof recordIndexToOverwrite === 'number') {
+  let index = typeof recordIndexToOverwrite === 'number' ? recordIndexToOverwrite : game.resource.savedObjRecords.findIndex(record => realmObjPath === record.realmObjPath);
+  if (index >= 0) {
     game.resource.savedObjRecords[recordIndexToOverwrite] = {
       realmObjPath, spriteObjPath,
     };
-    savedRecordIndex = recordIndexToOverwrite;
   } else {
     game.resource.savedObjRecords.push({
       realmObjPath, spriteObjPath,
     });
-    savedRecordIndex = game.resource.savedObjRecords.length - 1;
+    index = game.resource.savedObjRecords.length - 1;
   }
 
   await updateSavedRecords(game);
-  game.ui.options.setSelectedSavedObjRecords(savedRecordIndex);
+  game.ui.options.setSelectedSavedObjRecords(index);
 }
 
 export async function rmSavedObj(recordIndex: number, game: Game) {
