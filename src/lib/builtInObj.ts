@@ -18,15 +18,27 @@ export function createBuiltInObjs(ecs: GameECS) {
   createPinObj(ecs);
 }
 
+export function renderBaseSprite(ctx: CanvasRenderingContext2D, size: number) {
+  const whiteGradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  whiteGradient.addColorStop(0, '#FFFFFFFF')
+  whiteGradient.addColorStop(1, '#FFFFFF00')
+
+  ctx.fillStyle = whiteGradient;
+  ctx.fillRect(0, 0, size, size);
+
+  const blackGradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 32);
+  blackGradient.addColorStop(0, '#00000010')
+  blackGradient.addColorStop(1, '#00000000')
+
+  ctx.fillStyle = blackGradient;
+  ctx.fillRect(0, 0, size, size);
+}
+
 export function createBaseSpriteObj(ecs: GameECS) {
-  const ctx = createCanvas2d(256, 256);
+  const size = 256;
+  const ctx = createCanvas2d(size, size);
 
-  const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  gradient.addColorStop(0, '#FFFFFFFF')
-  gradient.addColorStop(1, '#FFFFFF00')
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 256, 256);
+  renderBaseSprite(ctx, size);
 
   const objEntity = createObjEntity(ecs, 'base', 'sprite');
   ecs.setComponent(objEntity, 'obj/sprite', {

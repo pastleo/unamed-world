@@ -63,10 +63,7 @@ export function locateOrCreateChunkCell(
 
   const chunk = getOrCreateChunk(chunkIJ, game.realm.currentObj, game.ecs, createChunkFn);
   
-  const cellIJ = [
-    Math.floor(position[0] + CHUNK_SIZE / 2 - chunkIJ[0] * CHUNK_SIZE),
-    Math.floor(position[2] + CHUNK_SIZE / 2 - chunkIJ[1] * CHUNK_SIZE),
-  ] as Vec2;
+  const cellIJ = locateCellIJ(position, chunkIJ);
 
   return {
     cell: chunk.cells.get(...cellIJ),
@@ -81,6 +78,13 @@ export function locateChunkIJ(position: Vec3): Vec2 {
     Math.floor((position[0] + CHUNK_SIZE / 2) / CHUNK_SIZE),
     Math.floor((position[2] + CHUNK_SIZE / 2) / CHUNK_SIZE),
   ];
+}
+
+export function locateCellIJ(position: Vec3, chunkIJ: Vec2): Vec2 {
+  return [
+    Math.floor(position[0] + CHUNK_SIZE / 2 - chunkIJ[0] * CHUNK_SIZE),
+    Math.floor(position[2] + CHUNK_SIZE / 2 - chunkIJ[1] * CHUNK_SIZE),
+  ] as Vec2;
 }
 
 export function getChunkEntityComponents(chunkIJ: Vec2, realmEntity: EntityRef, ecs: GameECS): GameEntityComponents {

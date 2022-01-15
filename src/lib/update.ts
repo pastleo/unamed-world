@@ -1,16 +1,18 @@
 import type { Game } from './game';
 import { ChunkComponent, getChunk } from './chunk/chunk';
 import { updateSubObjDisplay } from './subObj/subObj';
-import { update as updatePlayer } from './player';
+import { update as updatePlayer, jumpOnRealm, jumpOffRealm } from './player';
 import { update as updateInput } from './input';
 import { update as updateCamera, resize as resizeCamera } from './camera';
 import { update as updateWalking } from './subObj/walking';
 import { switchRealm } from './realm';
-import { jumpOnRealm, jumpOffRealm } from './player';
 import { fetchObjJson, importRealm } from './resource';
 import { join, reqRealm, unpauseProcessingRuntimeMessages } from './network';
+import { clearStack } from './zoom';
 
-import type { EntityRef } from './utils/ecs';
+import type { ObjPath } from './obj/obj';
+
+import { EntityRef } from './utils/ecs';
 import { Vec2, rangeVec2s } from './utils/utils';
 import { parseUrlHash } from './utils/web';
 
@@ -27,14 +29,18 @@ export function resize(game: Game, width: number, height: number) {
   game.renderer.setSize(width, height);
 }
 
-export async function changeRealm(game: Game) {
+export async function updateBrowsing(game: Game) {
   const realmObjPath = parseUrlHash()[''];
-  if (!realmObjPath) return
+  if (!realmObjPath) return;
 
+  clearStack(game);
+  await changeRealm(realmObjPath, game);
+}
+
+export async function changeRealm(realmObjPath: ObjPath, game: Game) {
   const joinPromise = join(realmObjPath, game);
 
   let json = await fetchObjJson(realmObjPath, game, '-realm');
-
   if (!json) {
     const memberExists = await joinPromise;
     if (memberExists) {
@@ -52,6 +58,10 @@ export async function changeRealm(game: Game) {
   jumpOnRealm(game);
 
   unpauseProcessingRuntimeMessages(game);
+}
+
+export async function popRealm(state: any, game: Game) {
+  console.log('popRealm', state, game);
 }
 
 const UPDATE_CHUNK_RANGE = 2;

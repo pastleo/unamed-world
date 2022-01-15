@@ -10,8 +10,8 @@ import {
 import { cameraRotationY, vecAfterCameraRotation } from './camera';
 import { afterSaved } from './realm';
 import {
-  ChunkDrawAction, ChunkTerrainAltitudeAction, AddSubObjAction, DamageSubObjAction,
-  dispatchAction,
+  ChunkDrawAction, ChunkTerrainAltitudeAction, DamageSubObjAction,
+  dispatchAction, dispatchAddSubObjAction,
 } from './action';
 import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
 import { exportRealm, importRealm, addSavedObj } from './resource';
@@ -385,16 +385,12 @@ function castPin(coordsPixel: Vec2, inputType: InputType, game: Game) {
   const [realmIntersect] = rayCastRealm(coordsPixel, game);
   if (!realmIntersect) return;
 
-  const newSubObj = game.ecs.allocate();
-  const sid = game.ecs.getOrAddPrimarySid(newSubObj);
-  const action: AddSubObjAction = {
-    type: 'subObj-add',
-    sid, obj: 'pin',
-    position: threeToVec3(realmIntersect.point),
-    rotation: [0, cameraRotationY(game.camera), 0],
-  }
-
-  dispatchAction(action, game);
+  dispatchAddSubObjAction(
+    'pin',
+    threeToVec3(realmIntersect.point),
+    [0, cameraRotationY(game.camera), 0],
+    game,
+  );
 }
 
 function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
@@ -405,16 +401,12 @@ function castSpriteObj(coordsPixel: Vec2, inputType: InputType, game: Game) {
   const [realmIntersect] = rayCastRealm(coordsPixel, game);
   if (!realmIntersect || !spriteObjAsTool) return;
 
-  const newSubObj = game.ecs.allocate();
-  const sid = game.ecs.getOrAddPrimarySid(newSubObj);
-  const action: AddSubObjAction = {
-    type: 'subObj-add',
-    sid, obj: spriteObjPath,
-    position: threeToVec3(realmIntersect.point),
-    rotation: [0, cameraRotationY(game.camera), 0],
-  }
-
-  dispatchAction(action, game);
+  dispatchAddSubObjAction(
+    spriteObjPath,
+    threeToVec3(realmIntersect.point),
+    [0, cameraRotationY(game.camera), 0],
+    game,
+  );
 }
 
 function rayCastRealm(coordsPixel: Vec2, game: Game): [intersect: THREE.Intersection, chunkEntityComponents: GameEntityComponents] {

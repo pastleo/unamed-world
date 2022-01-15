@@ -57,8 +57,8 @@ export async function importRealm(realmObjPath: ObjPath, json: any): Promise<Pac
   return jsonValidated;
 }
 
-export async function exportRealm(method: ExportObjMethod, game: Game): Promise<ObjPath> {
-  const objRealmJson = packRealm(game);
+export async function exportRealm(method: ExportObjMethod, game: Game, realmObj: EntityRef = game.realm.currentObj): Promise<ObjPath> {
+  const objRealmJson = packRealm(game, realmObj);
   const realmObjPath = await exportObjJson(method, objRealmJson, game);
   game.ecs.addSid(game.realm.currentObj, realmObjPath, true);
 

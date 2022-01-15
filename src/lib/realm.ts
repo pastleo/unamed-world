@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import * as Comlink from 'comlink';
 
-import { Game } from './game';
-import { GameECS } from './gameECS';
+import type { Game } from './game';
+import type { GameECS } from './gameECS';
 import type { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
 import type { PackedRealmJson } from './resourcePacker';
 import { loadPackedRealm } from './resourceLoader';
@@ -16,7 +16,7 @@ import {
 import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
 import { addSubObjToScene, destroySubObj } from './subObj/subObj';
 
-import { EntityRef, entityEqual } from './utils/ecs';
+import { Sid, EntityRef, entityEqual } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
 import { Vec2, assertPresentOrWarn } from './utils/utils';
 import { listenToWorkerValueStream } from './utils/worker';
@@ -34,6 +34,12 @@ export interface Realm {
   gridMaterial: THREE.Material;
   prevChunks?: Map2D<EntityRef>;
   rmEditingWhileUpdateChunkTexture?: boolean; // temporary
+  stack: RealmStack[];
+}
+
+interface RealmStack {
+  realmObj: ObjPath;
+  possibleSubObjSids: Sid[];
 }
 
 export function init(ecs: GameECS): Realm {
@@ -57,6 +63,7 @@ export function init(ecs: GameECS): Realm {
     worker,
     emptyMaterial: createEmptyMaterial(),
     gridMaterial: createGridMaterial(),
+    stack: [],
   };
 }
 
@@ -98,6 +105,7 @@ export function switchRealm(realmObjPath: ObjPath, json: PackedRealmJson, game: 
 export function afterSaved(savedRealmObjPath: ObjPath, game: Game) {
   game.resource.savedRealmObjPath = savedRealmObjPath;
 }
+
 
 function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
   const { chunkIJ, repeatable, textureUrl, attributeArrays, cellEntries } = result;
