@@ -91,6 +91,10 @@ class ECS<ComponentMapT extends Record<string, any>> {
     return entity.sids[0];
   }
 
+  getAllSids(ref: EntityRef): Sid[] {
+    return [...this.getEntity(ref)?.sids];
+  }
+
   addSid(ref: EntityRef, assignedSid: Sid = null, makePrimary: boolean = false): Sid | null {
     const entity = this.getEntity(ref);
     if (assertPresentOrWarn([entity], 'ECS.addSid: valid entity not found')) {

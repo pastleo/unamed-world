@@ -2,6 +2,7 @@ import type { Game } from './game';
 
 import { addActionToBroadcast } from './network';
 
+import type { ObjPath } from './obj/obj';
 import {
   Cell, getChunkEntityComponents, getChunkAndCell, afterChunkChanged,
   locateOrCreateChunkCell,
@@ -10,7 +11,7 @@ import { createSubObj, destroySubObj } from './subObj/subObj';
 import { editChunkCanvas2d } from './chunk/render';
 
 import { Vec2, Vec3, rangeVec2s } from './utils/utils';
-import { Sid } from './utils/ecs';
+import type { Sid, EntityRef } from './utils/ecs';
 import Map2D from './utils/map2d';
 
 import { DRAW_CANVAS_SIZE } from './consts';
@@ -54,6 +55,30 @@ export interface DamageSubObjAction extends Action {
 export function dispatchAction(action: Action, game: Game) {
   processAction(action, game);
   addActionToBroadcast(action, game);
+}
+
+export function dispatchAddSubObjAction(obj: ObjPath, position: Vec3, rotation: Vec3, game: Game): EntityRef {
+  const newSubObj = game.ecs.allocate();
+  const sid = game.ecs.getOrAddPrimarySid(newSubObj);
+  const action: AddSubObjAction = {
+    type: 'subObj-add',
+    sid, obj, position, rotation,
+  }
+
+  dispatchAction(action, game);
+  return newSubObj;
+}
+
+export function dispatchReplaceSubObjActions(subObjEntity: EntityRef, obj: ObjPath, game: Game): EntityRef {
+  const { position, rotation } = game.ecs.getComponent(subObjEntity, 'subObj');
+
+  const damageAction: DamageSubObjAction = {
+    type: 'subObj-damage',
+    sid: game.ecs.getOrAddPrimarySid(subObjEntity),
+  }
+
+  dispatchAction(damageAction, game);
+  return dispatchAddSubObjAction(obj, position, rotation, game);
 }
 
 export function processAction(action: Action, game: Game) {

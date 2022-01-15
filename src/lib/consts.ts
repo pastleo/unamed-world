@@ -6,8 +6,10 @@ export const CHUNK_GEOMETRY_DELATIN_MAX_ERROR = 0.005;
 export const INIT_CAMERA_ANGLE = -45 * Math.PI / 180;
 export const MAX_CAMERA_ANGLE = -30 * Math.PI / 180;
 export const MIN_CAMERA_ANGLE = -90 * Math.PI / 180;
-export const MIN_CAMERA_DISTANCE = 4;
-export const MAX_CAMERA_DISTANCE = 24;
+export const MIN_CAMERA_DISTANCE = 2;
+export const NEAR_CAMERA_DISTANCE = 6;
+export const FAR_CAMERA_DISTANCE = 22;
+export const MAX_CAMERA_DISTANCE = 26;
 
 export const REALM_CHUNK_AUTO_GENERATION_RANGE = 12;
 

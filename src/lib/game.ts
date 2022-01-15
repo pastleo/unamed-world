@@ -6,7 +6,7 @@ import { getChunk } from './chunk/chunk';
 import { GameECS, init as initECS } from './gameECS';
 import { Realm, init as initRealm, addToScene as addRealmToScene } from './realm';
 import { createBuiltInObjs } from './builtInObj';
-import { changeRealm } from './update';
+import { updateBrowsing } from './update';
 
 import { Networking, init as initNetworking } from './network';
 import {
@@ -83,7 +83,7 @@ export async function setup(): Promise<Game> {
   await startResourceManager(game);
   await startUI(game);
 
-  changeRealm(game);
+  updateBrowsing(game);
   restorePlayerObj(game);
 
   if (DBG_MODE) {

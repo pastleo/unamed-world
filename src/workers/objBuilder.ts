@@ -4,6 +4,7 @@ import debug from 'debug';
 
 import { GameECS, init as initECS } from '../lib/gameECS';
 import { switchRealmLocally, exportSpriteLocally } from '../lib/resource';
+import { renderBaseSprite } from '../lib/builtInObj';
 
 import { ObjPath } from '../lib/obj/obj';
 import { createBaseRealm } from '../lib/obj/realm';
@@ -179,8 +180,32 @@ async function renderSpritesheet(realmObj: EntityRef, worker: ObjBuilderWorker):
     console.error(err);
   }
 
+  const renderTarget = new THREE.WebGLRenderTarget(width, height, { format: THREE.RGBAFormat });
+  renderer.setRenderTarget(renderTarget);
+  renderer.clear(true, true, true);
   renderer.render(tmpScene, camera);
-  const blob = await (renderer.domElement as OffscreenCanvas).convertToBlob();
+
+  renderer.setRenderTarget(null);
+  renderer.render(tmpScene, camera);
+
+  let blob;
+  const data = new Uint8Array(width * height * 4);
+  renderer.readRenderTargetPixels(renderTarget, 0, 0, width, height, data);
+
+  if (checkAllTransparent(data)) {
+    log('all transparent, render base sprite and export...')
+
+    const size = 256;
+    const canvas = makeOffscreenCanvas(
+      await worker.requestCanvas({ width: size, height: size })
+    );
+    renderBaseSprite(canvas.getContext('2d'), size);
+    blob = await canvas.convertToBlob();
+  } else {
+    log('not all transparent, exporting...')
+    blob = await (renderer.domElement as OffscreenCanvas).convertToBlob();
+  }
+
   return readAsDataURL(blob);
 }
 
@@ -227,4 +252,15 @@ function calcSpriteCapArea(realmObj: EntityRef, worker: ObjBuilderWorker): [rota
     left, top,
     bottom, right,
   ]
+}
+
+function checkAllTransparent(data: Uint8Array): boolean {
+  const pixels = Math.floor(data.length / 4);
+  for (let i = 0; i < pixels; i++) {
+    const [r,g,b,a] = data.slice(i * 4, (i+1) * 4);
+    if (r !== 0 || g !== 0 || b !== 0 || a !== 0) {
+      return false;
+    }
+  }
+  return true;
 }

@@ -1,4 +1,4 @@
-import update, { resize, changeRealm } from './lib/update';
+import update, { resize, updateBrowsing } from './lib/update';
 import { Game, setup } from './lib/game';
 
 import { DBG_MODE } from './lib/dbg';
@@ -26,8 +26,9 @@ async function main() {
     resize(game, window.innerWidth, window.innerHeight);
   }, false);
 
-  window.addEventListener('hashchange', () => {
-    changeRealm(game);
+  window.addEventListener('popstate', _event => {
+    // _event.state may be used
+    updateBrowsing(game);
   });
 
   //window.addEventListener('beforeunload', event => {

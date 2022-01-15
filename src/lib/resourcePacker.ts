@@ -35,8 +35,8 @@ export const packedRealmJsonType = ss.object({
 });
 export type PackedRealmJson = ss.Infer<typeof packedRealmJsonType>;
 
-export function packRealm(game: Game): PackedRealmJson {
-  const realmObjEntityComponents = game.ecs.getEntityComponents(game.realm.currentObj);
+export function packRealm(game: Game, realmObj: EntityRef = game.realm.currentObj): PackedRealmJson {
+  const realmObjEntityComponents = game.ecs.getEntityComponents(realmObj);
   const subObjSids: Sid[] = [];
 
   const packedObjRealm = packObjRealm(realmObjEntityComponents.get('obj/realm'), game.ecs);
