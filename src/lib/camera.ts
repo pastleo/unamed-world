@@ -117,7 +117,7 @@ export function setCameraY(y: number, game: Game): void {
   game.camera.moving = true;
 }
 
-type Zoom = undefined | 'in' | 'out';
+type Zoom = null | 'in' | 'out';
 export function adjCameraDistance(distanceDelta: number, game: Game): Zoom {
   const { camera } = game;
 
@@ -140,7 +140,7 @@ export function adjCameraDistance(distanceDelta: number, game: Game): Zoom {
 
   camera.camera.position.z += distanceDelta / distanceDeltaAdjustment;
 
-  let zoom: Zoom;
+  let zoom: Zoom = null;
   if (camera.camera.position.z < MIN_CAMERA_DISTANCE) {
     camera.camera.position.z = MIN_CAMERA_DISTANCE;
     zoom = 'in';
@@ -159,11 +159,11 @@ export function adjCameraDistance(distanceDelta: number, game: Game): Zoom {
 export function castCameraZoomAnimation(zoom: Zoom, game: Game) {
   if (zoom === 'in') {
     game.camera.camera.position.z = MAX_CAMERA_DISTANCE * 2;
-    game.camera.zoomState = 'bouncing';
   } else if (zoom === 'out') {
     game.camera.camera.position.z = MIN_CAMERA_DISTANCE * 0.5;
-    game.camera.zoomState = 'bouncing';
   }
+
+  game.camera.zoomState = 'bouncing';
 }
 
 export function cameraRotationY(camera: Camera): number {

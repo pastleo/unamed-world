@@ -60,7 +60,7 @@ export async function importRealm(realmObjPath: ObjPath, json: any): Promise<Pac
 export async function exportRealm(method: ExportObjMethod, game: Game, realmObj: EntityRef = game.realm.currentObj): Promise<ObjPath> {
   const objRealmJson = packRealm(game, realmObj);
   const realmObjPath = await exportObjJson(method, objRealmJson, game);
-  game.ecs.addSid(game.realm.currentObj, realmObjPath, true);
+  game.ecs.addSid(game.realm.currentObj, realmObjPath);
 
   return realmObjPath;
 }
@@ -83,7 +83,7 @@ export async function exportSprite(method: ExportObjMethod, objSprite: EntityRef
 
   const objSpriteJson = packSprite(objSprite, game.ecs);
   const spriteObjPath = await exportObjJson(method, objSpriteJson, game);
-  game.ecs.addSid(objSpriteComponents.entity, spriteObjPath, true);
+  game.ecs.addSid(objSpriteComponents.entity, spriteObjPath);
 
   return spriteObjPath;
 }
@@ -169,6 +169,11 @@ async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Pr
   return realmObjPath;
 }
 
+export async function hasObjJsonLocally(objPath: ObjPath) {
+  if (!objPath) return false;
+  return !!(await localForage.getItem(objPath));
+}
+
 async function exportObjJsonLocally(json: any): Promise<ObjPath> {
   const realmObjPath = `/local/${await calcJsonCid(json)}`;
   await localForage.setItem(realmObjPath, json);
@@ -181,11 +186,14 @@ export async function switchRealmLocally(objRealmPath: ObjPath, prevRealmEntity:
   const json = await localForage.getItem<PackedRealmJson>(objRealmPath);
   if (!json) return null;
 
-  const prevChunks = ecs.getComponent(prevRealmEntity, 'obj/realm').chunks;
-  prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
-    ecs.deallocate(chunkEntity);
-  });
-  ecs.deallocate(prevRealmEntity);
+  const prevRealm = ecs.getComponent(prevRealmEntity, 'obj/realm');
+  if (prevRealm) {
+    const prevChunks = prevRealm.chunks;
+    prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
+      ecs.deallocate(chunkEntity);
+    });
+    ecs.deallocate(prevRealmEntity);
+  }
 
   return loadPackedRealm(objRealmPath, json, ecs);
 }
@@ -195,7 +203,7 @@ export async function exportSpriteLocally(objSprite: EntityRef, ecs: GameECS): P
 
   const objSpriteJson = packSprite(objSprite, ecs);
   const spriteObjPath = await exportObjJsonLocally(objSpriteJson);
-  ecs.addSid(objSpriteComponents.entity, spriteObjPath, true);
+  ecs.addSid(objSpriteComponents.entity, spriteObjPath);
 
   return spriteObjPath;
 }

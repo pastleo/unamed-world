@@ -24,7 +24,7 @@ export interface Networking {
   unamedNetwork: UnamedNetwork;
   roomName: string | null;
   members: Map<string, EntityRef>;
-  master: boolean;
+  master: 'not-sure' | boolean;
   pingThrottle: boolean;
 
   paused: boolean;
@@ -57,7 +57,7 @@ export async function ensureStarted(game: Game) {
 
   game.network.unamedNetwork.on('new-member', ({ memberPeer, room }) => {
     log('new-member', { memberPeer, room });
-    broadcastMyself(game);
+    broadcastMyself(game, true);
   });
   game.network.unamedNetwork.on('member-left', ({ memberPeer }) => {
     memberLeft(memberPeer.peerId, game);
@@ -75,7 +75,10 @@ export async function ensureStarted(game: Game) {
   }
 }
 
-export function unpauseProcessingRuntimeMessages(game: Game) {
+export async function unpauseProcessingRuntimeMessages(game: Game, untilPromiseResolved?: Promise<any>) {
+  if (untilPromiseResolved) {
+    await untilPromiseResolved;
+  }
   if (!game.network.paused) return;
 
   game.network.paused = false;
@@ -100,6 +103,11 @@ interface PingMessage extends RoomMessage {
   position: Vec3;
   moveTarget?: Vec2;
   playerObj: Sid;
+  reqPong?: boolean;
+  master?: boolean;
+}
+interface ByebyeMessage extends RoomMessage {
+  type: 'byebye';
 }
 interface ReqResMessage extends RoomMessage {
   reqId: string;
@@ -132,30 +140,34 @@ interface ActionsMessage extends RoomMessage {
   actions: Action[];
 }
 
-export async function join(roomName: string, game: Game): Promise<boolean> {
+export async function join(roomName: string, game: Game, position?: Vec3): Promise<boolean> {
   await ensureStarted(game);
   pauseProcessingRuntimeMessages(game);
 
   if (game.network.roomName) {
+    sayByebye(game.network.roomName, game);
     game.network.members.forEach((_, peerId) => {
       memberLeft(peerId, game);
     });
   }
 
   game.network.roomName = roomName;
-  const memberExists = await game.network.unamedNetwork.join(roomName, true);
+  const room = await game.network.unamedNetwork.join(roomName, true);
+  const memberExists = room.members.size > 0;
+  log('join', { roomName, room });
 
-  if (memberExists) {
-    broadcastMyself(game);
-    game.network.master = false;
-  } else {
-    game.network.master = true;
-  }
+  game.network.master = memberExists ? 'not-sure' : true;
+  broadcastMyself(game, true, true, position);
 
   return memberExists;
 }
 
-export function reqRealm(game: Game): Promise<PackedRealmJson> {
+export async function reqRealm(game: Game): Promise<PackedRealmJson> {
+  if (game.network.members.size <= 0) {
+    const room = await game.network.unamedNetwork.getRoom(game.network.roomName);
+    if (room.members.size <= 0) return null;
+  }
+
   return new Promise(resolve => {
     const reqId = randomStr();
     const message: ReqRealmMessage = {
@@ -167,6 +179,9 @@ export function reqRealm(game: Game): Promise<PackedRealmJson> {
       resolve((message as ResRealmMessage).realm);
     });
     game.network.unamedNetwork.broadcast(game.network.roomName, message);
+    setTimeout(() => {
+      resolve(null);
+    }, 3500);
   });
 }
 
@@ -175,25 +190,37 @@ export async function reqSprite(spriteObjPath: ObjPath, game: Game): Promise<Pac
   return reqSpriteFromMember(spriteObjPath, memberWithSprite, game);
 }
 
-export function broadcastMyself(game: Game) {
-  if (game.network.pingThrottle || !game.network.roomName) return;
-  game.network.pingThrottle = true;
-  setTimeout(() => {
-    game.network.pingThrottle = false;
-  }, 150);
+export function broadcastMyself(game: Game, force: boolean = false, reqPong: boolean = false, position?: Vec3) {
+  if (!game.network.roomName) return;
+  if (!force) {
+    if (game.network.pingThrottle) return;
+    game.network.pingThrottle = true;
+    setTimeout(() => {
+      game.network.pingThrottle = false;
+    }, 150);
+  }
+
+  const message = makePingMessage(game, reqPong, position);
+  game.network.unamedNetwork.broadcast(game.network.roomName, message);
+}
+
+function makePingMessage(game: Game, reqPong?: boolean, position?: Vec3): PingMessage {
   const player = game.ecs.getEntityComponents(game.player.subObjEntity);
   const playerSubObj = player.get('subObj');
   const playerWalking = player.get('subObj/walking');
   const message: PingMessage = {
     type: 'ping',
     roomName: game.network.roomName,
-    position: playerSubObj.position,
+    position: position || playerSubObj.position,
     playerObj: game.ecs.getPrimarySid(game.player.objEntity, true),
     ...(playerWalking.moveRelative ? {
       moveTarget: getMoveTarget(player),
     } : {}),
+    reqPong,
+    master: game.network.master === true,
   }
-  game.network.unamedNetwork.broadcast(game.network.roomName, message);
+
+  return message;
 }
 
 export function addActionToBroadcast(action: Action, game: Game) {
@@ -237,6 +264,9 @@ async function handleRoomMessage(fromMember: Peer, message: RoomMessage, room: R
     case 'ping':
       await untilRuntimeMessageUnpaused(game);
       return handlePing(fromMember, message as PingMessage, game);
+    case 'byebye':
+      await untilRuntimeMessageUnpaused(game);
+      return handleByebye(fromMember, message as ByebyeMessage, game);
     case 'actions':
       await untilRuntimeMessageUnpaused(game);
       return handleActions(fromMember, message as ActionsMessage, game);
@@ -307,6 +337,13 @@ function handlePing(fromMember: Peer, message: PingMessage, game: Game) {
   if (!member) {
     member = addMemberSprite(fromMember.peerId, message.playerObj, message.position, game);
   }
+  if (message.reqPong) {
+    const message = makePingMessage(game);
+    game.network.unamedNetwork.broadcast(game.network.roomName, message, [fromMember.peerId]);
+  }
+  if (message.master) {
+    game.network.master = false;
+  }
 
   const subObj = game.ecs.getComponent(member, 'subObj');
   if (game.ecs.getPrimarySid(subObj?.obj) !== message.playerObj) {
@@ -318,6 +355,10 @@ function handlePing(fromMember: Peer, message: PingMessage, game: Game) {
   }
 }
 
+function handleByebye(fromMember: Peer, _message: ByebyeMessage, game: Game) {
+  memberLeft(fromMember.peerId, game);
+}
+
 function handleActions(_fromMember: Peer, message: ActionsMessage, game: Game) {
   message.actions.forEach(action => {
     processAction(action, game);
@@ -325,6 +366,8 @@ function handleActions(_fromMember: Peer, message: ActionsMessage, game: Game) {
 }
 
 function reqObj(objType: 'realm' | 'sprite', objPath: ObjPath, game: Game): Promise<Peer> {
+  if (game.network.members.size <= 0) return null;
+
   return new Promise(resolve => {
     const reqId = randomStr();
     const message: ReqObjMessage = {
@@ -339,6 +382,7 @@ function reqObj(objType: 'realm' | 'sprite', objPath: ObjPath, game: Game): Prom
     game.network.unamedNetwork.broadcast(game.network.roomName, message);
   });
 }
+
 function reqSpriteFromMember(spriteObjPath: ObjPath, member: Peer, game: Game): Promise<PackedSpriteJson> {
   return new Promise(resolve => {
     const reqId = randomStr();
@@ -367,9 +411,20 @@ function addMemberSprite(peerId: string, playerObj: string, position: Vec3, game
   return member;
 }
 
+function sayByebye(roomName: string, game: Game) {
+  const message: ByebyeMessage = {
+    type: 'byebye', roomName,
+  }
+
+  game.network.unamedNetwork.broadcast(roomName, message);
+}
+
 function memberLeft(peerId: string, game: Game) {
   const member = game.network.members.get(peerId);
+  if (!member) return;
+
   destroySubObj(member, game);
+  game.network.members.delete(peerId);
   if (game.network.members.size <= 0) {
     game.network.master = true;
   }
