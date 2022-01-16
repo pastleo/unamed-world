@@ -60,7 +60,7 @@ export async function importRealm(realmObjPath: ObjPath, json: any): Promise<Pac
 export async function exportRealm(method: ExportObjMethod, game: Game, realmObj: EntityRef = game.realm.currentObj): Promise<ObjPath> {
   const objRealmJson = packRealm(game, realmObj);
   const realmObjPath = await exportObjJson(method, objRealmJson, game);
-  game.ecs.addSid(game.realm.currentObj, realmObjPath, true);
+  game.ecs.addSid(game.realm.currentObj, realmObjPath);
 
   return realmObjPath;
 }
@@ -83,7 +83,7 @@ export async function exportSprite(method: ExportObjMethod, objSprite: EntityRef
 
   const objSpriteJson = packSprite(objSprite, game.ecs);
   const spriteObjPath = await exportObjJson(method, objSpriteJson, game);
-  game.ecs.addSid(objSpriteComponents.entity, spriteObjPath, true);
+  game.ecs.addSid(objSpriteComponents.entity, spriteObjPath);
 
   return spriteObjPath;
 }
@@ -195,7 +195,7 @@ export async function exportSpriteLocally(objSprite: EntityRef, ecs: GameECS): P
 
   const objSpriteJson = packSprite(objSprite, ecs);
   const spriteObjPath = await exportObjJsonLocally(objSpriteJson);
-  ecs.addSid(objSpriteComponents.entity, spriteObjPath, true);
+  ecs.addSid(objSpriteComponents.entity, spriteObjPath);
 
   return spriteObjPath;
 }

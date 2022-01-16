@@ -57,7 +57,7 @@ export async function ensureStarted(game: Game) {
 
   game.network.unamedNetwork.on('new-member', ({ memberPeer, room }) => {
     log('new-member', { memberPeer, room });
-    broadcastMyself(game);
+    broadcastMyself(game, true);
   });
   game.network.unamedNetwork.on('member-left', ({ memberPeer }) => {
     memberLeft(memberPeer.peerId, game);
@@ -75,7 +75,10 @@ export async function ensureStarted(game: Game) {
   }
 }
 
-export function unpauseProcessingRuntimeMessages(game: Game) {
+export async function unpauseProcessingRuntimeMessages(game: Game, untilPromiseResolved?: Promise<any>) {
+  if (untilPromiseResolved) {
+    await untilPromiseResolved;
+  }
   if (!game.network.paused) return;
 
   game.network.paused = false;
@@ -100,6 +103,9 @@ interface PingMessage extends RoomMessage {
   position: Vec3;
   moveTarget?: Vec2;
   playerObj: Sid;
+}
+interface ByebyeMessage extends RoomMessage {
+  type: 'byebye';
 }
 interface ReqResMessage extends RoomMessage {
   reqId: string;
@@ -137,6 +143,7 @@ export async function join(roomName: string, game: Game): Promise<boolean> {
   pauseProcessingRuntimeMessages(game);
 
   if (game.network.roomName) {
+    sayByebye(game.network.roomName, game);
     game.network.members.forEach((_, peerId) => {
       memberLeft(peerId, game);
     });
@@ -144,9 +151,10 @@ export async function join(roomName: string, game: Game): Promise<boolean> {
 
   game.network.roomName = roomName;
   const memberExists = await game.network.unamedNetwork.join(roomName, true);
+  console.log('join', roomName, memberExists);
 
   if (memberExists) {
-    broadcastMyself(game);
+    broadcastMyself(game, true);
     game.network.master = false;
   } else {
     game.network.master = true;
@@ -175,12 +183,15 @@ export async function reqSprite(spriteObjPath: ObjPath, game: Game): Promise<Pac
   return reqSpriteFromMember(spriteObjPath, memberWithSprite, game);
 }
 
-export function broadcastMyself(game: Game) {
-  if (game.network.pingThrottle || !game.network.roomName) return;
-  game.network.pingThrottle = true;
-  setTimeout(() => {
-    game.network.pingThrottle = false;
-  }, 150);
+export function broadcastMyself(game: Game, force?: boolean) {
+  if (!game.network.roomName) return;
+  if (!force) {
+    if (game.network.pingThrottle) return;
+    game.network.pingThrottle = true;
+    setTimeout(() => {
+      game.network.pingThrottle = false;
+    }, 150);
+  }
   const player = game.ecs.getEntityComponents(game.player.subObjEntity);
   const playerSubObj = player.get('subObj');
   const playerWalking = player.get('subObj/walking');
@@ -237,6 +248,9 @@ async function handleRoomMessage(fromMember: Peer, message: RoomMessage, room: R
     case 'ping':
       await untilRuntimeMessageUnpaused(game);
       return handlePing(fromMember, message as PingMessage, game);
+    case 'byebye':
+      await untilRuntimeMessageUnpaused(game);
+      return handleByebye(fromMember, message as ByebyeMessage, game);
     case 'actions':
       await untilRuntimeMessageUnpaused(game);
       return handleActions(fromMember, message as ActionsMessage, game);
@@ -318,6 +332,10 @@ function handlePing(fromMember: Peer, message: PingMessage, game: Game) {
   }
 }
 
+function handleByebye(fromMember: Peer, _message: ByebyeMessage, game: Game) {
+  memberLeft(fromMember.peerId, game);
+}
+
 function handleActions(_fromMember: Peer, message: ActionsMessage, game: Game) {
   message.actions.forEach(action => {
     processAction(action, game);
@@ -365,6 +383,14 @@ function addMemberSprite(peerId: string, playerObj: string, position: Vec3, game
   game.network.members.set(peerId, member);
   initSubObjWalking(member, game);
   return member;
+}
+
+function sayByebye(roomName: string, game: Game) {
+  const message: ByebyeMessage = {
+    type: 'byebye', roomName,
+  }
+
+  game.network.unamedNetwork.broadcast(roomName, message);
 }
 
 function memberLeft(peerId: string, game: Game) {

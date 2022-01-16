@@ -6,14 +6,21 @@ import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
 import { dispatchAddSubObjAction, dispatchReplaceSubObjActions } from './action';
 import { cameraRotationY, setCameraLocation, castCameraZoomAnimation } from './camera';
 
+import type { ObjPath } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
 import { getOrCreateChunk, locateCellIJ } from './chunk/chunk';
 import { subObjInChunkRange } from './subObj/subObj';
 
-import { EntityRef, entityEqual } from './utils/ecs';
+import { Sid, EntityRef, entityEqual } from './utils/ecs';
 import { Vec2, Vec3, vec3To2, vec2To3, sub, length, timeoutPromise } from './utils/utils';
 
 const MAX_DIST_TO_ZOOM_IN_SUBOBJ = 1;
+
+export interface RealmStackLevel {
+  realmObjAlias: ObjPath;
+  cachedRealmObj: ObjPath;
+  possibleSubObjSids: Sid[];
+}
 
 function mayZoom(zoom: undefined | 'in' | 'out', game: Game) {
   if (zoom === 'in') zoomInRealm(game);
@@ -71,33 +78,41 @@ async function zoomInRealm(game: Game) {
     }
 
     syncLocationToRealmSpawnLocation(game);
-    const realmObjPath = await exportRealm('local', game);
-    if (!realmObjPath) return false;
+    const cachedRealmObj = await exportRealm('local', game);
+    if (!cachedRealmObj) return false;
 
     game.realm.stack.push({
-      realmObj: realmObjPath,
+      realmObjAlias: game.ecs.getPrimarySid(game.realm.currentObj),
+      cachedRealmObj,
       possibleSubObjSids: game.ecs.getAllSids(zoomIntoSubObj),
     });
 
     const zoomIntoObj = game.ecs.getComponent(zoomIntoSubObj, 'subObj').obj;
     const zoomIntoObjPath = game.ecs.getComponent(zoomIntoObj, 'obj/sprite').srcRealmObjPath;
+    if (!zoomIntoObjPath) return false;
 
     await minWait;
     await changeRealm(zoomIntoObjPath, game);
-
     castCameraZoomAnimation('in', game);
+
     return true;
   });
 
   if (!success) {
-    game.ui.modal.alert('failed');
+    castCameraZoomAnimation(null, game);
+    game.ui.modal.alert('failed. this sprite may not have a realm related.');
   }
 }
 
 async function zoomOutRealm(game: Game) {
   const objBuilderStarted = ensureObjBuilderStarted(game);
 
-  const success = game.ui.modal.pleaseWait('Exiting...', async () => {
+  if (game.realm.stack.length <= 0) {
+    await game.ui.modal.alert('You did not zoom into any sprites.');
+    return castCameraZoomAnimation(null, game);
+  }
+
+  const success = await game.ui.modal.pleaseWait('Exiting...', async () => {
     const minWait = timeoutPromise(1500);
 
     syncLocationToRealmSpawnLocation(game);
@@ -106,40 +121,14 @@ async function zoomOutRealm(game: Game) {
 
     await objBuilderStarted;
     const spriteObjPath = await game.objBuilder.worker.buildSpriteFromRealm(realmObjPath);
-    const spriteObj = await requireSprite(spriteObjPath, game);
 
-    if (game.realm.stack.length <= 0) {
-      const newUpperRealm = createBaseRealm(game.ecs);
-      const chunkIJ: Vec2 = [0, 0], position: Vec3 = [0, 0, 0];
-      const chunk = getOrCreateChunk([0, 0], newUpperRealm, game.ecs);
-      const newSubObjEntity = game.ecs.allocate();
-      game.ecs.setComponent(newSubObjEntity, 'subObj', {
-        obj: spriteObj,
-        position: [0, 0, 0], rotation: [0, 0, 0],
-        mounted: false,
-        groundAltitude: 0,
-        state: 'normal',
-        chunkIJ,
-        cellIJ: locateCellIJ(position, chunkIJ),
-      });
-      chunk.subObjs.push(newSubObjEntity);
-
-      const newUpperRealmPath = await exportRealm('local', game, newUpperRealm);
-
-      game.realm.stack.unshift({
-        realmObj: newUpperRealmPath,
-        possibleSubObjSids: game.ecs.getAllSids(newSubObjEntity),
-      });
-    }
-
-    const poped = game.realm.stack.pop();
+    const popedLevel = game.realm.stack.pop();
 
     await minWait;
-    const upperRealmPath = poped.realmObj;
-    await changeRealm(upperRealmPath, game);
+    await changeRealm(popedLevel.realmObjAlias, game, popedLevel.cachedRealmObj);
 
-    const subObjEntity = poped.possibleSubObjSids.map(sid => game.ecs.fromSid(sid)).find(entity => game.ecs.getComponent(entity, 'subObj'));
-    if (!subObjEntity) return;
+    const subObjEntity = popedLevel.possibleSubObjSids.map(sid => game.ecs.fromSid(sid)).find(entity => game.ecs.getComponent(entity, 'subObj'));
+    if (!subObjEntity) return false;
     dispatchReplaceSubObjActions(subObjEntity, spriteObjPath, game);
 
     castCameraZoomAnimation('out', game);
@@ -147,6 +136,7 @@ async function zoomOutRealm(game: Game) {
   });
 
   if (!success) {
-    game.ui.modal.alert('failed');
+    castCameraZoomAnimation(null, game);
+    game.ui.modal.alert('oops. something went wrong...');
   }
 }
