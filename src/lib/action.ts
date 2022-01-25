@@ -147,6 +147,8 @@ function addSubObj(action: AddSubObjAction, game: Game) {
 
 function damageSubObj(action: DamageSubObjAction, game: Game) {
   const subObjEntity = game.ecs.fromSid(action.sid);
+  const subObj = game.ecs.getComponent(subObjEntity, 'subObj');
+  if (!subObj || subObj.mounted) return;
 
   destroySubObj(subObjEntity, game);
 }

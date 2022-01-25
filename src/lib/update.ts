@@ -13,7 +13,7 @@ import { clearStack } from './zoom';
 import type { ObjPath } from './obj/obj';
 
 import { EntityRef } from './utils/ecs';
-import { Vec2, rangeVec2s } from './utils/utils';
+import { Vec2, vec2To3, rangeVec2s } from './utils/utils';
 import { parseUrlHash } from './utils/web';
 
 export default function update(game: Game, tDiff: number) {
@@ -37,34 +37,42 @@ export async function updateBrowsing(game: Game) {
   await changeRealm(realmObjPath, game);
 }
 
-export async function changeRealm(realmObjPath: ObjPath, game: Game, tmpRealmObjPath?: ObjPath) {
+export async function changeRealm(realmObjPath: ObjPath, game: Game, tmpRealmObjPath?: ObjPath, location?: Vec2): Promise<boolean> {
   const realmObjPathSrc = tmpRealmObjPath || realmObjPath;
   const realmObjPathAlias = realmObjPath || tmpRealmObjPath;
 
-  const joinPromise = join(realmObjPathAlias, game);
+  const joinPromise = join(realmObjPathAlias, game, location ? vec2To3(location) : null);
 
-  let json = await fetchObjJson(realmObjPathSrc, game, '-realm');
-  if (!json) {
-    const memberExists = await joinPromise;
-    if (memberExists) {
-      json = await reqRealm(game);
-    }
+  const fetchedJson = await fetchObjJson(realmObjPathSrc, game, '-realm');
+
+  let ok = await importAndSwitchRealmIfValid(realmObjPathAlias, fetchedJson, game, location);
+
+  const memberExists = await joinPromise;
+  if (memberExists) {
+    const jsonFromPeer = await reqRealm(game);
+    ok ||= await importAndSwitchRealmIfValid(realmObjPathAlias, jsonFromPeer, game, location);
   }
 
+  unpauseProcessingRuntimeMessages(game, joinPromise);
+
+  if (ok) return true;
+  console.warn('changeRealm: failed', {
+    realmObjPath, tmpRealmObjPath, realmObjPathSrc, realmObjPathAlias,
+  });
+  return false;
+}
+
+async function importAndSwitchRealmIfValid(realmObjPathAlias: ObjPath, json: any, game: Game, location?: Vec2): Promise<boolean> {
+  if (!json) return false;
+
   const jsonValidated = await importRealm(realmObjPathAlias, json);
-  if (!jsonValidated) {
-    return console.warn('changeRealm: fetchRealm failed', { realmObjPath, tmpRealmObjPath, realmObjPathSrc, realmObjPathAlias });
-  };
+  if (!jsonValidated) return false;
 
   jumpOffRealm(game);
   switchRealm(realmObjPathAlias, jsonValidated, game);
-  jumpOnRealm(game);
+  jumpOnRealm(game, location);
 
-  unpauseProcessingRuntimeMessages(game, joinPromise);
-}
-
-export async function popRealm(state: any, game: Game) {
-  console.log('popRealm', state, game);
+  return true;
 }
 
 const UPDATE_CHUNK_RANGE = 2;

@@ -1,18 +1,18 @@
 import type { Game } from './game';
 import { changeRealm } from './update';
-import { exportRealm, requireSprite } from './resource';
-import { syncLocationToRealmSpawnLocation } from './player';
+import { exportRealm, requireSprite, hasObjJsonLocally } from './resource';
+import { syncLocationToRealmSpawnLocation, getPlayerLocation } from './player';
 import { ensureStarted as ensureObjBuilderStarted } from './objBuilder';
 import { dispatchAddSubObjAction, dispatchReplaceSubObjActions } from './action';
 import { cameraRotationY, setCameraLocation, castCameraZoomAnimation } from './camera';
 
 import type { ObjPath } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
-import { getOrCreateChunk, locateCellIJ } from './chunk/chunk';
+import { getOrCreateChunk } from './chunk/chunk';
 import { subObjInChunkRange } from './subObj/subObj';
 
 import { Sid, EntityRef, entityEqual } from './utils/ecs';
-import { Vec2, Vec3, vec3To2, vec2To3, sub, length, timeoutPromise } from './utils/utils';
+import { Vec2, vec3To2, vec2To3, sub, length, timeoutPromise } from './utils/utils';
 
 const MAX_DIST_TO_ZOOM_IN_SUBOBJ = 1;
 
@@ -20,6 +20,7 @@ export interface RealmStackLevel {
   realmObjAlias: ObjPath;
   cachedRealmObj: ObjPath;
   possibleSubObjSids: Sid[];
+  location: Vec2;
 }
 
 function mayZoom(zoom: undefined | 'in' | 'out', game: Game) {
@@ -77,25 +78,30 @@ async function zoomInRealm(game: Game) {
       );
     }
 
-    syncLocationToRealmSpawnLocation(game);
     const cachedRealmObj = await exportRealm('local', game);
     if (!cachedRealmObj) return false;
 
-    game.realm.stack.push({
+    const newStack: RealmStackLevel = {
       realmObjAlias: game.ecs.getPrimarySid(game.realm.currentObj),
       cachedRealmObj,
       possibleSubObjSids: game.ecs.getAllSids(zoomIntoSubObj),
-    });
+      location: getPlayerLocation(game),
+    }
 
     const zoomIntoObj = game.ecs.getComponent(zoomIntoSubObj, 'subObj').obj;
     const zoomIntoObjPath = game.ecs.getComponent(zoomIntoObj, 'obj/sprite').srcRealmObjPath;
-    if (!zoomIntoObjPath) return false;
+
+    if (!(await hasObjJsonLocally(zoomIntoObjPath))) return false;
 
     await minWait;
-    await changeRealm(zoomIntoObjPath, game);
-    castCameraZoomAnimation('in', game);
+    const realmChanged = await changeRealm(zoomIntoObjPath, game);
+    if (realmChanged) {
+      castCameraZoomAnimation('in', game);
+      game.realm.stack.push(newStack);
+      return true;
+    }
 
-    return true;
+    return false;
   });
 
   if (!success) {
@@ -125,11 +131,12 @@ async function zoomOutRealm(game: Game) {
     const popedLevel = game.realm.stack.pop();
 
     await minWait;
-    await changeRealm(popedLevel.realmObjAlias, game, popedLevel.cachedRealmObj);
+    await changeRealm(popedLevel.realmObjAlias, game, popedLevel.cachedRealmObj, popedLevel.location);
 
     const subObjEntity = popedLevel.possibleSubObjSids.map(sid => game.ecs.fromSid(sid)).find(entity => game.ecs.getComponent(entity, 'subObj'));
-    if (!subObjEntity) return false;
-    dispatchReplaceSubObjActions(subObjEntity, spriteObjPath, game);
+    if (subObjEntity) {
+      dispatchReplaceSubObjActions(subObjEntity, spriteObjPath, game);
+    }
 
     castCameraZoomAnimation('out', game);
     return true;

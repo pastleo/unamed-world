@@ -169,6 +169,11 @@ async function exportObjJson(method: ExportObjMethod, json: any, game: Game): Pr
   return realmObjPath;
 }
 
+export async function hasObjJsonLocally(objPath: ObjPath) {
+  if (!objPath) return false;
+  return !!(await localForage.getItem(objPath));
+}
+
 async function exportObjJsonLocally(json: any): Promise<ObjPath> {
   const realmObjPath = `/local/${await calcJsonCid(json)}`;
   await localForage.setItem(realmObjPath, json);
@@ -181,11 +186,14 @@ export async function switchRealmLocally(objRealmPath: ObjPath, prevRealmEntity:
   const json = await localForage.getItem<PackedRealmJson>(objRealmPath);
   if (!json) return null;
 
-  const prevChunks = ecs.getComponent(prevRealmEntity, 'obj/realm').chunks;
-  prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
-    ecs.deallocate(chunkEntity);
-  });
-  ecs.deallocate(prevRealmEntity);
+  const prevRealm = ecs.getComponent(prevRealmEntity, 'obj/realm');
+  if (prevRealm) {
+    const prevChunks = prevRealm.chunks;
+    prevChunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
+      ecs.deallocate(chunkEntity);
+    });
+    ecs.deallocate(prevRealmEntity);
+  }
 
   return loadPackedRealm(objRealmPath, json, ecs);
 }
