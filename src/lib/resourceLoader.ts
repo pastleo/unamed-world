@@ -1,4 +1,3 @@
-import localForage from 'localforage';
 import type { GameECS } from './gameECS';
 
 import type { PackedRealmJson, PackedSpriteJson } from './resourcePacker';

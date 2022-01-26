@@ -75,10 +75,10 @@ export async function changePlayerObj(targetObj: EntityRef, game: Game) {
   ]);
 }
 
-export function jumpOnRealm(game: Game) {
+export function jumpOnRealm(game: Game, location?: Vec2) {
   game.player.subObjEntity = game.ecs.allocate();
   const realmObj = game.ecs.getComponent(game.realm.currentObj, 'obj/realm');
-  addToRealm(game, vec2To3(realmObj.spawnLocation || [0, 0]));
+  addToRealm(game, vec2To3(location || realmObj.spawnLocation || [0, 0]));
 }
 
 export function jumpOffRealm(game: Game) {

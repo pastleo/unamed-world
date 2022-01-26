@@ -6,6 +6,7 @@ import type { GameECS } from './gameECS';
 import type { RealmRPCs, ChunkGenerationResult } from '../workers/realm';
 import type { PackedRealmJson } from './resourcePacker';
 import { loadPackedRealm } from './resourceLoader';
+import type { RealmStackLevel } from './zoom';
 
 import { getObjPath, ObjPath } from './obj/obj';
 import { createBaseRealm } from './obj/realm';
@@ -16,7 +17,7 @@ import {
 import { addChunkMeshToScene, removeChunkMeshFromScene } from './chunk/render';
 import { addSubObjToScene, destroySubObj } from './subObj/subObj';
 
-import { Sid, EntityRef, entityEqual } from './utils/ecs';
+import { EntityRef } from './utils/ecs';
 import { createCanvas2d } from './utils/web';
 import { Vec2, assertPresentOrWarn } from './utils/utils';
 import { listenToWorkerValueStream } from './utils/worker';
@@ -32,14 +33,8 @@ export interface Realm {
   worker: Comlink.Remote<RealmRPCs>;
   emptyMaterial: THREE.Material;
   gridMaterial: THREE.Material;
-  prevChunks?: Map2D<EntityRef>;
   rmEditingWhileUpdateChunkTexture?: boolean; // temporary
-  stack: RealmStack[];
-}
-
-interface RealmStack {
-  realmObj: ObjPath;
-  possibleSubObjSids: Sid[];
+  stack: RealmStackLevel[];
 }
 
 export function init(ecs: GameECS): Realm {
@@ -95,7 +90,16 @@ export function resetRealm(game: Game) {
 export function switchRealm(realmObjPath: ObjPath, json: PackedRealmJson, game: Game) {
   const currentRealmObjComponents = game.ecs.getEntityComponents(game.realm.currentObj);
 
-  game.realm.prevChunks = currentRealmObjComponents.get('obj/realm').chunks;
+  currentRealmObjComponents.get('obj/realm').chunks.entries().forEach(([_chunkIJ, chunkEntity]) => {
+    const chunkComponents = game.ecs.getEntityComponents(chunkEntity);
+    [...chunkComponents.get('chunk').subObjs].forEach(subObjEntity => {
+      destroySubObj(subObjEntity, game);
+    });
+
+    removeChunkMeshFromScene(chunkComponents);
+    destroyChunk(chunkComponents, game.ecs);
+  });
+
   game.ecs.deallocate(game.realm.currentObj);
   game.realm.currentObj = loadPackedRealm(realmObjPath, json, game.ecs);
   game.realm.brandNew = false;
@@ -140,25 +144,6 @@ function handleNextGeneratedChunk(result: ChunkGenerationResult, game: Game) {
   chunk.subObjs.forEach(subObjEntity => {
     addSubObjToScene(subObjEntity, game);
   });
-
-  if (game.realm.prevChunks) {
-    const prevChunkComponents = game.ecs.getEntityComponents(
-      game.realm.prevChunks.get(...chunkIJ)
-    );
-    if (
-      prevChunkComponents &&
-      !entityEqual(prevChunkComponents.entity, chunkEntityComponents.entity)
-    ) {
-      prevChunkComponents.get('chunk').subObjs.forEach(subObjEntity => {
-        destroySubObj(subObjEntity, game);
-      });
-
-      removeChunkMeshFromScene(prevChunkComponents);
-      destroyChunk(prevChunkComponents, game.ecs);
-    }
-
-    game.realm.prevChunks.put(...chunkIJ, null);
-  }
 }
 
 export function triggerRealmGeneration(centerChunkIJ: Vec2, game: Game) {
